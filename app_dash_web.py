@@ -1,6 +1,16 @@
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html
 
-from pages import autoloan_layout, circle_layout, credit_layout, dashboard_layout, members_layout, payouts_layout, wallet_layout
+from pages import (
+    autoloan_layout,
+    circle_layout,
+    credit_layout,
+    dashboard_layout,
+    home_layout,
+    members_layout,
+    payouts_layout,
+    signin_layout,
+    wallet_layout,
+)
 from pages.components import icon
 from pages.data import CRUMBS, ME, NAV
 from pages.payouts import detail_card, queue_table
@@ -45,8 +55,18 @@ def sidebar(page, role):
                     ),
                     html.Div(
                         [
-                            html.Button("Member", id="role-member", n_clicks=0, className=f"{'on' if role == 'member' else ''}"),
-                            html.Button("Admin", id="role-admin", n_clicks=0, className=f"{'on' if role == 'admin' else ''}"),
+                            html.Button(
+                                "Member",
+                                id={"type": "role-btn", "role": "member"},
+                                n_clicks=0,
+                                className=f"{'on' if role == 'member' else ''}",
+                            ),
+                            html.Button(
+                                "Admin",
+                                id={"type": "role-btn", "role": "admin"},
+                                n_clicks=0,
+                                className=f"{'on' if role == 'admin' else ''}",
+                            ),
                         ],
                         className="role-seg",
                     ),
@@ -108,12 +128,11 @@ app.title = "AjoCredit Web (Dash)"
 app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div(
-    className="shell",
+    className="app-root",
     children=[
-        dcc.Store(id="store-page", data="home"),
+        dcc.Store(id="store-page", data="landing"),
         dcc.Store(id="store-role", data="member"),
-        html.Div(id="sidebar-wrap"),
-        html.Div(className="main", children=[html.Div(id="topbar-wrap"), html.Div(id="content", className="content")]),
+        html.Div(id="app-shell"),
     ],
 )
 
@@ -122,8 +141,8 @@ app.layout = html.Div(
     Output("store-page", "data"),
     Output("store-role", "data"),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
-    Input("role-member", "n_clicks"),
-    Input("role-admin", "n_clicks"),
+    Input({"type": "role-btn", "role": ALL}, "n_clicks"),
+    Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
     State("store-page", "data"),
     State("store-role", "data"),
     prevent_initial_call=True,
@@ -132,22 +151,40 @@ def update_state(_, __, ___, current_page, current_role):
     trig = ctx.triggered_id
     if isinstance(trig, dict) and trig.get("type") == "nav-btn":
         return trig["page"], current_role
-    if trig == "role-member":
-        return current_page, "member"
-    if trig == "role-admin":
-        return current_page, "admin"
+    if isinstance(trig, dict) and trig.get("type") == "role-btn":
+        return current_page, trig.get("role", current_role)
+    if isinstance(trig, dict) and trig.get("type") == "auth-btn":
+        action = trig.get("action")
+        if action == "home-have-account":
+            return "signin", current_role
+        if action == "home-get-started":
+            return "home", current_role
+        if action == "signin-back":
+            return "landing", current_role
+        if action == "signin-submit":
+            return "home", current_role
+        if action == "signin-get-started":
+            return "landing", current_role
     return current_page, current_role
 
 
 @app.callback(
-    Output("sidebar-wrap", "children"),
-    Output("topbar-wrap", "children"),
-    Output("content", "children"),
+    Output("app-shell", "children"),
     Input("store-page", "data"),
     Input("store-role", "data"),
 )
 def render_shell(page, role):
-    return sidebar(page, role), topbar(page), render_page(page, role)
+    if page == "landing":
+        return html.Div(className="auth-shell-wrap", children=home_layout())
+    if page == "signin":
+        return html.Div(className="auth-shell-wrap", children=signin_layout())
+    return html.Div(
+        className="shell",
+        children=[
+            sidebar(page, role),
+            html.Div(className="main", children=[topbar(page), html.Div(render_page(page, role), id="content", className="content")]),
+        ],
+    )
 
 
 @app.callback(
