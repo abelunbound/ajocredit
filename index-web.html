@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AjoCredit — Web</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap');
+:root {
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#F8FAFB;
+  --ink:#0B1620; --ink-2:#39495A; --ink-3:#6B7A8A; --ink-4:#9CA9B6;
+  --line:#E4E9EE; --line-2:#EEF2F5;
+  --brand:#0E4F47; --brand-ink:#F4FBF9; --brand-soft:#E7F1EE;
+  --accent:#1B6E89; --accent-soft:#E4F0F5;
+  --gold:#B88A2A; --gold-soft:#F6EFDD;
+  --danger:#B0392E; --danger-soft:#FBECEA;
+  --good:#2F7A4C; --good-soft:#E4F1EA;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:Arial,Helvetica,sans-serif;
+  --serif:'Instrument Serif',Georgia,serif;
+  --sidebar:224px;
+}
+*{box-sizing:border-box;} html,body{margin:0;padding:0;font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit;} input,select,textarea{font:inherit;color:inherit;}
+
+/* Mobile redirect overlay */
+.mobile-wall{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;}
+@media(max-width:899px){.mobile-wall{display:flex;} .shell{display:none;}}
+
+/* Shell */
+.shell{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh;}
+
+/* Sidebar */
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:20px 18px 22px;font-weight:600;font-size:15px;letter-spacing:-0.01em;}
+.brandmark{width:28px;height:28px;border-radius:8px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1;flex-shrink:0;}
+.sb-section{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-4);padding:14px 18px 5px;}
+.sb-nav{display:flex;flex-direction:column;padding:0 10px;gap:1px;}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:13.5px;color:var(--ink-2);font-weight:500;transition:background .12s;text-align:left;width:100%;}
+.nav-btn:hover{background:var(--surface-2);color:var(--ink);}
+.nav-btn.on{background:var(--brand-soft);color:var(--brand);}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0;}
+.circle-row{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;font-size:13px;color:var(--ink-2);cursor:pointer;width:100%;text-align:left;}
+.circle-row:hover{background:var(--surface-2);}
+.cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sb-footer{margin-top:auto;padding:12px;border-top:1px solid var(--line);}
+.me-row{display:flex;align-items:center;gap:10px;padding:8px 6px 10px;}
+.role-seg{display:flex;background:var(--surface-2);border-radius:9px;padding:3px;gap:2px;}
+.role-seg button{flex:1;padding:6px 0;border-radius:7px;font-size:12px;font-weight:500;color:var(--ink-3);}
+.role-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+
+/* Topbar */
+.topbar{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;}
+.crumbs{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-3);}
+.crumbs strong{color:var(--ink);font-weight:500;}
+.crumbs .sep{color:var(--ink-4);}
+.top-right{display:flex;align-items:center;gap:10px;}
+.search-wrap{position:relative;}
+.search-wrap input{height:34px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);padding:0 10px 0 32px;font-size:13px;width:260px;outline:none;}
+.search-wrap input:focus{border-color:var(--brand);background:var(--surface);}
+.search-wrap svg{position:absolute;left:9px;top:9px;width:15px;height:15px;color:var(--ink-4);}
+.ib{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--ink-2);position:relative;}
+.ib:hover{background:var(--surface-2);}
+.ib svg{width:15px;height:15px;}
+.notif-dot{position:absolute;top:8px;right:8px;width:7px;height:7px;background:var(--danger);border-radius:50%;border:1.5px solid var(--surface);}
+.mobile-link{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;color:var(--ink-2);font-weight:500;text-decoration:none;}
+.mobile-link:hover{background:var(--surface);}
+
+/* Content */
+.main{display:flex;flex-direction:column;min-width:0;}
+.content{padding:28px 28px 60px;}
+
+/* Typography */
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;}
+.page-head h1{margin:0 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.02em;}
+.page-head .sub{color:var(--ink-3);font-size:13.5px;}
+.h2{font-size:15px;font-weight:600;letter-spacing:-0.01em;margin:0;}
+.h3{font-size:13px;font-weight:600;margin:0;}
+.label-xs{font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);font-weight:500;}
+.serif{font-family:var(--serif);font-style:italic;font-weight:400;}
+.muted{color:var(--ink-3);}
+.mono{font-family:var(--mono);}
+
+/* Card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;}
+.card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+
+/* Pills */
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:500;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);}
+.pill.good{background:var(--good-soft);color:var(--good);border-color:transparent;}
+.pill.brand{background:var(--brand-soft);color:var(--brand);border-color:transparent;}
+.pill.gold{background:var(--gold-soft);color:var(--gold);border-color:transparent;}
+.pill.bad{background:var(--danger-soft);color:var(--danger);border-color:transparent;}
+.pill.accent{background:var(--accent-soft);color:var(--accent);border-color:transparent;}
+.pill .pd{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:9px;font-weight:500;font-size:13px;transition:opacity .1s,transform .1s;}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--brand);color:var(--brand-ink);}
+.btn-primary:hover{opacity:0.93;}
+.btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);}
+.btn-ghost:hover{background:var(--surface-2);}
+.btn-sm{height:30px;padding:0 10px;font-size:12px;border-radius:8px;}
+.btn-lg{height:44px;padding:0 20px;font-size:14px;border-radius:10px;}
+
+/* Avatar */
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0;}
+.av.sm{width:24px;height:24px;font-size:10px;}
+.av.lg{width:44px;height:44px;font-size:15px;}
+.av.xl{width:64px;height:64px;font-size:22px;}
+
+/* Progress bar */
+.bar{height:6px;border-radius:99px;background:var(--line-2);overflow:hidden;}
+.bar span{display:block;height:100%;background:var(--brand);border-radius:99px;}
+
+/* Table */
+table.t{width:100%;border-collapse:collapse;font-size:13px;}
+table.t th{text-align:left;padding:9px 14px;font-weight:500;color:var(--ink-3);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;background:var(--surface-2);border-bottom:1px solid var(--line);}
+table.t td{padding:11px 14px;border-bottom:1px solid var(--line-2);vertical-align:middle;}
+table.t tr:last-child td{border-bottom:0;}
+table.t tbody tr:hover td{background:var(--surface-2);}
+
+/* Grid layouts */
+.g3-1{display:grid;grid-template-columns:2fr 1fr;gap:20px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.stack{display:flex;flex-direction:column;gap:20px;}
+.row{display:flex;align-items:center;gap:10px;}
+.between{display:flex;align-items:center;justify-content:space-between;}
+
+/* KPI tile */
+.kpi{padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;}
+.kpi .kl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);font-weight:500;}
+.kpi .kv{font-family:var(--mono);font-size:22px;font-weight:600;margin-top:4px;}
+.kpi .kd{font-size:11.5px;margin-top:3px;color:var(--ink-3);}
+.kpi .kd.up{color:var(--good);}
+
+/* Hero */
+.hero-pot{background:linear-gradient(135deg,var(--brand),color-mix(in srgb,var(--brand) 78%,black));color:var(--brand-ink);border:0;position:relative;overflow:hidden;padding:28px;border-radius:16px;}
+.hero-pot::before{content:'';position:absolute;right:-80px;top:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,0.06);}
+.hero-pot::after{content:'';position:absolute;right:20px;bottom:-100px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,0.04);}
+.hero-pot>*{position:relative;}
+
+/* Autoloan hero */
+.al-hero{background:linear-gradient(135deg,#B88A2A,#8A6420);color:#fff;padding:28px;border-radius:16px;position:relative;overflow:hidden;}
+.al-hero::before{content:'';position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,0.07);}
+
+/* Timeline */
+.tl{position:relative;padding-left:22px;}
+.tl::before{content:'';position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line);}
+.tl-node{position:relative;margin-bottom:10px;}
+.tl-dot{position:absolute;left:-17px;top:13px;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--line);}
+.tl-node.done .tl-dot{background:var(--good);border-color:var(--good);}
+.tl-node.now .tl-dot{background:var(--brand);border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft);}
+
+/* Ring */
+.ring-w{position:relative;flex-shrink:0;}
+.ring-w svg{transform:rotate(-90deg);}
+.ring-c{position:absolute;inset:0;display:grid;place-items:center;text-align:center;}
+
+/* Tabs */
+.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;}
+.tabs button{padding:5px 11px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--ink-3);}
+.tabs button.on{background:var(--brand-soft);color:var(--brand);}
+
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;}
+.cal-cell{padding:10px;border-radius:10px;background:var(--surface-2);min-height:82px;display:flex;flex-direction:column;justify-content:space-between;}
+.cal-cell.done{background:var(--good-soft);}
+.cal-cell.now{background:var(--brand);color:#fff;}
+.cal-cell.me{outline:2px solid var(--gold);outline-offset:-1px;}
+.cal-cell .cm{font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:0.05em;font-weight:500;}
+.cal-cell .cn{font-size:12px;font-weight:500;margin-top:2px;}
+.cal-cell .ca{font-family:var(--mono);font-size:12px;font-weight:600;}
+
+/* Inputs */
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11.5px;color:var(--ink-3);font-weight:500;}
+.inp{height:38px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;outline:none;width:100%;}
+.inp:focus{border-color:var(--brand);}
+
+/* Score breakdown */
+.sc-row{display:grid;grid-template-columns:1fr 50px 200px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-2);}
+.sc-row:last-child{border-bottom:0;}
+
+/* HR */
+.hr{height:1px;background:var(--line-2);margin:14px 0;}
+
+@media(max-width:1100px){.g3-1{grid-template-columns:1fr;} .g4{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<!-- MOBILE WALL -->
+<div class="mobile-wall" id="mobileWall">
+  <div style="width:72px;height:72px;border-radius:20px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;margin-bottom:20px;font-family:'Instrument Serif',Georgia,serif;font-size:44px;font-style:italic;line-height:1;">a</div>
+  <h2 style="font-size:22px;font-weight:600;letter-spacing:-0.02em;margin:0 0 10px;">Designed for desktop</h2>
+  <p style="color:var(--ink-3);font-size:14px;line-height:1.6;max-width:320px;margin:0 0 28px;">The AjoCredit workspace is optimised for larger screens. For the best mobile experience, use our app.</p>
+  <a href="index.html" style="display:inline-flex;align-items:center;gap:8px;background:var(--brand);color:var(--brand-ink);padding:0 22px;height:48px;border-radius:12px;font-weight:500;font-size:15px;text-decoration:none;">
+    <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+    Open mobile app
+  </a>
+  <button onclick="document.getElementById('mobileWall').style.display='none';document.querySelector('.shell').style.display='grid';" style="margin-top:14px;font-size:13px;color:var(--ink-3);text-decoration:underline;background:none;border:none;cursor:pointer;">Continue anyway</button>
+</div>
+
+<div class="shell" id="appShell">
+  <div id="root" style="display:contents"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+
+// ── Data ──────────────────────────────────────────────
+const ME = { username:'kemi_a', name:'Kemi A.', city:'Birmingham' };
+const MEMBERS = [
+  { u:'ola_t',   n:'Ola T.',   pos:1,  status:'received',  score:818, joined:'Sep 2024', circles:3, onTime:'100%' },
+  { u:'ebuka_n', n:'Ebuka N.', pos:2,  status:'received',  score:779, joined:'Sep 2024', circles:2, onTime:'100%' },
+  { u:'abel_o',  n:'Abel O.',  pos:3,  status:'receiving', score:824, joined:'Sep 2024', circles:4, onTime:'100%', next:true },
+  { u:'kemi_a',  n:'Kemi A.',  pos:4,  status:'paid',      score:791, joined:'Sep 2024', circles:2, onTime:'100%', me:true },
+  { u:'chidi_m', n:'Chidi M.', pos:5,  status:'paid',      score:765, joined:'Oct 2024', circles:1, onTime:'100%' },
+  { u:'tola_b',  n:'Tola B.',  pos:6,  status:'paid',      score:812, joined:'Oct 2024', circles:2, onTime:'100%' },
+  { u:'nneka_o', n:'Nneka O.', pos:7,  status:'paid',      score:743, joined:'Oct 2024', circles:1, onTime:'100%' },
+  { u:'daniel_k',n:'Daniel K.',pos:8,  status:'pending',   score:698, joined:'Nov 2024', circles:1, onTime:'94%',  risk:true },
+  { u:'femi_r',  n:'Femi R.',  pos:9,  status:'paid',      score:772, joined:'Nov 2024', circles:2, onTime:'100%' },
+  { u:'aisha_w', n:'Aisha W.', pos:10, status:'paid',      score:801, joined:'Nov 2024', circles:3, onTime:'100%' },
+];
+const CIRCLE = { name:'Brum Builders', city:'Birmingham, UK', amount:500, freq:'monthly', size:10, pot:5000, month:3, nextDate:'Apr 28', recipient:'abel_o', recipientName:'Abel O.' };
+const TXNS = [
+  { id:1, type:'out', label:'Brum Builders · April',    amount:500,  date:'Apr 1',  status:'Settled' },
+  { id:2, type:'in',  label:'Referral bonus',            amount:10,   date:'Mar 30', status:'Settled' },
+  { id:3, type:'out', label:'Brum Builders · March',    amount:500,  date:'Mar 1',  status:'Settled' },
+  { id:4, type:'out', label:'Brum Builders · February', amount:500,  date:'Feb 1',  status:'Settled' },
+  { id:5, type:'in',  label:'Payout · Brum Builders',   amount:5000, date:'Aug 28', status:'Queued'  },
+];
+const MONTHS = ['Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'];
+const PALS = [['#0E4F47','#3FB89B'],['#1B6E89','#6AA9C8'],['#B88A2A','#E8C468'],['#7A4B2A','#CC9461'],['#2F7A4C','#5AC582'],['#8A5CB3','#C49EEB'],['#B0392E','#E26A5D'],['#38497A','#7189C2'],['#1E5C4A','#4D9C7F'],['#6B4A22','#B08A4A']];
+function pal(name=''){const i=(name.charCodeAt(0)+(name.charCodeAt(1)||0))%PALS.length;return PALS[i];}
+function Av({name='',size=''}){const[a,b]=pal(name);const cls='av'+(size?' '+size:'');const ini=name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();return <div className={cls} style={{background:`linear-gradient(135deg,${a},${b})`}}>{ini}</div>;}
+
+// ── Icons ─────────────────────────────────────────────
+const ic=(d,opts={})=>(p)=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={opts.w||1.6} strokeLinecap="round" strokeLinejoin="round" {...p}>{typeof d==='string'?<path d={d}/>:d}</svg>;
+const Ic={
+  home:ic('M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z'),
+  circles:ic([<circle key="a" cx="9" cy="9" r="5"/>,<circle key="b" cx="16" cy="15" r="5"/>]),
+  wallet:ic([<path key="a" d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5Z"/>,<path key="b" d="M16 12.5h3"/>]),
+  user:ic([<circle key="a" cx="12" cy="8" r="4"/>,<path key="b" d="M4 21c1-4.5 4.5-7 8-7s7 2.5 8 7"/>]),
+  shield:ic('M12 3 4 6v6c0 5 4 8 8 9 4-1 8-4 8-9V6Z'),
+  bolt:ic('M13 3 4 14h7l-1 7 9-11h-7Z'),
+  chart:ic('M3 20h18M6 16V9M11 16V5M16 16v-5M21 16v-3'),
+  search:ic([<circle key="a" cx="11" cy="11" r="7"/>,<path key="b" d="m20 20-3.5-3.5"/>]),
+  bell:ic([<path key="a" d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8Z"/>,<path key="b" d="M10 20a2 2 0 0 0 4 0"/>]),
+  arrR:ic('M5 12h14M13 6l6 6-6 6'),
+  arrUp:ic('M12 19V5M5 12l7-7 7 7'),
+  arrDn:ic('M12 5v14M19 12l-7 7-7-7'),
+  check:ic('M5 12.5 10 17 19 7',{w:2}),
+  plus:ic('M12 5v14M5 12h14'),
+  eyeOff:ic([<path key="a" d="m3 3 18 18M10.5 6.3A10 10 0 0 1 22 12s-1.2 2.4-3.6 4.5M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4.4-1"/>,<path key="b" d="M9.9 9.9A3 3 0 0 0 14 14"/>]),
+  lock:ic([<rect key="a" x="4" y="11" width="16" height="10" rx="2"/>,<path key="b" d="M8 11V8a4 4 0 0 1 8 0v3"/>]),
+  phone:ic([<rect key="a" x="7" y="2" width="10" height="20" rx="2"/>,<path key="b" d="M11 18h2"/>]),
+  flag:ic('M5 21V4h12l-2 4 2 4H5'),
+  pound:ic('M16 7a4 4 0 0 0-8 0v4H6m0 0h10M6 11v3c0 1.7-1 3-1 3h13'),
+  spark:ic('M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6'),
+  dl:ic('M12 3v12M7 10l5 5 5-5M5 21h14'),
+  alert:ic([<path key="a" d="m12 3 10 18H2Z"/>,<path key="b" d="M12 10v5M12 18v.5"/>]),
+  dots:(p)=><svg viewBox="0 0 24 24" fill="currentColor" {...p}><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>,
+};
+
+// ── Score ring ─────────────────────────────────────────
+function Ring({score,max=999,size=140}){
+  const r=size/2-10,c=2*Math.PI*r,pct=Math.min(1,score/max);
+  const band=score>=780?'Excellent':score>=700?'Good':score>=620?'Fair':'Poor';
+  const col=score>=780?'var(--good)':score>=700?'var(--brand)':score>=620?'var(--gold)':'var(--danger)';
+  return(
+    <div className="ring-w" style={{width:size,height:size}}>
+      <svg width={size} height={size}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--line-2)" strokeWidth="8"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth="8" strokeDasharray={`${c*pct} ${c}`} strokeLinecap="round"/></svg>
+      <div className="ring-c"><div><div className="label-xs" style={{marginBottom:2}}>UK score</div><div className="mono" style={{fontSize:28,fontWeight:600,letterSpacing:'-0.02em'}}>{score}</div><div style={{fontSize:11,fontWeight:500,color:col,marginTop:2}}>{band}</div></div></div>
+    </div>
+  );
+}
+
+// ── Sidebar ─────────────────────────────────────────────
+function Sidebar({page,setPage,role,setRole}){
+  const nav=[
+    {k:'home',    i:Ic.home,   l:'Dashboard'},
+    {k:'circle',  i:Ic.circles,l:'Brum Builders'},
+    {k:'members', i:Ic.user,   l:'Members'},
+    {k:'payouts', i:Ic.bolt,   l:'Payouts'},
+    {k:'credit',  i:Ic.shield, l:'Credit & checks'},
+    {k:'autoloan',i:Ic.spark,  l:'Auto-loan'},
+    {k:'wallet',  i:Ic.wallet, l:'Wallet'},
+  ];
+  return(
+    <aside className="sidebar">
+      <div className="sb-brand"><div className="brandmark">a</div>AjoCredit</div>
+      <div className="sb-nav">
+        {nav.map(n=>(
+          <button key={n.k} className={`nav-btn ${page===n.k?'on':''}`} onClick={()=>setPage(n.k)}>
+            <n.i/>{n.l}
+          </button>
+        ))}
+      </div>
+      <div className="sb-section">My circles</div>
+      <div className="sb-nav">
+        {[{name:'Brum Builders',col:'var(--brand)'},{name:'Sister Circle',col:'var(--accent)'}].map(c=>(
+          <button key={c.name} className="circle-row" onClick={()=>setPage('circle')}>
+            <span className="cdot" style={{background:c.col}}/>{c.name}
+          </button>
+        ))}
+        <button className="circle-row" style={{color:'var(--ink-3)'}}><Ic.plus style={{width:13,height:13}}/>Create circle</button>
+      </div>
+      <div className="sb-footer">
+        <div className="me-row"><Av name={ME.name}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>@{ME.username}</div><div style={{fontSize:11.5,color:'var(--ink-3)'}}>{ME.city}</div></div></div>
+        <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--ink-4)',marginBottom:6,fontWeight:500}}>Viewing as</div>
+        <div className="role-seg">
+          <button className={role==='member'?'on':''} onClick={()=>setRole('member')}>Member</button>
+          <button className={role==='admin'?'on':''} onClick={()=>setRole('admin')}>Admin</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── Topbar ─────────────────────────────────────────────
+function Topbar({crumbs}){
+  return(
+    <div className="topbar">
+      <div className="crumbs">
+        {crumbs.map((c,i)=>(
+          <React.Fragment key={i}>
+            {i>0&&<span className="sep">/</span>}
+            {i===crumbs.length-1?<strong>{c}</strong>:<span>{c}</span>}
+          </React.Fragment>
+        ))}
+      </div>
+      <div className="top-right">
+        <div className="search-wrap">
+          <Ic.search/>
+          <input placeholder="Search members, circles…"/>
+        </div>
+        <a href="index.html" className="mobile-link"><Ic.phone style={{width:13,height:13}}/>Mobile app</a>
+        <button className="ib"><Ic.bell/><span className="notif-dot"/></button>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────
+function Dashboard({role,setPage}){
+  return(
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Good afternoon, Kemi<span className="serif" style={{fontSize:28,marginLeft:6}}>.</span></h1>
+          <div className="sub">Month 3 of 10 · your payout is in 7 months · Abel O. receives £5,000 on Apr 28</div>
+        </div>
+        <div className="row">
+          <button className="btn btn-ghost"><Ic.dl style={{width:13,height:13}}/>Export</button>
+          <button className="btn btn-primary" onClick={()=>setPage('payouts')}>{role==='admin'?'Release payout':'Pay this month'}</button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="g4" style={{marginBottom:20}}>
+        {[
+          ['This month\'s pot','£5,000','9 of 10 paid · £500 via auto-loan'],
+          ['Your next contribution','£500',`Autopay · ${CIRCLE.nextDate}`],
+          ['Your UK score','791','↑ +34 in 12 months','up'],
+          ['On-time rate','100%','0 defaults across 2 circles'],
+        ].map(([l,v,d,up])=>(
+          <div key={l} className="kpi"><div className="kl">{l}</div><div className="kv">{v}</div><div className={`kd${up?' up':''}`}>{d}</div></div>
+        ))}
+      </div>
+
+      <div className="g3-1">
+        <div className="stack">
+          {/* Hero pot */}
+          <div className="hero-pot">
+            <div className="between" style={{marginBottom:16}}>
+              <span className="pill" style={{background:'rgba(255,255,255,0.15)',color:'#fff',border:0}}><span className="pd" style={{background:'#5AC582'}}/>Active · month {CIRCLE.month}/{CIRCLE.size}</span>
+              <span style={{fontSize:12,opacity:.8}}>{CIRCLE.name} · monthly</span>
+            </div>
+            <div className="row" style={{flexWrap:'wrap',gap:32,alignItems:'flex-end'}}>
+              <div>
+                <div className="label-xs" style={{color:'rgba(255,255,255,.7)',marginBottom:6}}>Total pot this month</div>
+                <div className="mono" style={{fontSize:52,fontWeight:600,letterSpacing:'-0.03em',lineHeight:1}}>£{CIRCLE.pot.toLocaleString()}</div>
+                <div style={{fontSize:13,opacity:.85,marginTop:10}}>Goes to <strong style={{fontWeight:500}}>Abel O.</strong> on {CIRCLE.nextDate} · auto-released</div>
+              </div>
+              <div style={{flex:1,minWidth:220}}>
+                <div className="label-xs" style={{color:'rgba(255,255,255,.7)',marginBottom:8}}>Contributions collected</div>
+                <div className="bar" style={{background:'rgba(255,255,255,.2)',height:8}}><span style={{width:'90%',background:'#fff'}}/></div>
+                <div className="between" style={{fontSize:12,opacity:.85,marginTop:8}}><span>9 of 10 · £4,500</span><span>£500 auto-loan</span></div>
+                <div className="row" style={{marginTop:14,gap:8}}>
+                  {role==='admin'&&<button className="btn btn-sm" style={{background:'#fff',color:'var(--brand)'}} onClick={()=>setPage('payouts')}>Review &amp; release</button>}
+                  <button className="btn btn-sm" style={{background:'rgba(255,255,255,.15)',color:'#fff'}} onClick={()=>setPage('circle')}>Circle detail</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rotation calendar */}
+          <div className="card">
+            <div className="card-hd">
+              <div><div className="h2">Rotation · 10 months</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:3}}>Position 4 · you receive in month 7 (Aug)</div></div>
+            </div>
+            <div className="cal-grid">
+              {[...MEMBERS].sort((a,b)=>a.pos-b.pos).map(m=>{
+                const st=m.status==='received'?'done':m.next?'now':'';
+                return(
+                  <div key={m.u} className={`cal-cell ${st} ${m.me?'me':''}`}>
+                    <div className="cm">{MONTHS[m.pos-1]} #{m.pos}</div>
+                    <div><div className="cn">{m.n.split(' ')[0]}</div><div className="ca" style={{opacity:st===''?.55:1}}>£5k</div></div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="row" style={{marginTop:12,gap:16,fontSize:11.5,color:'var(--ink-3)'}}>
+              <span className="row"><span style={{width:8,height:8,background:'var(--good)',borderRadius:2,display:'inline-block',marginRight:4}}/>Received</span>
+              <span className="row"><span style={{width:8,height:8,background:'var(--brand)',borderRadius:2,display:'inline-block',marginRight:4}}/>This month</span>
+              <span className="row"><span style={{width:8,height:8,border:'2px solid var(--gold)',borderRadius:2,display:'inline-block',marginRight:4}}/>You</span>
+            </div>
+          </div>
+
+          {/* Recent activity */}
+          <div className="card" style={{padding:0,overflow:'hidden'}}>
+            <div className="between" style={{padding:'14px 20px',borderBottom:'1px solid var(--line-2)'}}>
+              <div className="h2">Recent activity</div>
+              <button className="btn btn-sm btn-ghost" onClick={()=>setPage('wallet')}>All transactions</button>
+            </div>
+            <table className="t">
+              <thead><tr><th>Transaction</th><th>Date</th><th>Status</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+              <tbody>
+                {TXNS.slice(0,4).map(t=>(
+                  <tr key={t.id}>
+                    <td>
+                      <div className="row">
+                        <div style={{width:28,height:28,borderRadius:7,background:t.type==='in'?'var(--good-soft)':'var(--surface-2)',color:t.type==='in'?'var(--good)':'var(--ink-2)',display:'grid',placeItems:'center'}}>
+                          {t.type==='in'?<Ic.arrDn style={{width:13,height:13}}/>:<Ic.arrUp style={{width:13,height:13}}/>}
+                        </div>
+                        <span style={{fontWeight:500}}>{t.label}</span>
+                      </div>
+                    </td>
+                    <td className="muted">{t.date}</td>
+                    <td><span className={`pill ${t.status==='Settled'?'good':'gold'}`}>{t.status}</span></td>
+                    <td className="mono" style={{textAlign:'right',fontWeight:500,color:t.type==='in'?'var(--good)':'var(--ink)'}}>{t.type==='in'?'+':'−'}£{t.amount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right rail */}
+        <div className="stack">
+          <div className="card">
+            <div className="card-hd" style={{marginBottom:14}}><div className="h2">Next recipient</div><span className="pill gold"><span className="pd"/>scheduled</span></div>
+            <div className="row" style={{marginBottom:14}}>
+              <Av name="Abel O." size="lg"/>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:600}}>@abel_o</div><div style={{fontSize:12,color:'var(--ink-3)'}}>Abel O. · {CIRCLE.nextDate}</div></div>
+              <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:17,fontWeight:600}}>£5,000</div><div style={{fontSize:11,color:'var(--ink-3)'}}>virtual acct</div></div>
+            </div>
+            <div className="hr"/>
+            <div className="g2" style={{fontSize:12,gap:10}}>
+              {[['Method','Virtual account'],['Settlement','Instant FPS'],['Contributions in','9 / 10'],['Auto-loan used','£500']].map(([k,v])=>(
+                <div key={k}><div className="label-xs">{k}</div><div style={{marginTop:3,fontWeight:500}}>{v}</div></div>
+              ))}
+            </div>
+            <div className="row" style={{marginTop:14,padding:10,background:'var(--surface-2)',borderRadius:9,fontSize:12,color:'var(--ink-2)'}}>
+              <Ic.eyeOff style={{width:13,height:13,color:'var(--ink-3)',flexShrink:0}}/>
+              Bank details hidden. Payouts via AjoCredit virtual accounts.
+            </div>
+          </div>
+
+          <div className="al-hero">
+            <div className="row" style={{marginBottom:10,position:'relative',gap:10}}>
+              <div style={{width:26,height:26,borderRadius:8,background:'rgba(255,255,255,.2)',display:'grid',placeItems:'center'}}><Ic.bolt style={{width:13,height:13}}/></div>
+              <div style={{fontSize:12,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Auto-loan · on</div>
+            </div>
+            <div style={{fontSize:20,fontWeight:600,lineHeight:1.25,position:'relative'}}>Payouts on time — <span className="serif" style={{fontSize:20}}>every time.</span></div>
+            <div style={{fontSize:12.5,opacity:.9,marginTop:10,lineHeight:1.5,position:'relative'}}>0% interest cover if a member is late. Repay over 60 days automatically.</div>
+            <div style={{marginTop:14,position:'relative'}}>
+              <div className="between" style={{fontSize:11.5,marginBottom:6,opacity:.85}}><span>Used this cycle</span><span className="mono">£500 / £500</span></div>
+              <div className="bar" style={{background:'rgba(255,255,255,.2)'}}><span style={{background:'#fff',width:'100%'}}/></div>
+            </div>
+            <button className="btn btn-sm" style={{marginTop:14,background:'rgba(255,255,255,.18)',color:'#fff',position:'relative'}} onClick={()=>{}}>How it works →</button>
+          </div>
+
+          <div className="card">
+            <div className="h2" style={{marginBottom:12}}>Circle safety</div>
+            {[[Ic.shield,'All 10 members credit-checked','Min score 680 · UK + origin'],[Ic.bolt,'Auto-loan backstop armed','Up to £500 covered'],[Ic.eyeOff,'Usernames only','No bank details shared'],[Ic.lock,'Regulated account','FCA e-money safeguarded']].map(([Ic2,t,s],i)=>(
+              <div key={i} className="row" style={{marginBottom:10,alignItems:'flex-start'}}>
+                <div style={{width:26,height:26,borderRadius:8,background:'var(--brand-soft)',color:'var(--brand)',display:'grid',placeItems:'center',flexShrink:0}}><Ic2 style={{width:13,height:13}}/></div>
+                <div><div style={{fontSize:13,fontWeight:500}}>{t}</div><div style={{fontSize:11.5,color:'var(--ink-3)',marginTop:1}}>{s}</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Members ───────────────────────────────────────────
+function Members({role}){
+  const [sort,setSort]=React.useState('pos');
+  const rows=[...MEMBERS].sort((a,b)=>sort==='score'?b.score-a.score:sort==='name'?a.n.localeCompare(b.n):a.pos-b.pos);
+  return(
+    <>
+      <div className="page-head">
+        <div><h1>Members</h1><div className="sub">Brum Builders · 10 credit-verified · usernames only</div></div>
+        {role==='admin'&&<button className="btn btn-primary"><Ic.plus style={{width:13,height:13}}/>Invite member</button>}
+      </div>
+      <div className="between" style={{marginBottom:14}}>
+        <div className="tabs">
+          {['All · 10','Paid · 9','Pending · 1','Received · 2'].map((t,i)=><button key={t} className={i===0?'on':''}>{t}</button>)}
+        </div>
+        <div className="row">
+          <select className="inp" value={sort} onChange={e=>setSort(e.target.value)} style={{width:210}}>
+            <option value="pos">Sort: Rotation position</option>
+            <option value="score">Sort: Credit score</option>
+            <option value="name">Sort: Name</option>
+          </select>
+          <button className="btn btn-ghost"><Ic.dl style={{width:13,height:13}}/>CSV</button>
+        </div>
+      </div>
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <table className="t">
+          <thead><tr><th style={{width:44}}>#</th><th>Member</th><th>Status</th><th>UK score</th><th>Origin</th><th>On-time</th><th>Circles</th><th>Joined</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+          <tbody>
+            {rows.map(m=>(
+              <tr key={m.u}>
+                <td className="mono muted">{m.pos}</td>
+                <td>
+                  <div className="row">
+                    <Av name={m.n}/>
+                    <div>
+                      <div style={{fontWeight:500,display:'flex',alignItems:'center',gap:6}}>@{m.u}
+                        {m.me&&<span className="pill brand" style={{height:18,fontSize:10}}>you</span>}
+                        {m.next&&<span className="pill gold" style={{height:18,fontSize:10}}>next</span>}
+                      </div>
+                      <div style={{fontSize:11.5,color:'var(--ink-3)'}}>{m.n}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {m.status==='received'&&<span className="pill">Received</span>}
+                  {m.status==='receiving'&&<span className="pill brand"><span className="pd"/>Receiving</span>}
+                  {m.status==='paid'&&<span className="pill good"><Ic.check style={{width:10,height:10}}/>Paid</span>}
+                  {m.status==='pending'&&<span className="pill gold"><Ic.alert style={{width:10,height:10}}/>Grace period</span>}
+                </td>
+                <td>
+                  <div className="row" style={{gap:8}}>
+                    {role==='admin'
+                      ?<><span className="mono" style={{fontWeight:500}}>{m.score}</span><div style={{width:48,height:4,background:'var(--line-2)',borderRadius:2,overflow:'hidden'}}><div style={{width:`${(m.score/900)*100}%`,height:'100%',background:m.score>=780?'var(--good)':m.score>=700?'var(--brand)':'var(--gold)'}}/></div></>
+                      :<span className={`pill ${m.score>=780?'good':m.score>=700?'brand':'gold'}`}>{m.score>=780?'Excellent':m.score>=700?'Good':'Fair'}</span>
+                    }
+                  </div>
+                </td>
+                <td><Ic.check style={{width:13,height:13,color:'var(--good)'}}/><span className="muted" style={{fontSize:12,marginLeft:3}}>Clear</span></td>
+                <td className="mono">{m.onTime}</td>
+                <td className="mono">{m.circles}</td>
+                <td className="muted">{m.joined}</td>
+                <td style={{textAlign:'right'}}>
+                  <button className="btn btn-sm btn-ghost">View</button>
+                  {role==='admin'&&m.risk&&<button className="btn btn-sm" style={{marginLeft:6,color:'var(--danger)'}}>Flag</button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// ── Payouts ───────────────────────────────────────────
+function Payouts({role}){
+  const [sel,setSel]=React.useState('abel_o');
+  const [done,setDone]=React.useState(false);
+  const r=MEMBERS.find(m=>m.u===sel);
+  if(done) return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',textAlign:'center'}}>
+      <div style={{width:72,height:72,borderRadius:'50%',background:'var(--good-soft)',color:'var(--good)',display:'grid',placeItems:'center',marginBottom:18}}><Ic.check style={{width:36,height:36}}/></div>
+      <h2 style={{fontSize:24,fontWeight:600,letterSpacing:'-0.02em',margin:'0 0 8px'}}>£5,000 credited</h2>
+      <p style={{color:'var(--ink-3)',fontSize:14,margin:'0 0 24px'}}>Abel O.'s virtual account has been credited — instant settlement.</p>
+      <div className="card" style={{maxWidth:360,padding:16,textAlign:'left'}}>
+        {[['Recipient','@abel_o'],['Method','Virtual account'],['Reference','AJO-BBM-03-0428'],['Released by','@kemi_a (admin)']].map(([k,v])=>(
+          <div key={k} className="between" style={{padding:'6px 0',fontSize:13,borderBottom:'1px solid var(--line-2)'}}><span style={{color:'var(--ink-3)'}}>{k}</span><span className="mono" style={{fontWeight:500}}>{v}</span></div>
+        ))}
+      </div>
+      <button className="btn btn-primary btn-lg" style={{marginTop:20}} onClick={()=>setDone(false)}>Done</button>
+    </div>
+  );
+  return(
+    <>
+      <div className="page-head">
+        <div><h1>Release payout</h1><div className="sub">Month 3 of 10 · rotation suggests Abel O. · £5,000</div></div>
+        <div className="row"><span className="pill good"><Ic.check style={{width:11,height:11}}/>9 of 10 in</span><span className="pill gold"><Ic.bolt style={{width:11,height:11}}/>£500 auto-loan</span></div>
+      </div>
+      <div className="g3-1">
+        <div className="stack">
+          <div className="card" style={{padding:0,overflow:'hidden'}}>
+            <div className="between" style={{padding:'14px 20px',borderBottom:'1px solid var(--line-2)'}}>
+              <div><div className="h2">Rotation queue</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:3}}>Order fixed by join-date · swaps require unanimous consent</div></div>
+            </div>
+            <table className="t">
+              <thead><tr><th style={{width:30}}></th><th>#</th><th>Member</th><th>Credit</th><th>Contribution</th><th style={{textAlign:'right'}}>Receives</th></tr></thead>
+              <tbody>
+                {MEMBERS.filter(m=>m.status!=='received').slice(0,6).map(m=>(
+                  <tr key={m.u} style={{background:sel===m.u?'var(--brand-soft)':'',cursor:'pointer'}} onClick={()=>setSel(m.u)}>
+                    <td><input type="radio" checked={sel===m.u} onChange={()=>setSel(m.u)} style={{accentColor:'var(--brand)'}}/></td>
+                    <td className="mono muted">#{m.pos}</td>
+                    <td><div className="row"><Av name={m.n} size="sm"/><div><div style={{fontWeight:500}}>@{m.u}</div><div style={{fontSize:11,color:'var(--ink-3)'}}>{m.n}</div></div></div></td>
+                    <td><span className={`pill ${m.score>=780?'good':m.score>=700?'brand':'gold'}`}>{m.score}</span></td>
+                    <td>{m.status==='paid'||m.status==='receiving'?<span className="pill good"><Ic.check style={{width:10,height:10}}/>£500</span>:<span className="pill gold">Grace</span>}</td>
+                    <td className="mono" style={{textAlign:'right',fontWeight:500}}>£5,000</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="card" style={{padding:0,overflow:'hidden'}}>
+            <div style={{padding:'14px 20px',borderBottom:'1px solid var(--line-2)'}}><div className="h2">Payout history</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:3}}>Immutable audit log</div></div>
+            <table className="t">
+              <thead><tr><th>Month</th><th>Recipient</th><th>Method</th><th>Reference</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+              <tbody>
+                {[['Feb 2026','ola_t','Ola T.','AJO-BBM-01-0228'],['Mar 2026','ebuka_n','Ebuka N.','AJO-BBM-02-0328']].map(([d,u,n,ref])=>(
+                  <tr key={u}><td className="muted">{d}</td><td><div className="row"><Av name={n} size="sm"/><div><div style={{fontWeight:500}}>@{u}</div><div style={{fontSize:11,color:'var(--ink-3)'}}>{n}</div></div></div></td><td><span className="pill">Virtual acct</span></td><td className="mono muted" style={{fontSize:12}}>{ref}</td><td className="mono" style={{textAlign:'right',fontWeight:500,color:'var(--good)'}}>£5,000</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div className="card" style={{position:'sticky',top:68}}>
+            <div style={{textAlign:'center',padding:'6px 0 16px'}}>
+              <Av name={r.n} size="xl" />
+              <div style={{fontSize:15,fontWeight:600,marginTop:10}}>@{r.u}</div>
+              <div style={{fontSize:12,color:'var(--ink-3)'}}>{r.n} · position #{r.pos}</div>
+              <div className="mono" style={{fontSize:34,fontWeight:600,letterSpacing:'-0.02em',marginTop:12}}>£5,000</div>
+              <div style={{fontSize:12,color:'var(--ink-3)',marginTop:4}}>Releases {CIRCLE.nextDate}</div>
+            </div>
+            <div className="hr"/>
+            <div style={{display:'flex',flexDirection:'column',gap:9,fontSize:13}}>
+              {[['Method','Virtual account · FPS'],['KYC',<span className="pill good" style={{height:20}}><Ic.check style={{width:10,height:10}}/>Verified</span>],['Credit band',<span className="pill good" style={{height:20}}>Excellent</span>],['Auto-loan cover',<span className="mono">£500 (Daniel K.)</span>],['Fee',<span style={{color:'var(--good)'}}>Free</span>]].map(([k,v],i)=>(
+                <div key={i} className="between"><span style={{color:'var(--ink-3)'}}>{k}</span><span style={{fontWeight:500}}>{v}</span></div>
+              ))}
+            </div>
+            <div className="hr"/>
+            <div className="row" style={{padding:10,background:'var(--surface-2)',borderRadius:9,fontSize:12,color:'var(--ink-2)',marginBottom:14}}><Ic.lock style={{width:13,height:13,color:'var(--ink-3)',flexShrink:0}}/>Bank details hidden. Funds route through virtual account.</div>
+            {role==='admin'
+              ?<><button className="btn btn-primary btn-lg" style={{width:'100%'}} onClick={()=>setDone(true)}><Ic.lock style={{width:13,height:13}}/>Hold to release £5,000</button><button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:6}}>Reschedule</button></>
+              :<div style={{fontSize:12,color:'var(--ink-3)',textAlign:'center',padding:'10px 0'}}>Admin action · switch role in sidebar</div>
+            }
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Credit checks ─────────────────────────────────────
+function Credit(){
+  return(
+    <>
+      <div className="page-head">
+        <div><h1>Credit &amp; checks</h1><div className="sub">Dual-bureau · origin + UK affordability · updated 2 days ago</div></div>
+        <button className="btn btn-ghost"><Ic.dl style={{width:13,height:13}}/>Download report</button>
+      </div>
+      <div className="g2" style={{marginBottom:20}}>
+        <div className="card">
+          <div className="card-hd">
+            <div className="row" style={{gap:10}}><div style={{width:30,height:30,borderRadius:8,background:'var(--brand-soft)',color:'var(--brand)',display:'grid',placeItems:'center'}}><Ic.flag style={{width:14,height:14}}/></div><div><div className="h2">Check A · Country of origin</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:1}}>Nigeria · CRC Bureau · BVN</div></div></div>
+            <span className="pill good"><Ic.check style={{width:10,height:10}}/>Clear</span>
+          </div>
+          <div className="row" style={{gap:20,alignItems:'flex-start'}}>
+            <Ring score={712} size={120}/>
+            <div style={{flex:1}}>
+              {[['Active liabilities','£0.00'],['Accounts past due','0'],['Enquiries (12m)','2'],['Oldest account','6y 4m']].map(([k,v])=>(
+                <div key={k} className="between" style={{padding:'6px 0',borderBottom:'1px solid var(--line-2)',fontSize:13}}><span style={{color:'var(--ink-2)'}}>{k}</span><span className="mono" style={{fontWeight:500}}>{v}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-hd">
+            <div className="row" style={{gap:10}}><div style={{width:30,height:30,borderRadius:8,background:'var(--accent-soft)',color:'var(--accent)',display:'grid',placeItems:'center'}}><Ic.pound style={{width:14,height:14}}/></div><div><div className="h2">Check B · UK affordability</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:1}}>7 yrs UK · Experian + Open Banking 90d</div></div></div>
+            <span className="pill good"><Ic.check style={{width:10,height:10}}/>Eligible</span>
+          </div>
+          <div className="row" style={{gap:20,alignItems:'flex-start'}}>
+            <Ring score={791} size={120}/>
+            <div style={{flex:1}}>
+              {[['Net income','£3,240',80],['Fixed outgoings','£1,680',42],['Discretionary','£420',10],['Safe headroom','£1,140',28]].map(([k,v,p])=>(
+                <div key={k} style={{marginBottom:8}}><div className="between" style={{fontSize:12.5,marginBottom:4}}><span style={{color:'var(--ink-2)'}}>{k}</span><span className="mono" style={{fontWeight:500}}>{v}</span></div><div className="bar" style={{height:5}}><span style={{width:`${p}%`,background:k==='Safe headroom'?'var(--good)':'var(--brand)'}}/></div></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="card" style={{marginBottom:20}}>
+        <div className="card-hd"><div><div className="h2">Score breakdown</div><div style={{fontSize:12,color:'var(--ink-3)',marginTop:3}}>12-month trend · +34 pts · Experian</div></div><span className="pill good">Improving</span></div>
+        {[['Payment history',100,'Perfect · 24 months','var(--good)'],['Credit utilization',84,'18% of available credit','var(--brand)'],['Age of accounts',72,'Oldest 7y · avg 3.2y','var(--accent)'],['Credit mix',55,'1 mortgage · 2 cards · AjoCredit','var(--gold)'],['New credit',88,'1 hard enquiry in 12m','var(--brand)']].map(([k,v,s,c])=>(
+          <div key={k} className="sc-row"><div><div style={{fontSize:13.5,fontWeight:500}}>{k}</div><div style={{fontSize:11.5,color:'var(--ink-3)',marginTop:2}}>{s}</div></div><div className="mono" style={{fontSize:13,fontWeight:500,textAlign:'right'}}>{v}%</div><div className="bar" style={{height:6}}><span style={{width:`${v}%`,background:c}}/></div></div>
+        ))}
+      </div>
+      <div className="card" style={{padding:18,display:'flex',gap:14,background:'linear-gradient(135deg,var(--brand-soft),var(--accent-soft))',border:0}}>
+        <div style={{width:38,height:38,borderRadius:9,background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center'}}><Ic.spark style={{width:18,height:18}}/></div>
+        <div><div style={{fontSize:14,fontWeight:600}}>AjoCredit reports on-time contributions to UK bureaus</div><div style={{fontSize:13,color:'var(--ink-2)',marginTop:4,lineHeight:1.5}}>Complete the Brum Builders cycle → estimated +18 points to your Experian score.</div></div>
+      </div>
+    </>
+  );
+}
+
+// ── Auto-loan ─────────────────────────────────────────
+function Autoloan(){
+  return(
+    <>
+      <div className="page-head"><div><h1>Auto-loan</h1><div className="sub">Interest-free safety net · circles never miss a payout</div></div><span className="pill good"><span className="pd"/>Active on 1 circle</span></div>
+      <div className="al-hero" style={{marginBottom:20,padding:36}}>
+        <div style={{position:'relative',maxWidth:680}}>
+          <div style={{fontSize:36,fontWeight:600,letterSpacing:'-0.02em',lineHeight:1.2}}>Payouts go out on time — <span className="serif" style={{fontSize:36}}>even when someone's late.</span></div>
+          <div style={{fontSize:14.5,opacity:.9,marginTop:14,lineHeight:1.6,maxWidth:620}}>If a member misses their contribution, AjoCredit fronts the amount as a 0% loan. The recipient gets their full pot on schedule. The late member repays automatically over 60 days — no fees, no default on their credit file.</div>
+        </div>
+      </div>
+      <div className="g4" style={{marginBottom:20}}>
+        {[['Coverage per cycle','£500','1 missed contribution'],['Your APR','0.0%','Always interest-free'],['Repay window','60 days','Automatic · from contributions'],['Used this cycle','£500 / £500','Daniel K. · month 3']].map(([l,v,d])=>(
+          <div key={l} className="kpi"><div className="kl">{l}</div><div className="kv">{v}</div><div className="kd">{d}</div></div>
+        ))}
+      </div>
+      <div className="g2">
+        <div className="card">
+          <div className="h2" style={{marginBottom:16}}>How it works</div>
+          {[['Member misses a contribution','Grace period gives them 48 hours. An SMS + push nudge goes out.'],['AjoCredit steps in','We front the missing amount — 0% interest, no fees, no paperwork.'],['Recipient gets the full pot','On the scheduled date. No delay.'],['Late member repays','Automatic debit over 60 days from next contributions.'],['Credit file stays clean','Auto-loan is not a default — it doesn\'t show on credit report.']].map(([t,s],i)=>(
+            <div key={i} className="row" style={{marginBottom:14,alignItems:'flex-start',gap:12}}>
+              <div className="mono" style={{width:28,height:28,borderRadius:8,background:'var(--brand-soft)',color:'var(--brand)',display:'grid',placeItems:'center',fontSize:12,fontWeight:600,flexShrink:0}}>{i+1}</div>
+              <div><div style={{fontSize:13.5,fontWeight:500}}>{t}</div><div style={{fontSize:12.5,color:'var(--ink-3)',marginTop:3,lineHeight:1.5}}>{s}</div></div>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <div className="h2" style={{marginBottom:14}}>This cycle's activity</div>
+          <div style={{padding:14,background:'var(--surface-2)',borderRadius:10,marginBottom:14}}>
+            <div className="between" style={{marginBottom:10}}>
+              <div className="row"><Av name="Daniel K." size="sm"/><div><div style={{fontSize:13,fontWeight:500}}>@daniel_k · month 3</div><div style={{fontSize:11,color:'var(--ink-3)'}}>Covered Apr 1 · repay by Jun 1</div></div></div>
+              <div className="mono" style={{fontWeight:500}}>£500</div>
+            </div>
+            <div className="bar" style={{height:5}}><span style={{width:'8%'}}/></div>
+            <div className="between" style={{fontSize:11,color:'var(--ink-3)',marginTop:6}}><span>£40 repaid</span><span>£460 remaining</span></div>
+          </div>
+          <div className="hr"/>
+          <div style={{fontSize:12.5,color:'var(--ink-2)',lineHeight:1.6}}>Auto-loan is funded by a regulated credit facility — not other members' money. Your circle is never at risk.</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Wallet ─────────────────────────────────────────────
+function Wallet({setPage}){
+  return(
+    <>
+      <div className="page-head">
+        <div><h1>Wallet</h1><div className="sub">Virtual account · AJO-230-5587-1144 · FCA e-money safeguarded</div></div>
+        <div className="row"><button className="btn btn-ghost"><Ic.arrDn style={{width:13,height:13}}/>Top up</button><button className="btn btn-ghost"><Ic.arrUp style={{width:13,height:13}}/>Withdraw</button><button className="btn btn-ghost"><Ic.dl style={{width:13,height:13}}/>Statement</button></div>
+      </div>
+      <div className="g4" style={{marginBottom:20}}>
+        {[['Available balance','£42.18','Ready to send'],['Incoming · scheduled','£5,000','Aug 28 · Brum Builders','up'],['Lifetime received','£10,510','↑ 2 previous circles','up'],['Lifetime contributed','£10,000','20 contributions']].map(([l,v,d,up])=>(
+          <div key={l} className="kpi"><div className="kl">{l}</div><div className="kv">{v}</div><div className={`kd${up?' up':''}`}>{d}</div></div>
+        ))}
+      </div>
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <div className="between" style={{padding:'14px 20px',borderBottom:'1px solid var(--line-2)'}}>
+          <div className="h2">All transactions</div>
+          <div className="tabs">{['All','In','Out','Queued'].map((t,i)=><button key={t} className={i===0?'on':''}>{t}</button>)}</div>
+        </div>
+        <table className="t">
+          <thead><tr><th>Transaction</th><th>Date</th><th>Status</th><th>Reference</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+          <tbody>
+            {TXNS.map(t=>(
+              <tr key={t.id} style={{opacity:t.status==='Queued'?.7:1}}>
+                <td><div className="row"><div style={{width:28,height:28,borderRadius:7,background:t.type==='in'?'var(--good-soft)':'var(--surface-2)',color:t.type==='in'?'var(--good)':'var(--ink-2)',display:'grid',placeItems:'center'}}>{t.type==='in'?<Ic.arrDn style={{width:13,height:13}}/>:<Ic.arrUp style={{width:13,height:13}}/>}</div><span style={{fontWeight:500}}>{t.label}</span></div></td>
+                <td className="muted">{t.date}</td>
+                <td><span className={`pill ${t.status==='Settled'?'good':'gold'}`}>{t.status}</span></td>
+                <td className="mono muted" style={{fontSize:12}}>AJO-{(10000+t.id)}</td>
+                <td className="mono" style={{textAlign:'right',fontWeight:500,color:t.type==='in'?'var(--good)':'var(--ink)'}}>{t.type==='in'?'+':'−'}£{t.amount.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// ── Circle page ───────────────────────────────────────
+function Circle({role,setPage}){
+  return(
+    <>
+      <div className="page-head">
+        <div>
+          <div className="row" style={{marginBottom:4}}><h1 style={{margin:0}}>{CIRCLE.name}</h1><span className="pill good"><Ic.shield style={{width:10,height:10}}/>Verified</span><span className="pill brand">Month {CIRCLE.month}/{CIRCLE.size}</span></div>
+          <div className="sub">{CIRCLE.city} · £{CIRCLE.amount} × {CIRCLE.size} monthly · pot £{CIRCLE.pot.toLocaleString()}</div>
+        </div>
+        {role==='admin'&&<button className="btn btn-primary" onClick={()=>setPage('payouts')}>Release payout →</button>}
+      </div>
+      <div className="g3-1">
+        <div className="stack">
+          <div className="card">
+            <div className="h2" style={{marginBottom:16}}>Rotation timeline</div>
+            <div className="tl">
+              {[...MEMBERS].sort((a,b)=>a.pos-b.pos).map(m=>{
+                const st=m.status==='received'?'done':m.status==='receiving'?'now':'';
+                return(
+                  <div key={m.u} className={`tl-node ${st}`}>
+                    <div className="tl-dot"/>
+                    <div style={{padding:'9px 12px',background:st==='now'?'var(--brand-soft)':'var(--surface)',border:'1px solid var(--line)',borderRadius:10,display:'flex',alignItems:'center',gap:10}}>
+                      <Av name={m.n} size="sm"/>
+                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,display:'flex',gap:6,alignItems:'center'}}>{m.n}{m.me&&<span className="pill brand" style={{height:16,fontSize:10}}>you</span>}</div><div style={{fontSize:11.5,color:'var(--ink-3)'}}>Month {m.pos} · {st==='done'?'received':st==='now'?CIRCLE.nextDate:'upcoming'}</div></div>
+                      <div className="mono" style={{fontSize:13,fontWeight:600,color:st==='now'?'var(--brand)':st==='done'?'var(--good)':'var(--ink-3)'}}>£5,000</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="stack">
+          <div className="card">
+            <div className="h2" style={{marginBottom:14}}>Circle rules</div>
+            {[['Contribution',`£${CIRCLE.amount} monthly · autopay 1st`],['Rotation','Fixed by join-date'],['Late grace','48 hours'],['Exit','Only after payout month'],['Min credit score','680']].map(([k,v])=>(
+              <div key={k} style={{padding:'9px 0',borderBottom:'1px solid var(--line-2)'}}><div className="label-xs">{k}</div><div style={{fontSize:13.5,marginTop:3}}>{v}</div></div>
+            ))}
+          </div>
+          <div className="card">
+            <div className="h2" style={{marginBottom:12}}>Contribution progress</div>
+            <div className="between" style={{fontSize:12.5,marginBottom:6}}><span>9 of 10 collected</span><span className="mono">£4,500 / £5,000</span></div>
+            <div className="bar"><span style={{width:'90%'}}/></div>
+            <div className="row" style={{marginTop:12,padding:10,background:'var(--gold-soft)',color:'var(--gold)',borderRadius:8,fontSize:12}}><Ic.bolt style={{width:13,height:13}}/>Auto-loan covering £500 for @daniel_k</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── App ───────────────────────────────────────────────
+const CRUMBS = {
+  home:['AjoCredit','Dashboard'],
+  circle:['AjoCredit','Circles','Brum Builders'],
+  members:['AjoCredit','Brum Builders','Members'],
+  payouts:['AjoCredit','Brum Builders','Payouts'],
+  credit:['AjoCredit','Me','Credit & checks'],
+  autoloan:['AjoCredit','Safety','Auto-loan'],
+  wallet:['AjoCredit','Me','Wallet'],
+};
+
+function App(){
+  const [page,setPage]=React.useState(()=>localStorage.getItem('ajoweb_p')||'home');
+  const [role,setRole]=React.useState(()=>localStorage.getItem('ajoweb_r')||'member');
+  React.useEffect(()=>localStorage.setItem('ajoweb_p',page),[page]);
+  React.useEffect(()=>localStorage.setItem('ajoweb_r',role),[role]);
+
+  let content=null;
+  if(page==='home')     content=<Dashboard role={role} setPage={setPage}/>;
+  else if(page==='circle')   content=<Circle role={role} setPage={setPage}/>;
+  else if(page==='members')  content=<Members role={role}/>;
+  else if(page==='payouts')  content=<Payouts role={role}/>;
+  else if(page==='credit')   content=<Credit/>;
+  else if(page==='autoloan') content=<Autoloan/>;
+  else if(page==='wallet')   content=<Wallet setPage={setPage}/>;
+  else content=<Dashboard role={role} setPage={setPage}/>;
+
+  return(
+    <>
+      <Sidebar page={page} setPage={setPage} role={role} setRole={setRole}/>
+      <div className="main">
+        <Topbar crumbs={CRUMBS[page]||['AjoCredit']}/>
+        <div className="content">{content}</div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

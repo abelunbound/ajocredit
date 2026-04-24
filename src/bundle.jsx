@@ -1,0 +1,2062 @@
+
+// ===== frames/ios-frame.jsx =====
+
+// iOS.jsx — Simplified iOS 26 (Liquid Glass) device frame
+// Based on the iOS 26 UI Kit + Figma status bar spec. No assets, no deps.
+// Exports: IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard
+
+// ─────────────────────────────────────────────────────────────
+// Status bar
+// ─────────────────────────────────────────────────────────────
+function IOSStatusBar({ dark = false, time = '9:41' }) {
+  const c = dark ? '#fff' : '#000';
+  return (
+    <div style={{
+      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+      padding: '21px 24px 19px', boxSizing: 'border-box',
+      position: 'relative', zIndex: 20, width: '100%',
+    }}>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+        <span style={{
+          fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+          fontSize: 17, lineHeight: '22px', color: c,
+        }}>{time}</span>
+      </div>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+        <svg width="19" height="12" viewBox="0 0 19 12">
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12">
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+          <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
+          <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Liquid glass pill — blur + tint + shine
+// ─────────────────────────────────────────────────────────────
+function IOSGlassPill({ children, dark = false, style = {} }) {
+  return (
+    <div style={{
+      height: 44, minWidth: 44, borderRadius: 9999,
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: dark
+        ? '0 2px 6px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)'
+        : '0 1px 3px rgba(0,0,0,0.07), 0 3px 10px rgba(0,0,0,0.06)',
+      ...style,
+    }}>
+      {/* blur + tint */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.28)' : 'rgba(255,255,255,0.5)',
+      }} />
+      {/* shine */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(255,255,255,0.08)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Navigation bar — glass pills + large title
+// ─────────────────────────────────────────────────────────────
+function IOSNavBar({ title = 'Title', dark = false, trailingIcon = true }) {
+  const muted = dark ? 'rgba(255,255,255,0.6)' : '#404040';
+  const text = dark ? '#fff' : '#000';
+  const pillIcon = (content) => (
+    <IOSGlassPill dark={dark}>
+      <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {content}
+      </div>
+    </IOSGlassPill>
+  );
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      paddingTop: 62, paddingBottom: 10, position: 'relative', zIndex: 5,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px',
+      }}>
+        {/* back chevron */}
+        {pillIcon(
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" style={{ marginLeft: -1 }}>
+            <path d="M10 2L2 10l8 8" stroke={muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        {/* trailing ellipsis */}
+        {trailingIcon && pillIcon(
+          <svg width="22" height="6" viewBox="0 0 22 6">
+            <circle cx="3" cy="3" r="2.5" fill={muted}/>
+            <circle cx="11" cy="3" r="2.5" fill={muted}/>
+            <circle cx="19" cy="3" r="2.5" fill={muted}/>
+          </svg>
+        )}
+      </div>
+      {/* large title */}
+      <div style={{
+        padding: '0 16px',
+        fontFamily: '-apple-system, system-ui',
+        fontSize: 34, fontWeight: 700, lineHeight: '41px',
+        color: text, letterSpacing: 0.4,
+      }}>{title}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Grouped list (inset card, r:26) + row (52px)
+// ─────────────────────────────────────────────────────────────
+function IOSListRow({ title, detail, icon, chevron = true, isLast = false, dark = false }) {
+  const text = dark ? '#fff' : '#000';
+  const sec = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const ter = dark ? 'rgba(235,235,245,0.3)' : 'rgba(60,60,67,0.3)';
+  const sep = dark ? 'rgba(84,84,88,0.65)' : 'rgba(60,60,67,0.12)';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', minHeight: 52,
+      padding: '0 16px', position: 'relative',
+      fontFamily: '-apple-system, system-ui', fontSize: 17,
+      letterSpacing: -0.43,
+    }}>
+      {icon && (
+        <div style={{
+          width: 30, height: 30, borderRadius: 7, background: icon,
+          marginRight: 12, flexShrink: 0,
+        }} />
+      )}
+      <div style={{ flex: 1, color: text }}>{title}</div>
+      {detail && <span style={{ color: sec, marginRight: 6 }}>{detail}</span>}
+      {chevron && (
+        <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}>
+          <path d="M1 1l6 6-6 6" stroke={ter} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {!isLast && (
+        <div style={{
+          position: 'absolute', bottom: 0, right: 0,
+          left: icon ? 58 : 16, height: 0.5, background: sep,
+        }} />
+      )}
+    </div>
+  );
+}
+
+function IOSList({ header, children, dark = false }) {
+  const hc = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const bg = dark ? '#1C1C1E' : '#fff';
+  return (
+    <div>
+      {header && (
+        <div style={{
+          fontFamily: '-apple-system, system-ui', fontSize: 13,
+          color: hc, textTransform: 'uppercase',
+          padding: '8px 36px 6px', letterSpacing: -0.08,
+        }}>{header}</div>
+      )}
+      <div style={{
+        background: bg, borderRadius: 26,
+        margin: '0 16px', overflow: 'hidden',
+      }}>{children}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Device frame
+// ─────────────────────────────────────────────────────────────
+function IOSDevice({
+  children, width = 402, height = 874, dark = false,
+  title, keyboard = false,
+}) {
+  return (
+    <div style={{
+      width, height, borderRadius: 48, overflow: 'hidden',
+      position: 'relative', background: dark ? '#000' : '#F2F2F7',
+      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+      fontFamily: '-apple-system, system-ui, sans-serif',
+      WebkitFontSmoothing: 'antialiased',
+    }}>
+      {/* dynamic island */}
+      <div style={{
+        position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+        width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+      }} />
+      {/* status bar (absolute) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+        <IOSStatusBar dark={dark} />
+      </div>
+      {/* nav + content */}
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {title !== undefined && <IOSNavBar title={title} dark={dark} />}
+        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        {keyboard && <IOSKeyboard dark={dark} />}
+      </div>
+      {/* home indicator — always on top */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
+        height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        paddingBottom: 8, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: 139, height: 5, borderRadius: 100,
+          background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Keyboard — iOS 26 liquid glass
+// ─────────────────────────────────────────────────────────────
+function IOSKeyboard({ dark = false }) {
+  const glyph = dark ? 'rgba(255,255,255,0.7)' : '#595959';
+  const sugg = dark ? 'rgba(255,255,255,0.6)' : '#333';
+  const keyBg = dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.85)';
+
+  // special-key icons
+  const icons = {
+    shift: <svg width="19" height="17" viewBox="0 0 19 17"><path d="M9.5 1L1 9.5h4.5V16h8V9.5H18L9.5 1z" fill={glyph}/></svg>,
+    del: <svg width="23" height="17" viewBox="0 0 23 17"><path d="M7 1h13a2 2 0 012 2v11a2 2 0 01-2 2H7l-6-7.5L7 1z" fill="none" stroke={glyph} strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 5l7 7M17 5l-7 7" stroke={glyph} strokeWidth="1.6" strokeLinecap="round"/></svg>,
+    ret: <svg width="20" height="14" viewBox="0 0 20 14"><path d="M18 1v6H4m0 0l4-4M4 7l4 4" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  };
+
+  const key = (content, { w, flex, ret, fs = 25, k } = {}) => (
+    <div key={k} style={{
+      height: 42, borderRadius: 8.5,
+      flex: flex ? 1 : undefined, width: w, minWidth: 0,
+      background: ret ? '#08f' : keyBg,
+      boxShadow: '0 1px 0 rgba(0,0,0,0.075)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: '-apple-system, "SF Compact", system-ui',
+      fontSize: fs, fontWeight: 458, color: ret ? '#fff' : glyph,
+    }}>{content}</div>
+  );
+
+  const row = (keys, pad = 0) => (
+    <div style={{ display: 'flex', gap: 6.5, justifyContent: 'center', padding: `0 ${pad}px` }}>
+      {keys.map(l => key(l, { flex: true, k: l }))}
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: 'relative', zIndex: 15, borderRadius: 27, overflow: 'hidden',
+      padding: '11px 0 2px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      boxShadow: dark
+        ? '0 -2px 20px rgba(0,0,0,0.09)'
+        : '0 -1px 6px rgba(0,0,0,0.018), 0 -3px 20px rgba(0,0,0,0.012)',
+    }}>
+      {/* liquid glass bg — same recipe as nav pills */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.14)' : 'rgba(255,255,255,0.25)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* autocorrect bar */}
+      <div style={{
+        display: 'flex', gap: 20, alignItems: 'center',
+        padding: '8px 22px 13px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {['"The"', 'the', 'to'].map((w, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <div style={{ width: 1, height: 25, background: '#ccc', opacity: 0.3 }} />}
+            <div style={{
+              flex: 1, textAlign: 'center',
+              fontFamily: '-apple-system, system-ui', fontSize: 17,
+              color: sugg, letterSpacing: -0.43, lineHeight: '22px',
+            }}>{w}</div>
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* key layout */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 13,
+        padding: '0 6.5px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {row(['q','w','e','r','t','y','u','i','o','p'])}
+        {row(['a','s','d','f','g','h','j','k','l'], 20)}
+        <div style={{ display: 'flex', gap: 14.25, alignItems: 'center' }}>
+          {key(icons.shift, { w: 45, k: 'shift' })}
+          <div style={{ display: 'flex', gap: 6.5, flex: 1 }}>
+            {['z','x','c','v','b','n','m'].map(l => key(l, { flex: true, k: l }))}
+          </div>
+          {key(icons.del, { w: 45, k: 'del' })}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {key('ABC', { w: 92.25, fs: 18, k: 'abc' })}
+          {key('', { flex: true, k: 'space' })}
+          {key(icons.ret, { w: 92.25, ret: true, k: 'ret' })}
+        </div>
+      </div>
+
+      {/* bottom spacer (emoji+mic area, icons omitted) */}
+      <div style={{ height: 56, width: '100%', position: 'relative' }} />
+    </div>
+  );
+}
+
+Object.assign(window, {
+  IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard,
+});
+
+// ===== src/shared.jsx =====
+// ===== AjoCredit shared data + components =====
+
+// —————— Icons ——————
+const Icon = {
+  home: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1Z"/></svg>,
+  circles: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="9" cy="9" r="5"/><circle cx="16" cy="15" r="5"/></svg>,
+  wallet: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5Z"/><path d="M16 12.5h3"/></svg>,
+  user: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-7 8-7s7 2.5 8 7"/></svg>,
+  plus: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  search: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>,
+  bell: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>,
+  chevR: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m9 6 6 6-6 6"/></svg>,
+  chevL: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m15 6-6 6 6 6"/></svg>,
+  check: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12.5 10 17 19 7"/></svg>,
+  shield: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3 4 6v6c0 5 4 8 8 9 4-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>,
+  shieldPlus: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3 4 6v6c0 5 4 8 8 9 4-1 8-4 8-9V6Z"/><path d="M12 9v6M9 12h6"/></svg>,
+  bolt: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M13 3 4 14h7l-1 7 9-11h-7Z"/></svg>,
+  calendar: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>,
+  close: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 6l12 12M6 18 18 6"/></svg>,
+  arrowR: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12h14M13 6l6 6-6 6"/></svg>,
+  arrowUp: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 19V5M5 12l7-7 7 7"/></svg>,
+  arrowDown: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 5v14M19 12l-7 7-7-7"/></svg>,
+  lock: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>,
+  eye: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>,
+  eyeOff: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m3 3 18 18M10.5 6.3A10 10 0 0 1 22 12s-1.2 2.4-3.6 4.5M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4.4-1"/><path d="M9.9 9.9A3 3 0 0 0 14 14"/></svg>,
+  send: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 11 21 3l-8 18-2-8Z"/><path d="m11 13 4-4"/></svg>,
+  sparkles: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>,
+  dots: (p) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>,
+  flag: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 21V4h12l-2 4 2 4H5"/></svg>,
+  book: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 4h11a3 3 0 0 1 3 3v14H7a3 3 0 0 1-3-3Z"/><path d="M4 18h14"/></svg>,
+  pound: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M16 7a4 4 0 0 0-8 0v4H6m0 0h10M6 11v3c0 1.7-1 3-1 3h13"/></svg>,
+  chart: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 20h18M6 16V9M11 16V5M16 16v-5M21 16v-3"/></svg>,
+  alert: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m12 3 10 18H2Z"/><path d="M12 10v5M12 18v.5"/></svg>,
+};
+
+// —————— Avatars / colors ——————
+const AVATAR_PALETTES = [
+  ['#0E4F47', '#3FB89B'], ['#1B6E89', '#6AA9C8'], ['#B88A2A', '#E8C468'],
+  ['#7A4B2A', '#CC9461'], ['#2F7A4C', '#5AC582'], ['#8A5CB3', '#C49EEB'],
+  ['#B0392E', '#E26A5D'], ['#38497A', '#7189C2'], ['#1E5C4A', '#4D9C7F'],
+  ['#6B4A22', '#B08A4A'],
+];
+function avatarColor(name = '') {
+  const i = (name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % AVATAR_PALETTES.length;
+  return AVATAR_PALETTES[i];
+}
+function Avatar({ name = '', size = 'md', style = {} }) {
+  const sz = size === 'lg' ? 'avatar-lg' : size === 'xl' ? 'avatar-xl' : size === 'sm' ? 'avatar-sm' : '';
+  const [a, b] = avatarColor(name);
+  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <div className={`avatar ${sz}`} style={{ background: `linear-gradient(135deg, ${a}, ${b})`, ...style }}>
+      {initials}
+    </div>
+  );
+}
+
+// —————— Demo data ——————
+const ME = { username: 'kemi_a', name: 'Kemi A.', city: 'Birmingham', role: 'member' };
+
+const CIRCLE_MEMBERS = [
+  { u: 'abel_o', n: 'Abel O.', next: true, paid: true, position: 3, score: 824 },
+  { u: 'kemi_a', n: 'Kemi A.', paid: true, position: 4, score: 791, me: true },
+  { u: 'chidi_m', n: 'Chidi M.', paid: true, position: 5, score: 765 },
+  { u: 'tola_b', n: 'Tola B.', paid: true, position: 6, score: 812 },
+  { u: 'nneka_o', n: 'Nneka O.', paid: true, position: 7, score: 743 },
+  { u: 'daniel_k', n: 'Daniel K.', paid: 'pending', position: 8, score: 698 },
+  { u: 'femi_r', n: 'Femi R.', paid: true, position: 9, score: 772 },
+  { u: 'aisha_w', n: 'Aisha W.', paid: true, position: 10, score: 801 },
+  { u: 'ola_t', n: 'Ola T.', done: true, position: 1, score: 818 },
+  { u: 'ebuka_n', n: 'Ebuka N.', done: true, position: 2, score: 779 },
+];
+
+const CIRCLE = {
+  name: 'Brum Builders',
+  city: 'Birmingham, UK',
+  amount: 500,
+  frequency: 'monthly',
+  size: 10,
+  pot: 5000,
+  month: 3,
+  nextDate: 'Apr 28',
+  recipient: 'abel_o',
+  recipientName: 'Abel O.',
+};
+
+const OTHER_CIRCLES = [
+  { name: 'Sister Circle', amount: 100, freq: 'weekly', size: 8, month: 4, open: false, verified: true },
+  { name: 'Engineers Pool', amount: 800, freq: 'monthly', size: 6, month: 1, open: true, verified: true },
+  { name: 'Lagos to UK', amount: 50, freq: 'weekly', size: 10, month: 2, open: true, verified: false },
+];
+
+const TXNS = [
+  { id: 1, type: 'out', label: 'Brum Builders · April', amount: 500, date: 'Apr 1', status: 'settled' },
+  { id: 2, type: 'in', label: 'Welcome bonus', amount: 10, date: 'Mar 30', status: 'settled' },
+  { id: 3, type: 'out', label: 'Brum Builders · March', amount: 500, date: 'Mar 1', status: 'settled' },
+  { id: 4, type: 'out', label: 'Brum Builders · February', amount: 500, date: 'Feb 1', status: 'settled' },
+  { id: 5, type: 'in', label: 'Payout — Brum Builders', amount: 5000, date: 'Jan 28', status: 'queued', future: true },
+];
+
+// —————— Tab bar ——————
+function TabBar({ active, onNav }) {
+  const tabs = [
+    { k: 'home', label: 'Home', icon: Icon.home },
+    { k: 'circles', label: 'Circles', icon: Icon.circles },
+    { k: 'new', label: '', icon: Icon.plus, big: true },
+    { k: 'wallet', label: 'Wallet', icon: Icon.wallet },
+    { k: 'profile', label: 'Profile', icon: Icon.user },
+  ];
+  return (
+    <nav className="tabbar" data-screen-label="TabBar">
+      {tabs.map(t => (
+        <button
+          key={t.k}
+          className={`tab ${active === t.k ? 'active' : ''}`}
+          onClick={() => onNav(t.k)}
+        >
+          {t.big ? (
+            <div style={{
+              width: 46, height: 46, borderRadius: 14,
+              background: 'var(--brand)', color: 'var(--brand-ink)',
+              display: 'grid', placeItems: 'center',
+              boxShadow: '0 6px 18px color-mix(in srgb, var(--brand) 35%, transparent)',
+              marginTop: -14,
+            }}>
+              <t.icon style={{ width: 22, height: 22 }} />
+            </div>
+          ) : (
+            <>
+              <t.icon />
+              <span>{t.label}</span>
+            </>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// —————— Topbar ——————
+function TopBar({ left, right, title, sub }) {
+  return (
+    <header className="topbar">
+      {left || (
+        <div className="brandmark">
+          <div className="brand-dot">a</div>
+          <span>{title || 'AjoCredit'}</span>
+          {sub && <span style={{ color: 'var(--ink-3)', marginLeft: 4 }}>· {sub}</span>}
+        </div>
+      )}
+      {right || (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="icon-btn"><Icon.search style={{ width: 18, height: 18 }} /></button>
+          <button className="icon-btn" style={{ position: 'relative' }}>
+            <Icon.bell style={{ width: 18, height: 18 }} />
+            <span style={{ position: 'absolute', top: 8, right: 9, width: 7, height: 7, background: 'var(--danger)', borderRadius: '50%', border: '1.5px solid var(--surface)' }} />
+          </button>
+        </div>
+      )}
+    </header>
+  );
+}
+
+// —————— Nav header (back) ——————
+function NavHeader({ title, onBack, right }) {
+  return (
+    <header className="topbar" style={{ paddingBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button className="icon-btn" onClick={onBack}><Icon.chevL style={{ width: 18, height: 18 }} /></button>
+        <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em' }}>{title}</div>
+      </div>
+      {right || <div style={{ width: 36 }} />}
+    </header>
+  );
+}
+
+// —————— Score ring ——————
+function ScoreRing({ score, max = 999, label = 'Credit score', size = 132, tag }) {
+  const pct = Math.min(1, score / max);
+  const r = size / 2 - 10;
+  const c = 2 * Math.PI * r;
+  const band =
+    score >= 780 ? 'Excellent' :
+    score >= 700 ? 'Good' :
+    score >= 620 ? 'Fair' : 'Poor';
+  const color =
+    score >= 780 ? 'var(--good)' :
+    score >= 700 ? 'var(--brand)' :
+    score >= 620 ? 'var(--gold)' : 'var(--danger)';
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--line-2)" strokeWidth="8" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={`${c * pct} ${c}`} strokeLinecap="round" />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+        <div>
+          <div className="label-xs" style={{ marginBottom: 2 }}>{label}</div>
+          <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1 }} className="mono">{score}</div>
+          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color }}>{tag || band}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  Icon, Avatar, avatarColor, TabBar, TopBar, NavHeader, ScoreRing,
+  ME, CIRCLE, CIRCLE_MEMBERS, OTHER_CIRCLES, TXNS,
+});
+
+// ===== src/onboarding.jsx =====
+// ===== Onboarding, KYC, Credit Checks =====
+
+function OnboardingWelcome({ onNext, onSkip }) {
+  return (
+    <div className="screen no-tab" style={{ padding: '30px 24px 40px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="brandmark">
+          <div className="brand-dot">a</div>
+          <span>AjoCredit</span>
+        </div>
+        <button onClick={onSkip} className="mono" style={{ color: 'var(--ink-3)', fontSize: 12 }}>Skip demo →</button>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingTop: 40 }}>
+        <div className="label-xs" style={{ marginBottom: 14 }}>Community savings, done right</div>
+        <h1 className="h1" style={{ fontSize: 34, lineHeight: 1.1, marginBottom: 16 }}>
+          Save together, <span className="serif" style={{ fontSize: 36 }}>get paid</span> in turn.
+        </h1>
+        <p style={{ color: 'var(--ink-2)', fontSize: 15, lineHeight: 1.5, marginBottom: 28 }}>
+          Join a trusted group of 5–10 people. Contribute £50–£800 weekly or monthly. Everyone gets a lump sum — on schedule.
+        </p>
+
+        <div style={{ display: 'grid', gap: 10, marginBottom: 24 }}>
+          {[
+            { icon: Icon.shield, t: 'Credit-checked members', s: 'Home-country + UK affordability' },
+            { icon: Icon.bolt, t: 'Auto-payouts, on time', s: 'Interest-free backstop if someone\'s late' },
+            { icon: Icon.eyeOff, t: 'Usernames only', s: 'No bank details ever shown to members' },
+          ].map((f, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 4 }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: 'var(--brand-soft)', color: 'var(--brand)',
+                display: 'grid', placeItems: 'center', flexShrink: 0,
+              }}><f.icon style={{ width: 18, height: 18, strokeWidth: 1.8 }} /></div>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 14.5 }}>{f.t}</div>
+                <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>{f.s}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button className="btn btn-primary btn-xl btn-block" onClick={onNext}>
+        Get started
+      </button>
+      <button className="btn btn-block" style={{ color: 'var(--ink-2)', fontSize: 14, marginTop: 4 }} onClick={onNext}>
+        I have an account
+      </button>
+    </div>
+  );
+}
+
+// —————— Credit check A (country of origin) ——————
+function CreditCheckA({ onNext, onBack }) {
+  const [stage, setStage] = React.useState('intro'); // intro | running | done
+  const [country, setCountry] = React.useState('Nigeria');
+
+  React.useEffect(() => {
+    if (stage === 'running') {
+      const t = setTimeout(() => setStage('done'), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [stage]);
+
+  if (stage === 'running') return <CheckRunning label={`Checking your credit in ${country}…`} onBack={onBack} />;
+
+  if (stage === 'done') {
+    return (
+      <div className="screen no-tab">
+        <NavHeader title="Credit check · Country of origin" onBack={onBack} />
+        <div className="section" style={{ marginTop: 8 }}>
+          <div className="label-xs">Result</div>
+          <div className="h2" style={{ marginTop: 6, marginBottom: 16 }}>No pending debt found.</div>
+
+          <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <ScoreRing score={712} tag="Good" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="label-xs">Origin: Nigeria · CRC Bureau</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.45 }}>
+                Verified via BVN + NIN. No outstanding loans, no collections, no active judgments.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 0, overflow: 'hidden' }}>
+            {[
+              ['Active liabilities', '£0.00'],
+              ['Accounts past due', '0'],
+              ['Credit enquiries (12m)', '2'],
+              ['Oldest account', '6 yr 4 mo'],
+            ].map(([k, v], i, a) => (
+              <div key={k} className="row row-flat" style={{
+                padding: '14px 16px',
+                borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+                borderRadius: 0,
+              }}>
+                <div className="main">
+                  <div style={{ fontSize: 14, color: 'var(--ink-2)' }}>{k}</div>
+                </div>
+                <div className="mono" style={{ fontSize: 14, fontWeight: 500 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '24px 20px 0' }}>
+          <button className="btn btn-primary btn-xl btn-block" onClick={onNext}>
+            Continue to UK check
+            <Icon.arrowR style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Credit check · a" onBack={onBack} />
+      <div className="section">
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'grid', placeItems: 'center', marginBottom: 18 }}>
+          <Icon.flag style={{ width: 26, height: 26 }} />
+        </div>
+        <div className="label-xs">Step 2 of 4</div>
+        <h2 className="h2" style={{ margin: '6px 0 8px' }}>Country of origin</h2>
+        <p style={{ color: 'var(--ink-2)', fontSize: 14.5, lineHeight: 1.5, marginBottom: 24 }}>
+          We'll check your credit in your country of origin to see any pending debt or liability. This never affects your UK score.
+        </p>
+
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Country of origin</label>
+          <select className="input" value={country} onChange={e => setCountry(e.target.value)}>
+            <option>Nigeria</option><option>Ghana</option><option>Kenya</option>
+            <option>South Africa</option><option>India</option><option>Pakistan</option>
+          </select>
+        </div>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>National identifier (BVN / NIN / equivalent)</label>
+          <input className="input mono" defaultValue="2210 **** **** 4187" />
+        </div>
+
+        <div className="card-flat" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 10, marginBottom: 24 }}>
+          <Icon.lock style={{ width: 18, height: 18, color: 'var(--ink-3)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Encrypted submission to accredited bureau. Soft check — no impact on your score.
+          </div>
+        </div>
+
+        <button className="btn btn-primary btn-xl btn-block" onClick={() => setStage('running')}>
+          Run credit check
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// —————— Credit check B (UK affordability) ——————
+function CreditCheckB({ onNext, onBack }) {
+  const [stage, setStage] = React.useState('intro');
+
+  React.useEffect(() => {
+    if (stage === 'running') {
+      const t = setTimeout(() => setStage('done'), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [stage]);
+
+  if (stage === 'running') return <CheckRunning label="Pulling UK Experian file + Open Banking…" onBack={onBack} />;
+
+  if (stage === 'done') {
+    const afford = 1140;
+    return (
+      <div className="screen no-tab">
+        <NavHeader title="UK credit & affordability" onBack={onBack} />
+        <div className="section">
+          <div className="label-xs">Result</div>
+          <div className="h2" style={{ marginTop: 6, marginBottom: 16 }}>You can comfortably contribute up to <span className="mono">£{afford}</span>/mo.</div>
+
+          <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <ScoreRing score={791} max={999} tag="Good" />
+            <div style={{ flex: 1 }}>
+              <div className="label-xs">UK · Experian</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.45 }}>
+                7 yrs in UK · On electoral roll · 0 missed payments in 24 months.
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+              <div className="h3">Affordability</div>
+              <div className="mono" style={{ color: 'var(--ink-3)', fontSize: 12 }}>Last 3 months</div>
+            </div>
+            <AffordBar label="Net income" value={3240} max={4000} color="var(--brand)" />
+            <AffordBar label="Fixed outgoings" value={1680} max={4000} color="var(--accent)" />
+            <AffordBar label="Discretionary" value={420} max={4000} color="var(--gold)" />
+            <div style={{ height: 1, background: 'var(--line-2)', margin: '14px 0' }} />
+            <div className="row-between">
+              <div style={{ fontSize: 14, color: 'var(--ink-2)' }}>Safe contribution headroom</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: 'var(--good)' }}>£{afford}</div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 14, background: 'var(--brand-soft)', border: '1px solid transparent' }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--brand)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <Icon.check style={{ width: 20, height: 20, strokeWidth: 2.5 }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--brand)' }}>Eligible for all circle tiers</div>
+                <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 3, lineHeight: 1.5 }}>
+                  £50, £100, £500, £800 monthly — weekly and monthly cadences.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '24px 20px 0' }}>
+          <button className="btn btn-primary btn-xl btn-block" onClick={onNext}>
+            Verified — finish setup
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Credit check · b" onBack={onBack} />
+      <div className="section">
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', marginBottom: 18 }}>
+          <Icon.pound style={{ width: 26, height: 26 }} />
+        </div>
+        <div className="label-xs">Step 3 of 4</div>
+        <h2 className="h2" style={{ margin: '6px 0 8px' }}>UK credit & affordability</h2>
+        <p style={{ color: 'var(--ink-2)', fontSize: 14.5, lineHeight: 1.5, marginBottom: 20 }}>
+          You've been in the UK <span style={{ color: 'var(--ink)', fontWeight: 500 }}>more than 6 months</span>, so we also run a UK check — Experian score plus a 90-day Open Banking affordability review.
+        </p>
+
+        <div className="card-flat" style={{ marginBottom: 12 }}>
+          <div className="label-xs" style={{ marginBottom: 8 }}>We'll check</div>
+          {[
+            ['UK credit score', 'Experian hard-pull'],
+            ['Affordability', 'Open Banking · 90 days'],
+            ['Electoral roll', 'Address verification'],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+              <div style={{ fontSize: 14 }}>{k}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card-flat" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 24 }}>
+          <Icon.shield style={{ width: 18, height: 18, color: 'var(--ink-3)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Connect your bank securely via Truelayer. Read-only — we never move funds.
+          </div>
+        </div>
+
+        <button className="btn btn-primary btn-xl btn-block" onClick={() => setStage('running')}>
+          Connect bank & run check
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AffordBar({ label, value, max, color }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+        <span style={{ color: 'var(--ink-2)' }}>{label}</span>
+        <span className="mono" style={{ fontWeight: 500 }}>£{value.toLocaleString()}</span>
+      </div>
+      <div className="bar" style={{ height: 8 }}>
+        <span style={{ width: `${(value / max) * 100}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function CheckRunning({ label, onBack }) {
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Running check" onBack={onBack} />
+      <div style={{ padding: '60px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <div style={{ position: 'relative', width: 100, height: 100, marginBottom: 28 }}>
+          <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="var(--line-2)" strokeWidth="6" />
+            <circle cx="50" cy="50" r="44" fill="none" stroke="var(--brand)" strokeWidth="6"
+              strokeDasharray="60 280" strokeLinecap="round" style={{ animation: 'spin 1.2s linear infinite', transformOrigin: '50% 50%' }} />
+          </svg>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+        <div className="h3" style={{ marginBottom: 8 }}>{label}</div>
+        <div style={{ color: 'var(--ink-3)', fontSize: 13 }}>Usually takes under a minute.</div>
+
+        <div style={{ marginTop: 40, width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {['Verifying identity', 'Pulling bureau data', 'Analyzing transactions', 'Scoring'].map((step, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+              <div className="loading-dot" style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: i < 2 ? 'var(--good)' : 'var(--line)',
+                animationDelay: `${i * 0.15}s`,
+              }} />
+              <div style={{ fontSize: 13.5, color: i < 2 ? 'var(--ink)' : 'var(--ink-3)' }}>{step}</div>
+              {i < 2 && <Icon.check style={{ width: 14, height: 14, color: 'var(--good)', marginLeft: 'auto' }} />}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { OnboardingWelcome, CreditCheckA, CreditCheckB, CheckRunning, AffordBar });
+
+// ===== src/dashboard.jsx =====
+// ===== Home / Dashboard =====
+
+function Dashboard({ onNav, layout = 'cards', role = 'member' }) {
+  const next = CIRCLE_MEMBERS.find(m => m.u === CIRCLE.recipient);
+  const myPosition = CIRCLE_MEMBERS.find(m => m.me);
+  const monthsToPayout = myPosition.position - CIRCLE.month;
+
+  return (
+    <>
+      <TopBar sub={CIRCLE.city} />
+      <div className="screen">
+        {/* HERO — next payout */}
+        <div className="section">
+          <div className="card" style={{
+            background: 'linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 80%, black))',
+            color: 'var(--brand-ink)', border: 0, padding: 20, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+            <div style={{ position: 'absolute', right: 20, bottom: -60, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, position: 'relative' }}>
+              <div className="pill" style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--brand-ink)', border: 0 }}>
+                <span className="dot" style={{ background: '#5AC582' }} /> Your next contribution
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>{CIRCLE.nextDate}</div>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <div className="mono" style={{ fontSize: 44, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                £{CIRCLE.amount}
+              </div>
+              <div style={{ fontSize: 13.5, opacity: 0.85, marginTop: 8 }}>
+                To <strong style={{ fontWeight: 500 }}>{CIRCLE.name}</strong> · auto-pays in 11 days
+              </div>
+
+              <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
+                <button className="btn btn-sm" onClick={() => onNav('circle-detail')} style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--brand-ink)' }}>
+                  View circle
+                </button>
+                <button className="btn btn-sm" onClick={() => onNav('payout')} style={{ background: 'rgba(255,255,255,0.95)', color: 'var(--brand)' }}>
+                  Pay early
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's action — next recipient */}
+        <div className="section">
+          <div className="card" style={{ padding: 16 }}>
+            <div className="row-between" style={{ marginBottom: 12 }}>
+              <div className="label-xs">This month's payout</div>
+              <div className="mono muted" style={{ fontSize: 12 }}>Month {CIRCLE.month} / {CIRCLE.size}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <Avatar name={next.n} size="lg" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15.5, fontWeight: 500 }}>{next.n} is next</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 2 }}>@{next.u} · receives on {CIRCLE.nextDate}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="mono" style={{ fontSize: 18, fontWeight: 600 }}>£{CIRCLE.pot.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>pot total</div>
+              </div>
+            </div>
+            <div className="bar" style={{ marginTop: 14 }}>
+              <span style={{ width: `${((CIRCLE.size - 1) / CIRCLE.size) * 100}%` }} />
+            </div>
+            <div className="row-between" style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-3)' }}>
+              <span>9 of 10 paid in</span>
+              <span className="row-center"><Icon.bolt style={{ width: 12, height: 12, color: 'var(--gold)' }}/> Auto-loan armed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* YOUR TURN strip — layouts diverge here */}
+        {layout === 'cards' && <YourTurnCards monthsToPayout={monthsToPayout} myPosition={myPosition} onNav={onNav} />}
+        {layout === 'timeline' && <YourTurnTimeline onNav={onNav} />}
+        {layout === 'calendar' && <YourTurnCalendar myPosition={myPosition} onNav={onNav} />}
+
+        {/* Quick actions */}
+        <div className="section">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <QuickTile icon={Icon.plus} label="Join circle" sub="3 open near you" onClick={() => onNav('browse')} />
+            <QuickTile icon={Icon.sparkles} label="Create circle" sub="Invite your people" onClick={() => onNav('create')} />
+            <QuickTile icon={Icon.shieldPlus} label="Auto-loan" sub="Never miss a payout" onClick={() => onNav('autoloan')} accent />
+            <QuickTile icon={Icon.chart} label="Your score" sub="791 · Good" onClick={() => onNav('score')} />
+          </div>
+        </div>
+
+        {/* Recent activity */}
+        <div className="section" style={{ marginTop: 18 }}>
+          <div className="row-between" style={{ marginBottom: 10, padding: '0 4px' }}>
+            <div className="h3">Activity</div>
+            <button onClick={() => onNav('wallet')} style={{ fontSize: 13, color: 'var(--accent)' }}>See all</button>
+          </div>
+          <div className="card" style={{ padding: '4px 16px' }}>
+            {TXNS.slice(0, 3).map((t, i, a) => (
+              <div key={t.id} className="row row-flat" style={{
+                borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none', borderRadius: 0,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: t.type === 'in' ? 'var(--good-soft)' : 'var(--surface-2)',
+                  color: t.type === 'in' ? 'var(--good)' : 'var(--ink-2)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  {t.type === 'in' ? <Icon.arrowDown style={{ width: 16, height: 16 }} /> : <Icon.arrowUp style={{ width: 16, height: 16 }} />}
+                </div>
+                <div className="main">
+                  <div className="title">{t.label}</div>
+                  <div className="sub">{t.date} · {t.status}</div>
+                </div>
+                <div className="mono" style={{ fontWeight: 500, fontSize: 14, color: t.type === 'in' ? 'var(--good)' : 'var(--ink)' }}>
+                  {t.type === 'in' ? '+' : '−'}£{t.amount.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function QuickTile({ icon: Ic, label, sub, onClick, accent }) {
+  return (
+    <button onClick={onClick} className="card" style={{
+      textAlign: 'left', padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+      background: accent ? 'var(--gold-soft)' : 'var(--surface)',
+      border: accent ? '1px solid transparent' : '1px solid var(--line)',
+    }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 10,
+        background: accent ? 'var(--gold)' : 'var(--brand-soft)',
+        color: accent ? '#fff' : 'var(--brand)',
+        display: 'grid', placeItems: 'center',
+      }}><Ic style={{ width: 18, height: 18 }} /></div>
+      <div>
+        <div style={{ fontWeight: 500, fontSize: 14 }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{sub}</div>
+      </div>
+    </button>
+  );
+}
+
+// —————— Layout A: Cards ——————
+function YourTurnCards({ monthsToPayout, myPosition, onNav }) {
+  return (
+    <div className="section">
+      <div className="row-between" style={{ marginBottom: 10, padding: '0 4px' }}>
+        <div className="h3">Your turn</div>
+        <div className="pill gold"><Icon.calendar style={{ width: 12, height: 12 }} /> Position #{myPosition.position}</div>
+      </div>
+      <div className="card" style={{ padding: 18 }}>
+        <div className="serif" style={{ fontSize: 24, letterSpacing: '-0.02em', marginBottom: 4 }}>
+          In {monthsToPayout} month{monthsToPayout === 1 ? '' : 's'}, you receive
+        </div>
+        <div className="mono" style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.03em' }}>
+          £5,000
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="pill brand">Virtual account ready</div>
+          <div className="pill"><Icon.check style={{ width: 12, height: 12 }} /> No bank info shared</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// —————— Layout B: Timeline ——————
+function YourTurnTimeline({ onNav }) {
+  return (
+    <div className="section">
+      <div className="row-between" style={{ marginBottom: 10, padding: '0 4px' }}>
+        <div className="h3">Rotation timeline</div>
+        <button onClick={() => onNav('rotation')} style={{ fontSize: 13, color: 'var(--accent)' }}>Full view</button>
+      </div>
+      <div className="card" style={{ padding: '16px 14px 16px 20px' }}>
+        <div className="timeline">
+          {CIRCLE_MEMBERS.slice(0, 6).map((m, i) => {
+            const state = m.done ? 'done' : m.next ? 'now' : 'future';
+            return (
+              <div key={m.u} className={`tl-node ${state}`} style={{ paddingLeft: 10 }}>
+                <div className="tl-dot" />
+                <div className="card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, background: state === 'now' ? 'var(--brand-soft)' : 'var(--surface)', borderColor: state === 'now' ? 'transparent' : 'var(--line)' }}>
+                  <Avatar name={m.n} size="sm" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13.5 }}>{m.n} {m.me && <span className="muted">· you</span>}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>Month {m.position} · {state === 'done' ? 'received' : state === 'now' ? 'receiving now' : 'upcoming'}</div>
+                  </div>
+                  {state === 'now' && <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--brand)' }}>£5,000</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// —————— Layout C: Calendar ——————
+function YourTurnCalendar({ myPosition, onNav }) {
+  const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+  return (
+    <div className="section">
+      <div className="row-between" style={{ marginBottom: 10, padding: '0 4px' }}>
+        <div className="h3">Payout calendar</div>
+        <div className="pill brand">You: {months[myPosition.position - 1]}</div>
+      </div>
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+          {CIRCLE_MEMBERS.sort((a, b) => a.position - b.position).map(m => {
+            const state = m.done ? 'done' : m.next ? 'now' : 'future';
+            return (
+              <div key={m.u} style={{
+                aspectRatio: '1', borderRadius: 12, padding: 8,
+                background: state === 'done' ? 'var(--good-soft)' : state === 'now' ? 'var(--brand)' : 'var(--surface-2)',
+                color: state === 'now' ? 'var(--brand-ink)' : 'var(--ink)',
+                border: m.me ? '2px solid var(--gold)' : 'none',
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              }}>
+                <div style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>{months[m.position - 1]}</div>
+                <div>
+                  <div className="mono" style={{ fontSize: 11, fontWeight: 600, opacity: state === 'future' ? 0.5 : 1 }}>
+                    #{m.position}
+                  </div>
+                  <div style={{ fontSize: 10.5, fontWeight: 500, marginTop: 2, lineHeight: 1.2, opacity: state === 'future' ? 0.7 : 1 }}>
+                    {m.n.split(' ')[0]}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 14, marginTop: 14, fontSize: 11, color: 'var(--ink-3)', flexWrap: 'wrap' }}>
+          <span className="row-center"><span style={{ width: 8, height: 8, background: 'var(--good)', borderRadius: 2 }} /> Paid out</span>
+          <span className="row-center"><span style={{ width: 8, height: 8, background: 'var(--brand)', borderRadius: 2 }} /> This month</span>
+          <span className="row-center"><span style={{ width: 8, height: 8, border: '2px solid var(--gold)', borderRadius: 2 }} /> You</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Dashboard, QuickTile, YourTurnCards, YourTurnTimeline, YourTurnCalendar });
+
+// ===== src/circle.jsx =====
+// ===== Circle detail, rotation, browse, create, members =====
+
+function CircleDetail({ onBack, onNav, role = 'member' }) {
+  const [tab, setTab] = React.useState('overview');
+  return (
+    <div className="screen no-tab">
+      <NavHeader title={CIRCLE.name} onBack={onBack} right={
+        <button className="icon-btn"><Icon.dots style={{ width: 18, height: 18 }} /></button>
+      } />
+      <div className="section">
+        <div className="card" style={{ padding: 18 }}>
+          <div className="label-xs">Pool · {CIRCLE.frequency}</div>
+          <div className="mono" style={{ fontSize: 36, fontWeight: 600, letterSpacing: '-0.03em', marginTop: 4 }}>
+            £{CIRCLE.pot.toLocaleString()}
+          </div>
+          <div style={{ color: 'var(--ink-3)', fontSize: 13, marginTop: 4 }}>
+            £{CIRCLE.amount} × {CIRCLE.size} members · {CIRCLE.city}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+            <div className="pill good"><Icon.shield style={{ width: 12, height: 12 }} /> Verified</div>
+            <div className="pill"><Icon.bolt style={{ width: 12, height: 12, color: 'var(--gold)' }} /> Auto-loan on</div>
+            <div className="pill">Month {CIRCLE.month}/{CIRCLE.size}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="segment">
+          {['overview', 'members', 'rotation'].map(t => (
+            <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+              {t[0].toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'overview' && <CircleOverview onNav={onNav} role={role} />}
+      {tab === 'members' && <MembersList onNav={onNav} />}
+      {tab === 'rotation' && <RotationView inline />}
+    </div>
+  );
+}
+
+function CircleOverview({ onNav, role }) {
+  return (
+    <>
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="card" style={{ padding: 14 }}>
+          <div className="row-between" style={{ marginBottom: 12 }}>
+            <div className="h3">This month's payout</div>
+            <div className="mono muted" style={{ fontSize: 12 }}>{CIRCLE.nextDate}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Avatar name={CIRCLE.recipientName} size="lg" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 500 }}>{CIRCLE.recipientName}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>@{CIRCLE.recipient}</div>
+            </div>
+            <div className="mono" style={{ fontSize: 18, fontWeight: 600 }}>£{CIRCLE.pot.toLocaleString()}</div>
+          </div>
+          <div style={{ height: 1, background: 'var(--line-2)', margin: '14px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+            <div style={{ color: 'var(--ink-3)' }}>Contributions in</div>
+            <div className="mono" style={{ fontWeight: 500 }}>9 of 10 · £4,500</div>
+          </div>
+          <div className="bar" style={{ marginTop: 8 }}>
+            <span style={{ width: '90%' }} />
+          </div>
+          {role === 'admin' && (
+            <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={() => onNav('payout')}>
+              Review & release payout
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Safety</div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <button className="row" onClick={() => onNav('autoloan')} style={{ width: '100%', border: 0, borderRadius: 0, background: 'transparent', padding: '14px 16px' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--gold-soft)', color: 'var(--gold)', display: 'grid', placeItems: 'center' }}>
+              <Icon.bolt style={{ width: 18, height: 18 }} />
+            </div>
+            <div className="main" style={{ textAlign: 'left' }}>
+              <div className="title">Auto-loan backstop</div>
+              <div className="sub">Interest-free · covers up to 1 missed contribution</div>
+            </div>
+            <Icon.chevR style={{ width: 16, height: 16, color: 'var(--ink-4)' }} />
+          </button>
+          <div style={{ height: 1, background: 'var(--line-2)' }} />
+          <button className="row" style={{ width: '100%', border: 0, borderRadius: 0, background: 'transparent', padding: '14px 16px' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'grid', placeItems: 'center' }}>
+              <Icon.shield style={{ width: 18, height: 18 }} />
+            </div>
+            <div className="main" style={{ textAlign: 'left' }}>
+              <div className="title">All 10 members credit-checked</div>
+              <div className="sub">Min score 680 · affordability verified</div>
+            </div>
+            <Icon.chevR style={{ width: 16, height: 16, color: 'var(--ink-4)' }} />
+          </button>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14, marginBottom: 20 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Circle rules</div>
+        <div className="card-flat" style={{ padding: 16 }}>
+          {[
+            ['Contribution', `£${CIRCLE.amount} monthly · autopay on the 1st`],
+            ['Rotation', 'Order set by join-date · unchanged mid-cycle'],
+            ['Late grace', '48 hours before auto-loan activates'],
+            ['Exit', 'Only after your payout month'],
+          ].map(([k, v], i, a) => (
+            <div key={k} style={{ padding: '10px 0', borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none' }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{k}</div>
+              <div style={{ fontSize: 13.5 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MembersList({ onNav }) {
+  return (
+    <div className="section" style={{ marginTop: 14 }}>
+      <div className="label-xs" style={{ marginBottom: 10 }}>{CIRCLE.size} members · usernames only</div>
+      <div className="card" style={{ padding: '4px 16px' }}>
+        {CIRCLE_MEMBERS.sort((a, b) => a.position - b.position).map((m, i, a) => (
+          <button key={m.u} onClick={() => onNav('member-profile')}
+            className="row row-flat" style={{
+              width: '100%', textAlign: 'left',
+              borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+              borderRadius: 0,
+            }}>
+            <Avatar name={m.n} />
+            <div className="main">
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div className="title">@{m.u}</div>
+                {m.me && <span className="pill brand" style={{ height: 20, fontSize: 11 }}>you</span>}
+                {m.next && <span className="pill gold" style={{ height: 20, fontSize: 11 }}>next</span>}
+              </div>
+              <div className="sub">
+                {m.done ? 'Received month ' + m.position : m.next ? `Receives month ${m.position}` : `Position #${m.position}`}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="mono" style={{ fontSize: 12, color: m.paid === 'pending' ? 'var(--gold)' : m.paid || m.done ? 'var(--good)' : 'var(--ink-3)' }}>
+                {m.done ? 'past' : m.paid === 'pending' ? '· pending' : m.paid ? '✓ paid' : ''}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>score {m.score}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RotationView({ onBack, onNav, inline = false }) {
+  const content = (
+    <div className="section" style={{ marginTop: 14 }}>
+      <div className="timeline">
+        {CIRCLE_MEMBERS.sort((a, b) => a.position - b.position).map(m => {
+          const state = m.done ? 'done' : m.next ? 'now' : 'future';
+          return (
+            <div key={m.u} className={`tl-node ${state}`} style={{ paddingLeft: 10 }}>
+              <div className="tl-dot" />
+              <div className="card" style={{
+                padding: '12px 14px',
+                background: state === 'now' ? 'var(--brand-soft)' : state === 'done' ? 'var(--surface-2)' : 'var(--surface)',
+                borderColor: state === 'now' ? 'transparent' : 'var(--line)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={m.n} size="sm" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div style={{ fontWeight: 500, fontSize: 14 }}>{m.n}</div>
+                      {m.me && <span className="pill brand" style={{ height: 18, fontSize: 10, padding: '0 6px' }}>you</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 1 }}>
+                      Month {m.position} {state === 'done' && '· paid'} {state === 'now' && `· ${CIRCLE.nextDate}`}
+                    </div>
+                  </div>
+                  <div className="mono" style={{
+                    fontSize: 14, fontWeight: 600,
+                    color: state === 'now' ? 'var(--brand)' : state === 'done' ? 'var(--good)' : 'var(--ink-3)',
+                  }}>£{CIRCLE.pot.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+  if (inline) return content;
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Rotation" onBack={onBack} />
+      {content}
+    </div>
+  );
+}
+
+// ============ Browse / Join ============
+function Browse({ onBack, onNav }) {
+  return (
+    <div className="screen">
+      <NavHeader title="Find a circle" onBack={onBack} right={
+        <button className="icon-btn"><Icon.search style={{ width: 18, height: 18 }} /></button>
+      } />
+      <div className="section">
+        <div className="segment" style={{ marginBottom: 14 }}>
+          <button className="on">Nearby</button>
+          <button>Invite only</button>
+          <button>My matches</button>
+        </div>
+        <div style={{ display: 'grid', gap: 12 }}>
+          {OTHER_CIRCLES.map((c, i) => (
+            <button key={i} onClick={() => onNav('join-flow')} className="card" style={{ textAlign: 'left', padding: 16 }}>
+              <div className="row-between" style={{ marginBottom: 6 }}>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{c.name}</div>
+                {c.verified && <div className="pill good"><Icon.check style={{ width: 12, height: 12 }} /> Verified</div>}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 12 }}>
+                £{c.amount} {c.freq} · {c.size} members · {c.open ? 'Accepting members' : 'Full'}
+              </div>
+              <div className="row-between">
+                <div style={{ display: 'flex' }}>
+                  {[0,1,2,3].map(j => (
+                    <Avatar key={j} name={'ABCD'[j] + 'x'} size="sm" style={{ marginLeft: j === 0 ? 0 : -8, border: '2px solid var(--surface)' }} />
+                  ))}
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'var(--surface-2)', border: '2px solid var(--surface)',
+                    marginLeft: -8, display: 'grid', placeItems: 'center',
+                    fontSize: 10, color: 'var(--ink-3)', fontWeight: 500,
+                  }}>+{c.size - 4}</div>
+                </div>
+                <div className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>Month {c.month}/{c.size}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ Create circle ============
+function CreateCircle({ onBack, onDone }) {
+  const [amount, setAmount] = React.useState(500);
+  const [freq, setFreq] = React.useState('monthly');
+  const [size, setSize] = React.useState(10);
+  const [name, setName] = React.useState('Brum Builders');
+
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Create a circle" onBack={onBack} />
+      <div className="section" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="field">
+          <label>Circle name</label>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} />
+        </div>
+
+        <div className="field">
+          <label>Contribution amount</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {[50, 100, 500, 800].map(a => (
+              <button key={a} onClick={() => setAmount(a)} className="option-tile" style={{
+                padding: '14px 10px', justifyContent: 'center', flexDirection: 'column', gap: 2,
+                background: amount === a ? 'var(--brand-soft)' : 'var(--surface)',
+                borderColor: amount === a ? 'var(--brand)' : 'var(--line)',
+              }}>
+                <div className="mono" style={{ fontSize: 16, fontWeight: 600, color: amount === a ? 'var(--brand)' : 'var(--ink)' }}>£{a}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Frequency</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {['weekly', 'monthly'].map(f => (
+              <button key={f} onClick={() => setFreq(f)} className="option-tile" style={{
+                padding: 14, justifyContent: 'center',
+                background: freq === f ? 'var(--brand-soft)' : 'var(--surface)',
+                borderColor: freq === f ? 'var(--brand)' : 'var(--line)',
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 500, textTransform: 'capitalize' }}>{f}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Number of members <span className="mono" style={{ float: 'right', color: 'var(--ink)', fontWeight: 500 }}>{size}</span></label>
+          <input type="range" min="5" max="10" value={size} onChange={e => setSize(+e.target.value)}
+            style={{ width: '100%', accentColor: 'var(--brand)' }} />
+          <div className="row-between" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+            <span>5</span><span>10</span>
+          </div>
+        </div>
+
+        <div className="card" style={{ background: 'var(--surface-2)', border: 0, padding: 16 }}>
+          <div className="label-xs" style={{ marginBottom: 8 }}>Summary</div>
+          <div className="row-between" style={{ padding: '4px 0' }}>
+            <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>Each {freq}, everyone pays</span>
+            <span className="mono" style={{ fontWeight: 500 }}>£{amount}</span>
+          </div>
+          <div className="row-between" style={{ padding: '4px 0' }}>
+            <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>One person receives</span>
+            <span className="mono" style={{ fontWeight: 600, color: 'var(--brand)' }}>£{(amount * size).toLocaleString()}</span>
+          </div>
+          <div className="row-between" style={{ padding: '4px 0' }}>
+            <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>Cycle length</span>
+            <span className="mono" style={{ fontWeight: 500 }}>{size} {freq === 'weekly' ? 'weeks' : 'months'}</span>
+          </div>
+        </div>
+
+        <button className="btn btn-primary btn-xl btn-block" onClick={onDone}>
+          Invite members
+          <Icon.arrowR style={{ width: 18, height: 18 }} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============ Member profile (username-only) ============
+function MemberProfile({ onBack }) {
+  const m = CIRCLE_MEMBERS.find(x => x.u === 'abel_o');
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Member" onBack={onBack} />
+      <div className="section" style={{ marginTop: 10 }}>
+        <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+          <Avatar name={m.n} size="xl" style={{ margin: '0 auto 14px' }} />
+          <div style={{ fontSize: 20, fontWeight: 600 }}>@{m.u}</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>Member since Jan 2025</div>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+            <div className="pill good"><Icon.shield style={{ width: 12, height: 12 }}/> KYC verified</div>
+            <div className="pill gold">Next payout</div>
+            <div className="pill">2 circles</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="card-flat" style={{ display: 'flex', gap: 10, padding: 14, alignItems: 'flex-start' }}>
+          <Icon.eyeOff style={{ width: 18, height: 18, color: 'var(--ink-3)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+            Bank account details are never visible to you. Payouts route through AjoCredit's virtual accounts.
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Reliability</div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
+            {[
+              ['14', 'circles'], ['100%', 'on-time'], ['0', 'defaults'],
+            ].map(([v, l]) => (
+              <div key={l}>
+                <div className="mono" style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)' }}>{v}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Credit standing</div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 13.5 }}>UK score band</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Shown as band · exact score private</div>
+            </div>
+            <div className="pill good">Excellent</div>
+          </div>
+          <div style={{ height: 1, background: 'var(--line-2)' }} />
+          <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 13.5 }}>Origin check</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Nigeria · no pending debt</div>
+            </div>
+            <Icon.check style={{ width: 18, height: 18, color: 'var(--good)' }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { CircleDetail, CircleOverview, MembersList, RotationView, Browse, CreateCircle, MemberProfile });
+
+// ===== src/flows.jsx =====
+// ===== Payout, Auto-loan, Wallet, Profile =====
+
+function PayoutFlow({ onBack, onDone }) {
+  const [stage, setStage] = React.useState('select'); // select | review | success
+
+  if (stage === 'success') {
+    return (
+      <div className="screen no-tab" style={{ display: 'flex', flexDirection: 'column' }}>
+        <NavHeader title="Payout sent" onBack={onDone} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: '50%',
+            background: 'var(--good-soft)', color: 'var(--good)',
+            display: 'grid', placeItems: 'center', marginBottom: 20,
+          }}>
+            <Icon.check style={{ width: 40, height: 40, strokeWidth: 3 }} />
+          </div>
+          <div className="h2" style={{ marginBottom: 8 }}>£5,000 credited</div>
+          <div style={{ color: 'var(--ink-3)', fontSize: 14, marginBottom: 28 }}>
+            Abel O.'s virtual account received the full pot.
+          </div>
+          <div className="card" style={{ width: '100%', maxWidth: 320, padding: 16, textAlign: 'left' }}>
+            <div className="row-between" style={{ padding: '6px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>Recipient</span>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>@abel_o</span>
+            </div>
+            <div className="row-between" style={{ padding: '6px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>Method</span>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Virtual account</span>
+            </div>
+            <div className="row-between" style={{ padding: '6px 0' }}>
+              <span style={{ fontSize: 13, color: 'var(--ink-3)' }}>Reference</span>
+              <span className="mono" style={{ fontSize: 12 }}>AJO-BBM-03-0428</span>
+            </div>
+          </div>
+        </div>
+        <div className="section">
+          <button className="btn btn-primary btn-xl btn-block" onClick={onDone}>Done</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'review') {
+    return (
+      <div className="screen no-tab">
+        <NavHeader title="Review payout" onBack={() => setStage('select')} />
+        <div className="section">
+          <div className="card" style={{ padding: 20, textAlign: 'center' }}>
+            <div className="label-xs">Releasing to</div>
+            <Avatar name="Abel O." size="xl" style={{ margin: '12px auto 10px' }} />
+            <div style={{ fontSize: 16, fontWeight: 600 }}>@abel_o</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>Abel O. · Month 3 recipient</div>
+            <div className="mono" style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.03em', marginTop: 18 }}>£5,000</div>
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {[
+              ['Method', <span className="row-center" style={{ gap: 6 }}><Icon.wallet style={{ width: 14, height: 14 }}/> Virtual account</span>],
+              ['Settlement', 'Instant · Faster Payments'],
+              ['Contributions collected', '9 of 10 · £4,500'],
+              ['Auto-loan covers', 'Daniel K. · £500 · 0% APR'],
+              ['Fee', 'Free · included in monthly'],
+            ].map(([k, v], i, a) => (
+              <div key={k} style={{
+                padding: '12px 14px',
+                borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>{k}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="card-flat" style={{ display: 'flex', gap: 10, padding: 14, alignItems: 'flex-start' }}>
+            <Icon.lock style={{ width: 18, height: 18, color: 'var(--ink-3)', flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              Abel's bank details are hidden. Funds move via AjoCredit's virtual account and land in his linked bank automatically.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '20px 20px 0' }}>
+          <button className="btn btn-primary btn-xl btn-block" onClick={() => setStage('success')}>
+            <Icon.lock style={{ width: 16, height: 16 }} /> Hold to release £5,000
+          </button>
+          <button className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => setStage('select')}>
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // select
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Release payout" onBack={onBack} />
+      <div className="section">
+        <div className="label-xs">Month 3 of 10</div>
+        <div className="h2" style={{ margin: '6px 0 4px' }}>Who receives this month?</div>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          Rotation says <strong style={{ color: 'var(--ink)' }}>Abel O.</strong> Admins can swap only with member consent.
+        </div>
+      </div>
+      <div className="section">
+        <div style={{ display: 'grid', gap: 8 }}>
+          {CIRCLE_MEMBERS.filter(m => !m.done).slice(0, 6).map(m => (
+            <button key={m.u} onClick={() => setStage('review')}
+              className={`option-tile ${m.next ? 'selected' : ''}`}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1 }}>
+                <Avatar name={m.n} />
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontWeight: 500, fontSize: 14.5 }}>@{m.u}</span>
+                    {m.next && <span className="pill gold" style={{ height: 18, fontSize: 10, padding: '0 6px' }}>scheduled</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>Position #{m.position} · score {m.score}</div>
+                </div>
+                <div className="option-check"><Icon.check /></div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ Auto-loan ============
+function AutoLoan({ onBack }) {
+  const [on, setOn] = React.useState(true);
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Auto-loan" onBack={onBack} />
+      <div className="section">
+        <div className="card" style={{
+          padding: 20, color: '#fff',
+          background: 'linear-gradient(135deg, #B88A2A, #8A6420)',
+          border: 0, position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', right: -30, top: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+          <div className="row-center" style={{ marginBottom: 14, position: 'relative' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center' }}>
+              <Icon.bolt style={{ width: 18, height: 18 }} />
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Interest-free safety net</div>
+          </div>
+          <div className="h2" style={{ position: 'relative' }}>
+            Payouts go out on time — <span className="serif">even when someone's late.</span>
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 10, position: 'relative', lineHeight: 1.5 }}>
+            If a member misses their contribution, AjoCredit covers it as a 0% loan so the recipient still gets the full pot on schedule.
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <div className="row-between">
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 15 }}>Auto-loan for this circle</div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 3 }}>Brum Builders · 10 members</div>
+            </div>
+            <button onClick={() => setOn(!on)} style={{
+              width: 46, height: 28, borderRadius: 20,
+              background: on ? 'var(--brand)' : 'var(--line)',
+              padding: 3, transition: 'background .2s',
+            }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                transform: on ? 'translateX(18px)' : 'translateX(0)',
+                transition: 'transform .2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+          <div style={{ height: 1, background: 'var(--line-2)', margin: '14px 0' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Coverage</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>Up to £500</div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>1 missed contribution</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your APR</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600, marginTop: 2, color: 'var(--good)' }}>0.0%</div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>Repay over 60 days</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>How it works</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {[
+            ['Someone misses a contribution', 'Grace period gives them 48 hours to catch up.'],
+            ['AjoCredit steps in', 'We front the missing amount — 0% interest, no fees.'],
+            ['Recipient gets the full pot', 'On the scheduled date. No delay. No drama.'],
+            ['Late member repays', 'Automatic debit over 60 days from their next contributions.'],
+          ].map(([t, s], i) => (
+            <div key={i} className="card" style={{ padding: 14, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div className="mono" style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: 'var(--brand-soft)', color: 'var(--brand)',
+                display: 'grid', placeItems: 'center',
+                fontSize: 13, fontWeight: 600, flexShrink: 0,
+              }}>{i + 1}</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{t}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>{s}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="card-flat" style={{ padding: 14 }}>
+          <div className="row-between">
+            <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>Coverage used this cycle</div>
+            <div className="mono" style={{ fontSize: 13, fontWeight: 500 }}>£0 / £500</div>
+          </div>
+          <div className="bar" style={{ marginTop: 8 }}><span style={{ width: '0%' }} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ Wallet ============
+function Wallet({ onNav }) {
+  return (
+    <>
+      <TopBar title="Wallet" />
+      <div className="screen">
+        <div className="section">
+          <div className="card" style={{ padding: 20 }}>
+            <div className="label-xs">Virtual account balance</div>
+            <div className="mono" style={{ fontSize: 36, fontWeight: 600, letterSpacing: '-0.03em', marginTop: 4 }}>£42.18</div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 4 }}>
+              Account · <span className="mono">AJO-230-5587-1144</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn btn-ghost btn-sm" style={{ flex: 1 }}><Icon.arrowDown style={{ width: 14, height: 14 }}/> Top up</button>
+              <button className="btn btn-ghost btn-sm" style={{ flex: 1 }}><Icon.arrowUp style={{ width: 14, height: 14 }}/> Withdraw</button>
+              <button className="btn btn-ghost btn-sm" style={{ flex: 1 }}><Icon.send style={{ width: 14, height: 14 }}/> Send</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="card" style={{ padding: 14 }}>
+              <div className="label-xs">Lifetime in</div>
+              <div className="mono" style={{ fontSize: 20, fontWeight: 600, marginTop: 4, color: 'var(--good)' }}>£10,510</div>
+            </div>
+            <div className="card" style={{ padding: 14 }}>
+              <div className="label-xs">Lifetime out</div>
+              <div className="mono" style={{ fontSize: 20, fontWeight: 600, marginTop: 4 }}>£10,000</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 18 }}>
+          <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>All activity</div>
+          <div className="card" style={{ padding: '4px 16px' }}>
+            {TXNS.map((t, i, a) => (
+              <div key={t.id} className="row row-flat" style={{
+                borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+                borderRadius: 0,
+                opacity: t.future ? 0.55 : 1,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: t.type === 'in' ? 'var(--good-soft)' : 'var(--surface-2)',
+                  color: t.type === 'in' ? 'var(--good)' : 'var(--ink-2)',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  {t.type === 'in' ? <Icon.arrowDown style={{ width: 16, height: 16 }} /> : <Icon.arrowUp style={{ width: 16, height: 16 }} />}
+                </div>
+                <div className="main">
+                  <div className="title">{t.label}</div>
+                  <div className="sub">{t.date} · <span style={{ color: t.status === 'queued' ? 'var(--gold)' : 'var(--ink-3)' }}>{t.status}</span></div>
+                </div>
+                <div className="mono" style={{ fontWeight: 500, fontSize: 14, color: t.type === 'in' ? 'var(--good)' : 'var(--ink)' }}>
+                  {t.type === 'in' ? '+' : '−'}£{t.amount.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ============ Circles list ============
+function CirclesList({ onNav }) {
+  return (
+    <>
+      <TopBar title="Circles" />
+      <div className="screen">
+        <div className="section">
+          <div className="segment" style={{ marginBottom: 14 }}>
+            <button className="on">Active · 1</button>
+            <button>Past · 2</button>
+            <button>Invites · 1</button>
+          </div>
+          <button onClick={() => onNav('circle-detail')} className="card" style={{
+            width: '100%', textAlign: 'left', padding: 18, border: 0,
+            background: 'linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 80%, black))',
+            color: 'var(--brand-ink)',
+          }}>
+            <div className="row-between" style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{CIRCLE.name}</div>
+              <div className="pill" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 0 }}>Month {CIRCLE.month}/{CIRCLE.size}</div>
+            </div>
+            <div className="mono" style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', marginTop: 8 }}>
+              £{CIRCLE.pot.toLocaleString()}
+            </div>
+            <div style={{ fontSize: 12.5, opacity: 0.85 }}>monthly pot · {CIRCLE.size} members</div>
+            <div className="bar" style={{ marginTop: 14, background: 'rgba(255,255,255,0.2)' }}>
+              <span style={{ width: '30%', background: '#fff' }} />
+            </div>
+          </button>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Discover</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {OTHER_CIRCLES.slice(0, 2).map((c, i) => (
+              <button key={i} onClick={() => onNav('browse')} className="card" style={{ textAlign: 'left', padding: 14 }}>
+                <div className="row-between" style={{ marginBottom: 4 }}>
+                  <div style={{ fontWeight: 500, fontSize: 14.5 }}>{c.name}</div>
+                  <Icon.chevR style={{ width: 16, height: 16, color: 'var(--ink-4)' }} />
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
+                  £{c.amount} {c.freq} · {c.size} members · {c.open ? 'Open' : 'Full'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ============ Profile (self) ============
+function Profile({ role, onRoleChange }) {
+  return (
+    <>
+      <TopBar title="Profile" />
+      <div className="screen">
+        <div className="section">
+          <div className="card" style={{ padding: 20, display: 'flex', gap: 14, alignItems: 'center' }}>
+            <Avatar name={ME.name} size="xl" />
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>@{ME.username}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 2 }}>{ME.city}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                <div className="pill good"><Icon.shield style={{ width: 12, height: 12 }}/> KYC</div>
+                <div className="pill brand">Credit verified</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>Viewing as</div>
+          <div className="segment" style={{ width: '100%', display: 'flex' }}>
+            <button className={role === 'member' ? 'on' : ''} onClick={() => onRoleChange('member')} style={{ flex: 1, padding: '10px 12px' }}>Member</button>
+            <button className={role === 'admin' ? 'on' : ''} onClick={() => onRoleChange('admin')} style={{ flex: 1, padding: '10px 12px' }}>Admin</button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8, padding: '0 4px' }}>
+            Demo toggle — admins can release payouts & manage members.
+          </div>
+        </div>
+
+        <div className="section" style={{ marginTop: 14 }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {[
+              ['Credit score', '791 · Good', Icon.chart],
+              ['Identity (KYC)', 'Verified', Icon.shield],
+              ['Linked bank', 'Monzo · ••3391', Icon.wallet],
+              ['Notifications', 'On', Icon.bell],
+              ['Privacy', 'Username-only mode', Icon.eyeOff],
+              ['Help', '', Icon.book],
+            ].map(([k, v, Ic], i, a) => (
+              <div key={k} className="row row-flat" style={{
+                padding: '14px 16px',
+                borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+                borderRadius: 0,
+              }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', color: 'var(--ink-2)', display: 'grid', placeItems: 'center' }}>
+                  <Ic style={{ width: 16, height: 16 }} />
+                </div>
+                <div className="main"><div style={{ fontSize: 14 }}>{k}</div></div>
+                {v && <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{v}</div>}
+                <Icon.chevR style={{ width: 14, height: 14, color: 'var(--ink-4)' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+Object.assign(window, { PayoutFlow, AutoLoan, Wallet, CirclesList, Profile });
+
+// ===== src/app.jsx =====
+// ===== App root + screen router + onboarding flow =====
+
+const NAV_TABS = ['home', 'circles', 'wallet', 'profile'];
+
+function App({ layout, palette }) {
+  const [screen, setScreen] = React.useState(() => localStorage.getItem('ajo_screen') || 'home');
+  const [role, setRole] = React.useState(() => localStorage.getItem('ajo_role') || 'member');
+  const [onbStep, setOnbStep] = React.useState(0); // 0 welcome, 1 check a, 2 check b, 3 done
+
+  React.useEffect(() => { localStorage.setItem('ajo_screen', screen); }, [screen]);
+  React.useEffect(() => { localStorage.setItem('ajo_role', role); }, [role]);
+
+  const nav = (k) => {
+    if (k === 'new') setScreen('create');
+    else setScreen(k);
+  };
+
+  // Onboarding flow
+  if (screen === 'onboarding') {
+    if (onbStep === 0) return <OnboardingWelcome onNext={() => setOnbStep(1)} onSkip={() => setScreen('home')} />;
+    if (onbStep === 1) return <CreditCheckA onNext={() => setOnbStep(2)} onBack={() => setOnbStep(0)} />;
+    if (onbStep === 2) return <CreditCheckB onNext={() => { setOnbStep(0); setScreen('home'); }} onBack={() => setOnbStep(1)} />;
+  }
+
+  // Main screens
+  const showTabs = NAV_TABS.includes(screen);
+  let content = null;
+  if (screen === 'home') content = <Dashboard onNav={setScreen} layout={layout} role={role} />;
+  else if (screen === 'circles') content = <CirclesList onNav={setScreen} />;
+  else if (screen === 'wallet') content = <Wallet onNav={setScreen} />;
+  else if (screen === 'profile') content = <Profile role={role} onRoleChange={setRole} />;
+  else if (screen === 'circle-detail') content = <CircleDetail onBack={() => setScreen('home')} onNav={setScreen} role={role} />;
+  else if (screen === 'member-profile') content = <MemberProfile onBack={() => setScreen('circle-detail')} />;
+  else if (screen === 'rotation') content = <RotationView onBack={() => setScreen('circle-detail')} />;
+  else if (screen === 'browse') content = <Browse onBack={() => setScreen('circles')} onNav={setScreen} />;
+  else if (screen === 'join-flow') content = <Browse onBack={() => setScreen('circles')} onNav={setScreen} />;
+  else if (screen === 'create') content = <CreateCircle onBack={() => setScreen('home')} onDone={() => setScreen('circle-detail')} />;
+  else if (screen === 'payout') content = <PayoutFlow onBack={() => setScreen('circle-detail')} onDone={() => setScreen('home')} />;
+  else if (screen === 'autoloan') content = <AutoLoan onBack={() => setScreen('home')} />;
+  else if (screen === 'score') content = <ScoreDetail onBack={() => setScreen('profile')} />;
+  else content = <Dashboard onNav={setScreen} layout={layout} role={role} />;
+
+  return (
+    <div className="app">
+      <div style={{
+        position: 'absolute', top: 10, left: 12, zIndex: 20,
+        display: 'flex', gap: 6, alignItems: 'center',
+      }}>
+        <button className="icon-btn" onClick={() => { setScreen('onboarding'); setOnbStep(0); }}
+          style={{ height: 28, width: 'auto', padding: '0 10px', fontSize: 11, color: 'var(--ink-3)', borderRadius: 999 }}
+          title="Restart onboarding">
+          <Icon.sparkles style={{ width: 12, height: 12 }} /> Onboarding
+        </button>
+      </div>
+      {content}
+      {showTabs && <TabBar active={screen} onNav={nav} />}
+    </div>
+  );
+}
+
+// Credit score detail
+function ScoreDetail({ onBack }) {
+  return (
+    <div className="screen no-tab">
+      <NavHeader title="Your credit standing" onBack={onBack} />
+      <div className="section">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 24 }}>
+          <ScoreRing score={791} size={180} />
+          <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-3)', textAlign: 'center' }}>
+            UK · Experian · updated 2 days ago
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
+            <span className="pill">12 mo trend: +34</span>
+            <span className="pill good"><Icon.arrowUp style={{ width: 10, height: 10 }} /> Improving</span>
+          </div>
+        </div>
+      </div>
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="h3" style={{ padding: '0 4px', marginBottom: 10 }}>What's working</div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {[
+            ['Payment history', 100, 'var(--good)'],
+            ['Credit utilization', 84, 'var(--brand)'],
+            ['Age of accounts', 72, 'var(--accent)'],
+            ['Credit mix', 55, 'var(--gold)'],
+          ].map(([k, v, c], i, a) => (
+            <div key={k} style={{
+              padding: '14px 16px',
+              borderBottom: i < a.length - 1 ? '1px solid var(--line-2)' : 'none',
+            }}>
+              <div className="row-between" style={{ marginBottom: 8 }}>
+                <span style={{ fontSize: 13.5 }}>{k}</span>
+                <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{v}%</span>
+              </div>
+              <div className="bar"><span style={{ width: `${v}%`, background: c }} /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="section" style={{ marginTop: 14 }}>
+        <div className="card-flat" style={{ padding: 14, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <Icon.sparkles style={{ width: 18, height: 18 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>Completing AjoCredit circles boosts your score</div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+              We report on-time contributions to UK bureaus. Finish this cycle → est. +18 points.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { App, ScoreDetail });

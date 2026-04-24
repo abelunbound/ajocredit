@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AjoCredit — Prototype</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-palette="default">
+  <div id="root"></div>
+
+  <script>
+    // —— Tweaks defaults ——
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "default",
+      "layout": "cards",
+      "deviceLayout": "canvas"
+    }/*EDITMODE-END*/;
+    window.__tweaks = Object.assign({}, TWEAK_DEFAULTS, JSON.parse(localStorage.getItem('ajo_tweaks') || '{}'));
+    document.body.dataset.palette = window.__tweaks.palette;
+  </script>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="frames/ios-frame.jsx"></script>
+  <script type="text/babel" src="src/shared.jsx"></script>
+  <script type="text/babel" src="src/onboarding.jsx"></script>
+  <script type="text/babel" src="src/dashboard.jsx"></script>
+  <script type="text/babel" src="src/circle.jsx"></script>
+  <script type="text/babel" src="src/flows.jsx"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+
+  <script type="text/babel">
+    function Root() {
+      const [tweaks, setTweaksState] = React.useState(window.__tweaks);
+      const [editMode, setEditMode] = React.useState(false);
+      const [viewport, setViewport] = React.useState({ w: window.innerWidth });
+
+      React.useEffect(() => {
+        const onResize = () => setViewport({ w: window.innerWidth });
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+      }, []);
+
+      const setTweaks = (partial) => {
+        const next = { ...tweaks, ...partial };
+        setTweaksState(next);
+        window.__tweaks = next;
+        localStorage.setItem('ajo_tweaks', JSON.stringify(next));
+        document.body.dataset.palette = next.palette;
+        window.parent.postMessage({ type: '__edit_mode_set_keys', edits: partial }, '*');
+      };
+
+      // Edit mode protocol
+      React.useEffect(() => {
+        const handler = (e) => {
+          if (!e.data || typeof e.data !== 'object') return;
+          if (e.data.type === '__activate_edit_mode') setEditMode(true);
+          if (e.data.type === '__deactivate_edit_mode') setEditMode(false);
+        };
+        window.addEventListener('message', handler);
+        window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+        return () => window.removeEventListener('message', handler);
+      }, []);
+
+      const isMobile = viewport.w < 900;
+
+      // Canvas with multi-device presentation
+      if (!isMobile && tweaks.deviceLayout === 'canvas') {
+        const variants = [
+          { title: 'Dashboard — Cards', sub: 'Hero + positions', layout: 'cards', palette: tweaks.palette, primary: true, screen: 'home' },
+          { title: 'Dashboard — Timeline', sub: 'Rotation-first', layout: 'timeline', palette: tweaks.palette, screen: 'home' },
+          { title: 'Dashboard — Calendar', sub: '10-month grid', layout: 'calendar', palette: tweaks.palette, screen: 'home' },
+          { title: 'Credit check · Country of origin', sub: 'Step 2 · bureau pull', layout: 'cards', palette: tweaks.palette, screen: 'check-a-done' },
+          { title: 'Credit check · UK affordability', sub: 'Step 3 · Open Banking', layout: 'cards', palette: tweaks.palette, screen: 'check-b-done' },
+          { title: 'Circle detail', sub: 'Brum Builders', layout: 'cards', palette: tweaks.palette, screen: 'circle-detail' },
+          { title: 'Rotation timeline', sub: '10 months, 10 payouts', layout: 'cards', palette: tweaks.palette, screen: 'rotation' },
+          { title: 'Release payout', sub: 'Admin action', layout: 'cards', palette: tweaks.palette, screen: 'payout-review' },
+          { title: 'Auto-loan safety net', sub: '0% interest backstop', layout: 'cards', palette: tweaks.palette, screen: 'autoloan' },
+          { title: 'Member profile', sub: 'Username only · no bank', layout: 'cards', palette: tweaks.palette, screen: 'member-profile' },
+          { title: 'Create circle', sub: 'Amount · frequency · size', layout: 'cards', palette: tweaks.palette, screen: 'create' },
+          { title: 'Wallet', sub: 'Virtual account', layout: 'cards', palette: tweaks.palette, screen: 'wallet' },
+        ];
+        return (
+          <div className="canvas" data-palette={tweaks.palette}>
+            <div className="canvas-head">
+              <div style={{ fontFamily: 'Geist, system-ui', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#6B7A8A', marginBottom: 14 }}>AjoCredit · Prototype</div>
+              <div style={{ fontFamily: 'Geist, system-ui', fontSize: 36, fontWeight: 600, letterSpacing: '-0.02em', color: '#0B1620', marginBottom: 10 }}>
+                Community savings, credit-checked, <span style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontWeight: 400 }}>payout-guaranteed.</span>
+              </div>
+              <div style={{ fontFamily: 'Geist, system-ui', fontSize: 15, color: '#39495A', maxWidth: 760, lineHeight: 1.55 }}>
+                10 friends in Birmingham. £500 monthly. Abel receives £5,000 this month — on schedule, via virtual account, no bank details shared. Three dashboard layouts, full onboarding with dual credit checks (origin + UK affordability), interest-free auto-loan backstop. Tap any screen to interact, or open the <strong>Tweaks</strong> panel to swap palette & layout.
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+                <span className="pill good" style={{ fontFamily: 'Geist' }}>10 members · £500/mo</span>
+                <span className="pill brand" style={{ fontFamily: 'Geist' }}>Role toggle: Member ↔ Admin</span>
+                <span className="pill gold" style={{ fontFamily: 'Geist' }}>Auto-loan armed</span>
+                <span className="pill" style={{ fontFamily: 'Geist' }}>Usernames only</span>
+              </div>
+            </div>
+            <div className="canvas-grid">
+              {variants.map((v, i) => (
+                <DeviceCell key={i} {...v} tweaks={tweaks} setTweaks={setTweaks} />
+              ))}
+            </div>
+            {editMode && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} canvas />}
+          </div>
+        );
+      }
+
+      // Single device mode (mobile or single-screen tweak)
+      return (
+        <div style={{
+          width: '100vw', height: '100vh',
+          display: 'grid', placeItems: 'center',
+          background: 'var(--bg)',
+          overflow: isMobile ? 'auto' : 'hidden',
+        }} data-palette={tweaks.palette}>
+          {isMobile ? (
+            <div style={{ width: '100%', height: '100vh', maxHeight: '100vh', background: 'var(--bg)' }} data-screen-label="AjoCredit">
+              <App layout={tweaks.layout} palette={tweaks.palette} />
+            </div>
+          ) : (
+            <IOSDevice title={undefined}>
+              <App layout={tweaks.layout} palette={tweaks.palette} />
+            </IOSDevice>
+          )}
+          {editMode && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} />}
+        </div>
+      );
+    }
+
+    function DeviceCell({ title, sub, layout, palette, screen, primary, tweaks }) {
+      // Build a mini sub-app that renders the targeted screen
+      return (
+        <div className={`device-cell ${primary ? 'is-primary' : ''}`} data-screen-label={title}>
+          <div className="device-label"><strong>{title}</strong>{sub}</div>
+          <IOSDevice width={360} height={780} title={undefined}>
+            <ScopedApp initialScreen={screen} layout={layout} />
+          </IOSDevice>
+        </div>
+      );
+    }
+
+    function ScopedApp({ initialScreen, layout }) {
+      const [screen, setScreen] = React.useState(initialScreen);
+      const [role, setRole] = React.useState('member');
+
+      // Special pseudo-screens
+      if (screen === 'check-a-done') {
+        return <CreditCheckADone />;
+      }
+      if (screen === 'check-b-done') {
+        return <CreditCheckBDone />;
+      }
+      if (screen === 'payout-review') {
+        return <PayoutReviewPreview />;
+      }
+
+      const showTabs = ['home', 'circles', 'wallet', 'profile'].includes(screen);
+      let content = null;
+      if (screen === 'home') content = <Dashboard onNav={setScreen} layout={layout} role={role} />;
+      else if (screen === 'circles') content = <CirclesList onNav={setScreen} />;
+      else if (screen === 'wallet') content = <Wallet onNav={setScreen} />;
+      else if (screen === 'profile') content = <Profile role={role} onRoleChange={setRole} />;
+      else if (screen === 'circle-detail') content = <CircleDetail onBack={() => setScreen('home')} onNav={setScreen} role={role} />;
+      else if (screen === 'member-profile') content = <MemberProfile onBack={() => setScreen('home')} />;
+      else if (screen === 'rotation') content = <RotationView onBack={() => setScreen('home')} />;
+      else if (screen === 'create') content = <CreateCircle onBack={() => setScreen('home')} onDone={() => setScreen('home')} />;
+      else if (screen === 'autoloan') content = <AutoLoan onBack={() => setScreen('home')} />;
+      else content = <Dashboard onNav={setScreen} layout={layout} role={role} />;
+
+      return (
+        <div className="app">
+          {content}
+          {showTabs && <TabBar active={screen} onNav={(k) => setScreen(k === 'new' ? 'create' : k)} />}
+        </div>
+      );
+    }
+
+    // Pseudo-screens for canvas previews
+    function CreditCheckADone() {
+      return <CreditCheckA onNext={() => {}} onBack={() => {}} />;
+    }
+    function CreditCheckBDone() {
+      return <CreditCheckB onNext={() => {}} onBack={() => {}} />;
+    }
+    function PayoutReviewPreview() {
+      return <PayoutFlow onBack={() => {}} onDone={() => {}} />;
+    }
+
+    // Tweaks panel
+    function TweaksPanel({ tweaks, setTweaks, canvas }) {
+      return (
+        <div className="tweaks-panel">
+          <div className="t-head">
+            <div className="t-title">Tweaks</div>
+            <span style={{ fontSize: 11, color: '#6B7A8A', fontFamily: 'Geist Mono' }}>AjoCredit</span>
+          </div>
+          <div className="t-body">
+            <div className="t-group">
+              <label className="tl">Palette</label>
+              <div className="t-chips">
+                {[
+                  ['default', 'Institutional'],
+                  ['warm', 'Warm slate'],
+                  ['midnight', 'Midnight'],
+                ].map(([k, l]) => (
+                  <button key={k} className={`chip ${tweaks.palette === k ? 'on' : ''}`} onClick={() => setTweaks({ palette: k })}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="t-group">
+              <label className="tl">Dashboard layout</label>
+              <div className="t-chips">
+                {[
+                  ['cards', 'Cards'],
+                  ['timeline', 'Timeline'],
+                  ['calendar', 'Calendar'],
+                ].map(([k, l]) => (
+                  <button key={k} className={`chip ${tweaks.layout === k ? 'on' : ''}`} onClick={() => setTweaks({ layout: k })}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="t-group">
+              <label className="tl">View</label>
+              <div className="t-chips">
+                <button className={`chip ${tweaks.deviceLayout === 'canvas' ? 'on' : ''}`} onClick={() => setTweaks({ deviceLayout: 'canvas' })}>Canvas (all screens)</button>
+                <button className={`chip ${tweaks.deviceLayout === 'single' ? 'on' : ''}`} onClick={() => setTweaks({ deviceLayout: 'single' })}>Single device</button>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: '#6B7A8A', lineHeight: 1.4 }}>
+              Tip: on mobile, only the primary device shows — palette + layout still apply.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+  </script>
+</body>
+</html>
