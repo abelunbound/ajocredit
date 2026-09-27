@@ -29,20 +29,20 @@ TXNS = [
 
 NAV = [
     ("home", "Dashboard", "home"),
-    ("circle", "MyCircles", "circles"),
+    ("circle", "MyAjo", "circles"),
     ("members", "Members", "user"),
-    ("payouts", "Payouts", "bolt"),
+    ("payouts", "PayoutsTracker", "bolt"),
     ("credit", "FinHealth", "shield"),
-    ("autoloan", "MyCover", "spark"),
-    ("wallet", "Wallet", "wallet"),
+    ("autoloan", "DelayCover", "spark"),
+    ("wallet", "EarlyPayouts", "wallet"),
 ]
 
 CRUMBS = {
-    "home": ["AjoCredit", "Dashboard"],
-    "circle": ["AjoCredit", "Circles", "Brum Builders"],
-    "members": ["AjoCredit", "Brum Builders", "Members"],
-    "payouts": ["AjoCredit", "Brum Builders", "Payouts"],
-    "credit": ["AjoCredit", "Me", "Credit & checks"],
-    "autoloan": ["AjoCredit", "Safety", "Auto-loan"],
-    "wallet": ["AjoCredit", "Me", "Wallet"],
+    "home": ["AjoFinance", "Dashboard"],
+    "circle": ["AjoFinance", "Circles", "Brum Builders"],
+    "members": ["AjoFinance", "Brum Builders", "Members"],
+    "payouts": ["AjoFinance", "Brum Builders", "Payouts"],
+    "credit": ["AjoFinance", "Me", "Credit & checks"],
+    "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
+    "wallet": ["AjoFinance", "Me", "Wallet"],
 }

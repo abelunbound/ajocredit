@@ -2,40 +2,42 @@ from dash import html
 
 from .components import icon
 
+# Get paid on time even if one person is late or defaults
+# Guaranteed payout. Even if 1 member is late or defaults.
 
 def layout():
     benefits = [
-        ("shield", "Credit-checked members", "Global liability + UK Affordability"),
-        ("bolt", "My Cover", "Get paid on time even if one person is late"),
-        ("eyeoff", "Usernames only", "No bank details ever shown to members"),
-        ("arrup", "Early payout", "For when you need your money earlier than your due month"),
+        ("bolt", "Delay Cover", "Get paid even when a member's late or defaults."),
+        ("arrup", "Early payout", "Get your ajo months before your turn"),
+        ("shield", "Safety - credit-checked members", "Global credit, affordability & liability checks"),        
+        ("eyeoff", "Privacy", "Other members never see your bank details"),
     ]
 
     return html.Div(
-        className="auth-screen",
+        className="auth-screen home-screen",
         children=[
             html.Div(
                 className="auth-top-row",
                 children=[
                     html.Div(
                         className="auth-brand-row",
-                        children=[html.Div("a", className="brandmark"), html.Div("AjoCredit", className="auth-brand-name")],
+                        children=[html.Div("a", className="brandmark"), html.Div("AjoFinance", className="auth-brand-name")],
                     ),
-                    html.Div("Skip demo ->", className="auth-skip-demo"),
+                    # html.Div("Skip demo ->", className="auth-skip-demo"),
                 ],
             ),
-            html.Div("COMMUNITY SAVINGS, DONE RIGHT", className="auth-kicker"),
+            html.Br(),
             html.H1(
                 [
-                    "Save together, ",
-                    html.Span("get paid", className="auth-serif"),
-                    " in turn.",
+                    "Social capital. ",
+                    html.Span("digitised.", className="auth-serif"),
+                    # " digitised.",
                 ],
                 className="auth-title",
             ),
             html.P(
-                "Already coordinating your Ajo or Esusu offline or on WhatsApp? "
-                "Move it to our FinTech platform - or start a new one - and get the following benefits!",
+                "Already coordinating your Ajo, Esusu or Pardna informally? "
+                "Move it to AjoFinance - and get these benefits!",
                 className="auth-copy",
             ),
             html.Div(

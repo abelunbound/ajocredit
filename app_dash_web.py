@@ -5,6 +5,11 @@ from pages import (
     circle_layout,
     credit_layout,
     dashboard_layout,
+    getstarted_loading_layout,
+    getstarted_loading_uk_layout,
+    getstarted_result_origin_layout,
+    getstarted_result_uk_layout,
+    getstarted_layout,
     home_layout,
     members_layout,
     payouts_layout,
@@ -20,7 +25,7 @@ def sidebar(page, role):
     return html.Aside(
         className="sidebar",
         children=[
-            html.Div([html.Div("a", className="brandmark"), "AjoCredit"], className="sb-brand"),
+            html.Div([html.Div("a", className="brandmark"), "AjoFinance"], className="sb-brand"),
             html.Div(
                 [
                     html.Button(
@@ -78,7 +83,7 @@ def sidebar(page, role):
 
 
 def topbar(page):
-    crumbs = CRUMBS.get(page, ["AjoCredit"])
+    crumbs = CRUMBS.get(page, ["AjoFinance"])
     return html.Div(
         className="topbar",
         children=[
@@ -124,7 +129,7 @@ app = Dash(
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css",
     ],
 )
-app.title = "AjoCredit Web (Dash)"
+app.title = "AjoFinance"
 app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div(
@@ -143,11 +148,12 @@ app.layout = html.Div(
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     Input({"type": "role-btn", "role": ALL}, "n_clicks"),
     Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
+    Input({"type": "gs-timer", "screen": ALL}, "n_intervals"),
     State("store-page", "data"),
     State("store-role", "data"),
     prevent_initial_call=True,
 )
-def update_state(_, __, ___, current_page, current_role):
+def update_state(_, __, ___, ____, current_page, current_role):
     trig = ctx.triggered_id
     if isinstance(trig, dict) and trig.get("type") == "nav-btn":
         return trig["page"], current_role
@@ -158,13 +164,34 @@ def update_state(_, __, ___, current_page, current_role):
         if action == "home-have-account":
             return "signin", current_role
         if action == "home-get-started":
-            return "home", current_role
+            return "getstarted-1", current_role
         if action == "signin-back":
             return "landing", current_role
         if action == "signin-submit":
             return "home", current_role
         if action == "signin-get-started":
             return "landing", current_role
+        if action == "getstarted-back-home":
+            return "landing", current_role
+        if action == "getstarted-run-check":
+            return "getstarted-2", current_role
+        if action == "getstarted-back-step1":
+            return "getstarted-1", current_role
+        if action == "getstarted-back-step2":
+            return "getstarted-2", current_role
+        if action == "getstarted-to-uk":
+            return "getstarted-uk-loading", current_role
+        if action == "getstarted-back-step3":
+            return "getstarted-3", current_role
+        if action == "getstarted-back-uk-loading":
+            return "getstarted-uk-loading", current_role
+        if action == "getstarted-finish":
+            return "home", current_role
+    if isinstance(trig, dict) and trig.get("type") == "gs-timer":
+        if trig.get("screen") == "2":
+            return "getstarted-3", current_role
+        if trig.get("screen") == "uk":
+            return "getstarted-4", current_role
     return current_page, current_role
 
 
@@ -178,6 +205,16 @@ def render_shell(page, role):
         return html.Div(className="auth-shell-wrap", children=home_layout())
     if page == "signin":
         return html.Div(className="auth-shell-wrap", children=signin_layout())
+    if page == "getstarted-1":
+        return html.Div(className="auth-shell-wrap", children=getstarted_layout())
+    if page == "getstarted-2":
+        return html.Div(className="auth-shell-wrap", children=getstarted_loading_layout())
+    if page == "getstarted-3":
+        return html.Div(className="auth-shell-wrap", children=getstarted_result_origin_layout())
+    if page == "getstarted-uk-loading":
+        return html.Div(className="auth-shell-wrap", children=getstarted_loading_uk_layout())
+    if page == "getstarted-4":
+        return html.Div(className="auth-shell-wrap", children=getstarted_result_uk_layout())
     return html.Div(
         className="shell",
         children=[
@@ -213,4 +250,4 @@ def render_payout_selection(selected_user, role):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8050)
+    app.run(debug=True, port=8055)
