@@ -250,4 +250,11 @@ def render_payout_selection(selected_user, role):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8055)
+    import os
+    
+    # Configuration from environment variables
+    DEBUG = os.getenv("DASH_DEBUG", "false").lower() in ("true", "1", "yes")
+    HOST = os.getenv("DASH_HOST", "127.0.0.1")
+    PORT = int(os.getenv("DASH_PORT", "8055"))
+    
+    app.run(debug=DEBUG, host=HOST, port=PORT)

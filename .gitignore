@@ -32,6 +32,12 @@ htmlcov/
 .env.*
 !.env.example
 
+# Logs and local databases
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
 # Backups and archives
 backups/
 *.tar.gz

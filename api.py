@@ -8,14 +8,36 @@ Run it alongside Dash:
   Terminal 2:  uvicorn api:app        (FastAPI, port 8000)
 
 Install dependencies:
-  pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] python-jose
+  pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] PyJWT
 """
 
+import os
+import sys
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext  # for hashing passwords
 from sqlalchemy.orm import Session
 from database import get_db, User         # we'll create database.py next
+
+# ─── Configuration: Load from environment ─────────────────────────────────────
+#
+#  All secrets MUST come from environment variables.
+#  The application will fail fast if required secrets are missing.
+#
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    print("ERROR: JWT_SECRET_KEY environment variable is required but not set.", file=sys.stderr)
+    print("Please set JWT_SECRET_KEY to a secure random string (at least 32 characters).", file=sys.stderr)
+    sys.exit(1)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL environment variable is required but not set.", file=sys.stderr)
+    print("Please set DATABASE_URL to your database connection string.", file=sys.stderr)
+    sys.exit(1)
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
 app = FastAPI(title="Ajo API", version="1.0.0")
 
@@ -47,18 +69,15 @@ class SignupResponse(BaseModel):
 
 # ─── Helper: generate JWT token ───────────────────────────────────────────────
 
-from jose import jwt
+import jwt
 from datetime import datetime, timedelta
-
-SECRET_KEY = "change-this-to-a-long-random-string-in-production"
-ALGORITHM = "HS256"
 
 def create_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(days=30),
+        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 # ─── POST /api/v1/auth/signup ─────────────────────────────────────────────────
@@ -138,7 +157,7 @@ bearer = HTTPBearer()
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)):
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         user_id = int(payload["sub"])
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
