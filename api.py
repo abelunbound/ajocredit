@@ -25,9 +25,23 @@ from database import get_db, User         # we'll create database.py next
 #  The application will fail fast if required secrets are missing.
 #
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-random-and-secure"
+
 if not JWT_SECRET_KEY:
     print("ERROR: JWT_SECRET_KEY environment variable is required but not set.", file=sys.stderr)
     print("Please set JWT_SECRET_KEY to a secure random string (at least 32 characters).", file=sys.stderr)
+    print("Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    sys.exit(1)
+
+if len(JWT_SECRET_KEY) < 32:
+    print(f"ERROR: JWT_SECRET_KEY must be at least 32 characters long (got {len(JWT_SECRET_KEY)}).", file=sys.stderr)
+    print("Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    sys.exit(1)
+
+if JWT_SECRET_KEY == INSECURE_PLACEHOLDER:
+    print("ERROR: JWT_SECRET_KEY is set to the insecure placeholder value from .env.example.", file=sys.stderr)
+    print("NEVER use the example placeholder in production!", file=sys.stderr)
+    print("Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
     sys.exit(1)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
