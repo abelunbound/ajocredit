@@ -137,7 +137,7 @@ Likelihood and impact are **H**igh, **M**edium or **L**ow, judged for the live p
 | T-19 | I | **Bank details leak to other members** through UI, API responses or exports | H | M | Privacy layer: API returns names and payment status only; virtual accounts so no member bank details are shared; tests check responses | SR-23 | M4 #48, #51 |
 | T-20 | I, E | **Special category data misuse**: ethnicity used in affordability or pricing, or leaked | H | L | Optional with explicit consent; stored separately with separate access; never an input to affordability, limits or pricing (enforced in code and tests); reported only in aggregate | SR-08 | M2 #34 |
 | T-21 | I | **Open Banking token theft** from database, logs or backups | H | M | Tokens encrypted at rest with keys outside the database; least scope and shortest consent; store band and reasons, not raw transactions | SR-19, SR-21 | M3 #43, #52 |
-| T-22 | T, E | **Fee switch misuse** turns on charging and could break the fee-free credit exemption | H | L | Fee always £0 in pilot; fee switch only via reviewed config change in a PR, logged; no admin screen can change it; legal check gate before any change | SR-28 | M4 #51, #54; Gate #59 |
+| T-22 | T, E | **Fee switch misuse** turns on charging and could break the fee-free credit exemption | H | L | Fee always £0 in pilot; fee switch only via reviewed config change in a PR, logged; no admin screen can change it; legal check gate before any change | SR-28 | M5 #63; M6 #64, #57; Gate #59 |
 | T-23 | T, E | **Dependency or supply chain compromise** (malicious package, unpinned versions, compromised CI action) | H | M | Pinned requirements; Dependabot alerts; review new dependencies; pin CI actions; `security-review` label | SR-03, SR-34 | M0 #9, #15 |
 | T-24 | I | **Personal data in logs**, error reports or screenshots (`uploads/`) | M | H | Do not log PII, tokens or bank details; redact in error handlers; check and remove committed screenshots; synthetic personas only, git-ignored | SR-09, SR-02 | M0 #13; M1 #16 |
 | T-25 | R | **Repudiation**: admin or member denies making a change or accepting a quote | M | M | Append-only audit log with who, what, when, before and after; quotes and acceptances recorded | SR-16, SR-31 | M2 #32; M6 #57 |
@@ -147,6 +147,7 @@ Likelihood and impact are **H**igh, **M**edium or **L**ow, judged for the live p
 | T-29 | T, I | **Wrong or leaked credit data** reported to bureaus | H | L | Report only completed, reconciled cycles; member can see what we report; dispute process | SR-33 | M7 #56; Gate #66 |
 | T-30 | E, I | **Insider misuse** of production data or config | H | L | Least privilege; no shared accounts; production data access logged; no real data in dev or test | SR-35, SR-09 | M2 onwards |
 | T-31 | S, D | **Automated decisions harm members** (unfair decline with no human) | M | M | Human review for every affordability decline; clear reasons; route to appeal | SR-21 | M3 #52 |
+| T-32 | T, R | **Paid-then-leave**: a member who has already received their payout leaves, stops contributing or is replaced, leaving the circle short | H | M | Exit after payout keeps the remaining contributions owed (direct debit continues, or Delay Cover covers and the debt is recovered); a replacement takes over only unpaid positions and never receives a payout already made; every exit and replacement is recorded in the ledger and audit log | SR-36, SR-24, SR-16 | M4 #47; M5 #63 |
 
 ---
 
@@ -191,11 +192,11 @@ Each requirement is testable. "Must" means the milestone is not done without it.
 ### M4 Circles and money flows
 
 - **SR-23** API responses to members must contain other members' names and payment status only; never bank details, contact details or ID data. Members pay into partner virtual accounts. (T-19; #48, #51)
-- **SR-24** Circle settings (amount, frequency, size) must lock once the first contribution is made. (T-06, T-26; #42)
+- **SR-24** Circle settings (amount, frequency, size) must lock once the first contribution is made. Locking the size still allows a leaving member to be replaced through the exit and replacement flow (#47), which keeps the size the same. (T-06, T-26, T-32; #42, #47)
 - **SR-25** Before the first contribution, the admin may reorder freely. After it, any swap needs in-app acceptance from every affected member; the admin can never move themselves up without consent. All changes are audit-logged. (T-06; #49)
 - **SR-26** Changing a payout destination must need step-up authentication and a cooling-off period, notify the member, and be audit-logged. Payouts during the cooling-off period go to the previous verified account. (T-05; #53)
 - **SR-27** Payments must go only through the regulated partner. Partner webhooks must be signature-checked and reconciled before the ledger is credited. Suspicious patterns are escalated to the partner's AML process. (T-18, T-28; #51)
-- **SR-28** The fee must be calculated and shown as waived, and £0 charged, with no late fees. The fee switch can only change through a reviewed config change in a PR, is logged, and has no admin screen. Any change needs the legal check gate (#59). (T-22; #51, #54)
+- **SR-28** The fee must be calculated and shown as waived, and £0 charged, with no late fees. The fee switch can only change through a reviewed config change in a PR, is logged, and has no admin screen. Any change needs the legal check gate (#59). (T-22; #63, #64, #57)
 
 ### M5 Delay Cover
 
@@ -215,6 +216,7 @@ Each requirement is testable. "Must" means the milestone is not done without it.
 
 - **SR-34** New or upgraded dependencies must be pinned and reviewed; CI actions pinned to a version or commit. (T-23; #9, #15)
 - **SR-35** Production access must be least privilege, named accounts only, logged, and reviewed each milestone. (T-30)
+- **SR-36** Member exit and replacement must keep the ledger balanced. A member who has already been paid stays liable for their remaining contributions, and a replacement can only take over unpaid positions. Every exit and replacement needs the admin's action and the affected members' acceptance, and is audit-logged. (T-32; #47)
 
 ---
 
