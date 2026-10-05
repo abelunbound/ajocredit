@@ -40,6 +40,7 @@ from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
+from pages.my_circles import my_circles_rows  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
 from pages.wallet import quote_body  # noqa: E402
@@ -206,14 +207,7 @@ def sidebar(page, role, username):
                 className="sb-nav",
             ),
             html.Div("My circles", className="sb-section"),
-            html.Div(
-                [
-                    html.Div([html.Span(className="cdot"), "Brum Builders"], className="circle-row"),
-                    html.Div([html.Span(className="cdot"), "Sister Circle"], className="circle-row"),
-                    html.Div([icon("plus"), "Create circle"], className="circle-row muted"),
-                ],
-                className="sb-nav",
-            ),
+            html.Div(my_circles_rows(username=username, role=role), className="sb-nav"),
             html.Div([profile_button(page, role, username)], className="sb-footer"),
         ],
     )

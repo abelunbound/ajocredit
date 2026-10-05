@@ -1,0 +1,15 @@
+{
+  "note": "Temporary sidebar actions until circles live in the database. Circle names are not stored here; My circles reads them from the persona groups document (data/personas.json, or data/personas.example.json when the local file is absent).",
+  "actions": [
+    {
+      "id": "create-circle",
+      "label": "Create circle",
+      "icon": "plus"
+    },
+    {
+      "id": "join-ajo",
+      "label": "Join Ajo",
+      "icon": "plus"
+    }
+  ]
+}
