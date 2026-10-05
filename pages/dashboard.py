@@ -5,18 +5,6 @@ from .data import TXNS
 
 
 def layout(role):
-    rotation = [
-        ("FEB", "#1", "Ola", "done"),
-        ("MAR", "#2", "Ebuka", "done"),
-        ("APR", "#3", "Abel", "now"),
-        ("MAY", "#4", "Kemi", "me"),
-        ("JUN", "#5", "Chidi", ""),
-        ("JUL", "#6", "Tola", ""),
-        ("AUG", "#7", "Nneka", ""),
-        ("SEP", "#8", "Daniel", ""),
-        ("OCT", "#9", "Femi", ""),
-        ("NOV", "#10", "Aisha", ""),
-    ]
     return html.Div(
         className="stack",
         children=[
@@ -37,10 +25,10 @@ def layout(role):
                 ],
             ),
             html.Div(
-                className="g3-1",
+                className="dash-board",
                 children=[
                     html.Div(
-                        className="stack",
+                        className="dash-row dash-row-1",
                         children=[
                             html.Div(
                                 className="card hero-pot",
@@ -64,21 +52,44 @@ def layout(role):
                                 ],
                             ),
                             html.Div(
-                                className="card",
+                                className="card dash-next",
                                 children=[
-                                    html.Div(className="card-hd", children=[html.Div([html.Div("Rotation · 10 months", className="h2"), html.Div("Position 4 · you receive in month 7 (Aug)", className="muted mini")])]),
+                                    html.Div(className="card-hd", children=[html.Div("Next recipient", className="h2"), html.Span([html.Span(className="pd"), "scheduled"], className="pill gold")]),
                                     html.Div(
-                                        className="cal-grid",
+                                        className="dash-who-row",
                                         children=[
-                                            html.Div(className=f"cal-cell {state}", children=[html.Div(f"{m} {n}", className="cm"), html.Div(label, className="cn"), html.Div("£5k", className="ca")])
-                                            for m, n, label, state in rotation
+                                            html.Div(
+                                                className="dash-who",
+                                                children=[
+                                                    html.Div("AO", className="mav dash-av", style={"background": "#B88A2A"}),
+                                                    html.Div(
+                                                        [
+                                                            html.Div("@abel_o", className="dash-handle"),
+                                                            html.Div("Abel O. · Apr 28", className="dash-meta muted"),
+                                                        ]
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="dash-amt-wrap",
+                                                children=[
+                                                    html.Div("£5,000", className="mono dash-amt"),
+                                                    html.Div("virtual acct", className="muted dash-amt-sub"),
+                                                ],
+                                            ),
                                         ],
                                     ),
-                                    html.Div(className="legend-row", children=[html.Span([html.Span(className="lg-box done"), "Received"]), html.Span([html.Span(className="lg-box now"), "This month"]), html.Span([html.Span(className="lg-box me"), "You"])]),
+                                    html.Div(className="hr"),
+                                    html.Div(className="meta-grid", children=[html.Div([html.Div("Method", className="label-xs"), html.Div("Virtual account")]), html.Div([html.Div("Settlement", className="label-xs"), html.Div("Instant FPS")]), html.Div([html.Div("Contributions in", className="label-xs"), html.Div("9 / 10")]), html.Div([html.Div("Auto-loan used", className="label-xs"), html.Div("£500")])]),
                                 ],
                             ),
+                        ],
+                    ),
+                    html.Div(
+                        className="dash-row dash-row-2",
+                        children=[
                             html.Div(
-                                className="card",
+                                className="card dash-equal",
                                 children=[
                                     html.Div(className="card-hd", children=[html.Div("Recent activity", className="h2"), html.Button("All transactions", className="btn btn-sm btn-ghost")]),
                                     html.Table(
@@ -90,35 +101,13 @@ def layout(role):
                                     ),
                                 ],
                             ),
-                        ],
-                    ),
-                    html.Div(
-                        className="stack",
-                        children=[
                             html.Div(
-                                className="card",
+                                className="dash-side",
                                 children=[
-                                    html.Div(className="card-hd", children=[html.Div("Next recipient", className="h2"), html.Span([html.Span(className="pd"), "scheduled"], className="pill gold")]),
-                                    html.Div(
-                                        className="nr-top",
-                                        children=[
-                                            html.Div(
-                                                className="nr-left",
-                                                children=[
-                                                    html.Div("AO", className="mav nr-av", style={"background": "#B88A2A"}),
-                                                    html.Div([html.Div("@abel_o", className="recipient"), html.Div("Abel O. · Apr 28", className="muted")]),
-                                                ],
-                                            ),
-                                            html.Div(className="nr-right", children=[html.Div("£5,000", className="mono nr-amt"), html.Div("virtual acct", className="muted nr-sub")]),
-                                        ],
-                                    ),
-                                    html.Div(className="hr"),
-                                    html.Div(className="meta-grid", children=[html.Div([html.Div("Method", className="label-xs"), html.Div("Virtual account")]), html.Div([html.Div("Settlement", className="label-xs"), html.Div("Instant FPS")]), html.Div([html.Div("Contributions in", className="label-xs"), html.Div("9 / 10")]), html.Div([html.Div("Auto-loan used", className="label-xs"), html.Div("£500")])]),
-                                    html.Div(className="row-note", children=[icon("eyeoff"), html.Span("Bank details hidden. Payouts via AjoCredit virtual accounts.")]),
+                                    html.Div(className="card al-hero dash-equal", children=[html.Div("Auto-loan · on", className="label-xs white"), html.Div("Payouts on time — every time.", className="h2 white"), html.P("0% interest cover if a member is late. Repay over 60 days automatically.", className="white-sub"), html.Div(className="between hero-bar-meta", children=[html.Span("Used this cycle"), html.Span("£500 / £500", className="mono")]), html.Div(className="bar hero-bar", children=[html.Span(style={"width": "100%"})]), html.Button("How it works →", className="btn btn-sm btn-glass")]),
+                                    html.Div(className="card dash-equal", children=[html.Div("Circle safety", className="h2"), html.Div(className="safe-row", children=[html.Div(icon("shield"), className="safe-ic"), html.Div([html.Div("All 10 members credit-checked", className="safe-title"), html.Div("Min score 680 · UK + origin", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("bolt"), className="safe-ic"), html.Div([html.Div("Auto-loan backstop armed", className="safe-title"), html.Div("Up to £500 covered", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("eyeoff"), className="safe-ic"), html.Div([html.Div("Usernames only", className="safe-title"), html.Div("No bank details shared", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("lock"), className="safe-ic"), html.Div([html.Div("Regulated account", className="safe-title"), html.Div("FCA e-money safeguarded", className="safe-sub")])])]),
                                 ],
                             ),
-                            html.Div(className="card al-hero", children=[html.Div("Auto-loan · on", className="label-xs white"), html.Div("Payouts on time — every time.", className="h2 white"), html.P("0% interest cover if a member is late. Repay over 60 days automatically.", className="white-sub"), html.Div(className="between hero-bar-meta", children=[html.Span("Used this cycle"), html.Span("£500 / £500", className="mono")]), html.Div(className="bar hero-bar", children=[html.Span(style={"width": "100%"})]), html.Button("How it works →", className="btn btn-sm btn-glass")]),
-                            html.Div(className="card", children=[html.Div("Circle safety", className="h2"), html.Div(className="safe-row", children=[html.Div(icon("shield"), className="safe-ic"), html.Div([html.Div("All 10 members credit-checked", className="safe-title"), html.Div("Min score 680 · UK + origin", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("bolt"), className="safe-ic"), html.Div([html.Div("Auto-loan backstop armed", className="safe-title"), html.Div("Up to £500 covered", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("eyeoff"), className="safe-ic"), html.Div([html.Div("Usernames only", className="safe-title"), html.Div("No bank details shared", className="safe-sub")])]), html.Div(className="safe-row", children=[html.Div(icon("lock"), className="safe-ic"), html.Div([html.Div("Regulated account", className="safe-title"), html.Div("FCA e-money safeguarded", className="safe-sub")])])]),
                         ],
                     ),
                 ],

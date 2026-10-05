@@ -368,6 +368,29 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
   .cr-break-row{grid-template-columns:1fr 50px 180px;}
   .al-title{font-size:36px;}
 }
+/* Dashboard home (#17): compact next-recipient, equal second-row height. */
+.dash-board{display:flex;flex-direction:column;gap:20px;}
+.dash-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:stretch;}
+.dash-row>.card{height:100%;}
+.dash-next{display:flex;flex-direction:column;}
+.dash-who-row{display:flex;align-items:center;justify-content:space-between;gap:32px;}
+.dash-who{display:flex;align-items:center;gap:8px;min-width:0;}
+.dash-av{width:26px;height:26px;font-size:9px;}
+.dash-handle{font-size:12px;font-weight:600;line-height:1.15;}
+.dash-meta{font-size:11px;line-height:1.15;margin-top:1px;}
+.dash-amt-wrap{text-align:right;flex:0 0 auto;margin-left:20px;}
+.dash-amt{font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1;}
+.dash-amt-sub{font-size:10.5px;margin-top:2px;}
+.dash-row-2>.dash-equal,
+.dash-row-2>.dash-side{height:100%;min-height:100%;}
+.dash-side{display:grid;grid-template-rows:1fr 1fr;gap:20px;align-content:stretch;}
+.dash-side>.dash-equal{height:100%;min-height:0;}
+
+@media(max-width:1200px){
+  .dash-row{grid-template-columns:1fr;}
+  .dash-side{grid-template-rows:auto auto;}
+}
+
 @media(max-width:900px){
   .shell{grid-template-columns:1fr;}
   .sidebar{display:none;}
