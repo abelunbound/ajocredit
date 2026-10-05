@@ -1,4 +1,4 @@
-"""My Ajo lists the signed-in persona's circles in one card shape."""
+"""My Ajo is the original rotation screen, with group tabs when needed."""
 
 import json
 from pathlib import Path
@@ -93,18 +93,32 @@ def test_load_ajo_document_falls_back_to_the_example(tmp_path, monkeypatch):
     assert viewer["name"] == "Amina Testperson"
 
 
-def test_layout_uses_one_card_shape_and_hides_secrets():
+def test_layout_restores_the_rotation_screen_and_hides_secrets():
     text = str(layout("admin", "admintest", _example_document()))
 
-    assert "My Ajo" in text
-    assert "MyAjo" not in text
-    assert "viewing as Amina Testperson" in text
+    assert "Rotation timeline" in text
+    assert "Circle rules" in text
+    assert "Contribution progress" in text
     assert "Brum Builders" in text
     assert "Sister Circle Ajo" in text
-    assert text.count("You are the admin of this Ajo.") == 2
-    assert "Created by Amina Testperson" in text
-    assert "£500 monthly" in text
-    assert "£250 monthly" in text
+    assert "my-ajo-btn" in text
+    assert "Amina Testperson" in text
+    assert text.count("children='you'") == 1
+    assert "Verified" in text
+    assert "Month 3/8" in text
+    assert "Birmingham, UK · £500 x 8 monthly · pot £4,000" in text
+    assert "£500 monthly · autopay 1st" in text
+    assert "Fixed by join-date" in text
+    assert "48 hours" in text
+    assert "Only after payout month" in text
+    assert "680" in text
+    assert "7 of 8 collected" in text
+    assert "£3,500 / £4,000" in text
+    assert "Delay Cover covering £500 for @seyi_d" in text
+    assert "Auto-loan" not in text
+    assert "Kelechi Mockmember" not in text
+    assert "Ifeoma Sandbox" not in text
+    assert "You are the admin of this Ajo." not in text
     assert "demo1" not in text
     assert "@example.test" not in text
     assert "role-btn" not in text
@@ -113,12 +127,17 @@ def test_layout_uses_one_card_shape_and_hides_secrets():
 def test_member_layout_lists_one_ajo():
     text = str(layout("member", "membertest", _example_document()))
 
-    assert "viewing as Tunde Exampleonly" in text
-    assert "1 Ajo" in text
-    assert "You are a member of this Ajo." in text
-    assert "You are the admin of this Ajo." not in text
+    assert "Tunde Exampleonly" in text
+    assert text.count("children='you'") == 1
+    assert "Rotation timeline" in text
+    assert "Month 3/8" in text
+    assert "Brum Builders" in text
     assert "Sister Circle Ajo" not in text
-    assert "Created by Amina Testperson" in text
+    assert "Kelechi Mockmember" not in text
+    assert "You are a member of this Ajo." not in text
+    assert "You are the admin of this Ajo." not in text
+    assert "Delay Cover" in text
+    assert "Auto-loan" not in text
 
 
 def test_shell_follows_the_server_session_not_the_client_role():
@@ -129,8 +148,10 @@ def test_shell_follows_the_server_session_not_the_client_role():
         admin_text = str(render_shell("circle", "member"))
         assert "My Ajo" in admin_text
         assert "PayoutsTracker" in admin_text
-        assert "viewing as Amina Testperson" in admin_text
+        assert "Rotation timeline" in admin_text
+        assert "Amina Testperson" in admin_text
         assert "Sister Circle Ajo" in admin_text
+        assert "Kelechi Mockmember" not in admin_text
         assert "role-btn" not in admin_text
 
         session.clear()
@@ -139,7 +160,7 @@ def test_shell_follows_the_server_session_not_the_client_role():
         member_text = str(render_shell("circle", "admin"))
         assert "My Ajo" in member_text
         assert "PayoutsTracker" not in member_text
-        assert "viewing as Tunde Exampleonly" in member_text
+        assert "Tunde Exampleonly" in member_text
         assert "Sister Circle Ajo" not in member_text
         assert "role-btn" not in member_text
 
@@ -149,7 +170,7 @@ def test_render_page_accepts_the_existing_role_argument():
         session.clear()
         page = render_page("circle", "admin")
         text = str(page)
-        assert "My Ajo" in text
+        assert "Rotation timeline" in text
         assert "Amina Testperson" in text
 
 
@@ -160,6 +181,67 @@ def test_nav_label_is_my_ajo():
     assert "My Ajo" in labels
     assert "MyAjo" not in labels
     assert CRUMBS["circle"] == ["AjoFinance", "My Ajo"]
+
+
+def _post_ajo(role, username, ajo_name, names):
+    client = app.server.test_client()
+    with client.session_transaction() as sess:
+        sess["role"] = role
+        sess["username"] = username
+    response = client.post(
+        "/_dash-update-component",
+        json={
+            "output": '..my-ajo-body.children...{"name":["ALL"],"type":"my-ajo-btn"}.className..',
+            "outputs": [
+                {"id": "my-ajo-body", "property": "children"},
+                [
+                    {"id": {"type": "my-ajo-btn", "name": name}, "property": "className"}
+                    for name in names
+                ],
+            ],
+            "inputs": [{"id": "my-ajo-selected", "property": "data", "value": ajo_name}],
+            "changedPropIds": ["my-ajo-selected.data"],
+            "state": [],
+        },
+    )
+    return response
+
+
+def test_callback_switches_the_whole_screen_to_the_other_ajo():
+    response = _post_ajo("admin", "admintest", "Sister Circle Ajo", ["Brum Builders", "Sister Circle Ajo"])
+    payload = response.get_json()["response"]
+    body = json.dumps(payload["my-ajo-body"], ensure_ascii=False)
+
+    assert response.status_code == 200
+    assert "Sister Circle Ajo" in body
+    assert "Ifeoma Sandbox" in body
+    assert "Kelechi Mockmember" in body
+    assert "Amina Testperson" in body
+    assert "Tunde Exampleonly" not in body
+    assert "Yewande Faketest" not in body
+    assert "Month 3/7" in body
+    assert "£250 x 7 monthly" in body
+    assert "pot £1,750" in body
+    assert "6 of 7 collected" in body
+    assert "Delay Cover covering £250 for @ifeoma_s" in body
+    assert "Auto-loan" not in body
+    assert "@example.test" not in body
+    assert payload['{"name":"Sister Circle Ajo","type":"my-ajo-btn"}']["className"] == "on"
+    assert payload['{"name":"Brum Builders","type":"my-ajo-btn"}']["className"] == ""
+
+
+def test_callback_rejects_an_ajo_the_viewer_does_not_belong_to():
+    response = _post_ajo("member", "membertest", "Sister Circle Ajo", ["Brum Builders"])
+    payload = response.get_json()["response"]
+    body = json.dumps(payload["my-ajo-body"], ensure_ascii=False)
+
+    assert response.status_code == 200
+    assert "Brum Builders" in body
+    assert "Tunde Exampleonly" in body
+    assert "Sister Circle Ajo" not in body
+    assert "Ifeoma Sandbox" not in body
+    assert "Kelechi Mockmember" not in body
+    assert payload['{"name":"Brum Builders","type":"my-ajo-btn"}']["className"] == "on"
 
 
 def test_unreadable_persona_file_does_not_crash_the_page(monkeypatch):
