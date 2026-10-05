@@ -125,6 +125,38 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .payout-radio-btn{width:18px;height:18px;border:0;background:transparent;padding:0;display:grid;place-items:center;cursor:pointer;}
 .payout-radio{width:12px;height:12px;border-radius:50%;border:1.6px solid var(--ink-4);display:inline-block;}
 .payout-radio.on{border-color:var(--brand);background:radial-gradient(circle,var(--brand) 42%,transparent 44%);}
+.ajo-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.ajo-sub .sub{margin:0;}
+.member-kicker{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);}
+.ajo-dropdown{width:260px;font-size:13.5px;}
+.ajo-dropdown-sm{width:220px;}
+.member-quick{display:flex;flex-direction:column;gap:8px;}
+.member-note{margin-top:6px;}
+.member-admin{gap:14px;}
+.ajo-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 18px;margin-top:14px;}
+.ajo-fact .k{font-size:12px;color:var(--ink-3);}
+.ajo-fact .v{font-size:14px;font-weight:600;margin-top:4px;}
+.member-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:12px;}
+.member-stat{text-align:center;padding:8px 4px;}
+.member-stat .n{font-size:22px;font-weight:600;letter-spacing:-.02em;}
+.member-stat .n.good{color:var(--good);}
+.member-stat .n.gold{color:var(--gold);}
+.member-stat .n.danger{color:var(--danger);}
+.member-stat .n.brand{color:var(--accent);}
+.member-stat .l{font-size:12px;color:var(--ink-3);margin-top:2px;}
+.member-tabs{margin-top:2px;}
+.member-drawer{margin-top:4px;}
+.member-positions{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;}
+.member-feed{display:flex;flex-direction:column;margin-top:8px;}
+.member-feed-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line-2);}
+.member-feed-row .pill{margin-left:auto;}
+.member-note-row{align-items:flex-start;}
+.members-empty{color:var(--ink-3);font-size:13.5px;}
+.member-tag{font-weight:500;}
+@media (max-width:900px){
+  .ajo-facts{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .member-stats{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
 .payout-side{align-self:start;}
 .payout-av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:700;margin:0 auto 10px;}
 .payout-head{text-align:center;padding-top:2px;}
