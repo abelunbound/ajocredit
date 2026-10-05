@@ -33,8 +33,34 @@ def signup_problem(fields):
     return ""
 
 
+def _signup_field(field_id, input_type, label, autocomplete):
+    """Field title sits inside the control. dcc.Input does not forward aria-*.
+
+    A visually hidden label associated with htmlFor is the accessible name.
+    """
+    return html.Div(
+        className="signup-field",
+        children=[
+            html.Label(
+                label,
+                htmlFor=field_id,
+                className="visually-hidden",
+                **{"aria-label": label},
+            ),
+            dcc.Input(
+                id=field_id,
+                type=input_type,
+                value="",
+                placeholder=label,
+                autoComplete=autocomplete,
+                className="auth-input",
+            ),
+        ],
+    )
+
+
 def layout():
-    """Registration only. Credit checks live on Settings."""
+    """Sign Up only. Credit checks live on Settings."""
     return html.Div(
         className="auth-screen signup-screen",
         children=[
@@ -51,59 +77,17 @@ def layout():
                 ],
             ),
             html.Div(icon("user"), className="gs-icon-wrap"),
-            html.H2("Registration", className="gs-title"),
+            html.H2("Sign Up", className="gs-title"),
             html.P(
                 "Create your profile with your name, email, phone, and password.",
                 className="gs-copy",
             ),
-            html.Div("First name", className="gs-label"),
-            dcc.Input(
-                id="signup-first-name",
-                type="text",
-                value="",
-                autoComplete="given-name",
-                className="auth-input",
-            ),
-            html.Div("Last name", className="gs-label"),
-            dcc.Input(
-                id="signup-last-name",
-                type="text",
-                value="",
-                autoComplete="family-name",
-                className="auth-input",
-            ),
-            html.Div("Email", className="gs-label"),
-            dcc.Input(
-                id="signup-email",
-                type="email",
-                value="",
-                autoComplete="email",
-                className="auth-input",
-            ),
-            html.Div("Phone", className="gs-label"),
-            dcc.Input(
-                id="signup-phone",
-                type="tel",
-                value="",
-                autoComplete="tel",
-                className="auth-input",
-            ),
-            html.Div("Set password", className="gs-label"),
-            dcc.Input(
-                id="signup-password",
-                type="password",
-                value="",
-                autoComplete="new-password",
-                className="auth-input",
-            ),
-            html.Div("Confirm password", className="gs-label"),
-            dcc.Input(
-                id="signup-password-confirm",
-                type="password",
-                value="",
-                autoComplete="new-password",
-                className="auth-input",
-            ),
+            _signup_field("signup-first-name", "text", "First name", "given-name"),
+            _signup_field("signup-last-name", "text", "Last name", "family-name"),
+            _signup_field("signup-email", "email", "Email", "email"),
+            _signup_field("signup-phone", "tel", "Phone", "tel"),
+            _signup_field("signup-password", "password", "Set password", "new-password"),
+            _signup_field("signup-password-confirm", "password", "Confirm password", "new-password"),
             html.Div(id="signup-error", className="auth-error"),
             html.Button(
                 "Create account",
