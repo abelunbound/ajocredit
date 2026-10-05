@@ -130,7 +130,7 @@ class TestDirectUrlAccess:
         "path,needle",
         [
             ("/dashboard", "Good afternoon, Kemi."),
-            ("/members", "10 credit-verified"),
+            ("/members", "usernames only"),
             ("/circle", "viewing as Tunde Exampleonly"),
             ("/credit", "Credit & checks"),
             ("/autoloan", "Interest-free safety net"),
@@ -279,24 +279,24 @@ class TestLinksAndBack:
             assert response.status_code == 200
             seen.append(_render(client, path))
         assert "Good afternoon, Kemi." in seen[0]
-        assert "10 credit-verified" in seen[1]
+        assert "usernames only" in seen[1]
         assert "Credit & checks" in seen[2]
         # Browser back from credit to members, then to the dashboard.
         back_members = _render(client, history[-2])
         back_dashboard = _render(client, history[-3])
         assert "Credit & checks" not in back_members
-        assert "10 credit-verified" in back_members
+        assert "usernames only" in back_members
         assert "Good afternoon, Kemi." in back_dashboard
         assert "Credit & checks" not in back_dashboard
 
     def test_admin_back_from_payouts_returns_to_members(self, local_env):
         client = _client("admin", "admintest")
-        assert "10 credit-verified" in _render(client, "/members")
+        assert "usernames only" in _render(client, "/members")
         payouts = _render(client, "/payouts")
         assert "Hold to release" in payouts
         back = _render(client, "/members")
         assert "Hold to release" not in back
-        assert "10 credit-verified" in back
+        assert "usernames only" in back
 
     def test_button_navigation_changes_the_address(self):
         with app.server.test_request_context():

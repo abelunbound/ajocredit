@@ -40,6 +40,7 @@ from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
+from pages.members import register_callbacks as register_members_callbacks  # noqa: E402
 from pages.my_circles import my_circles_rows  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
@@ -285,7 +286,7 @@ def render_page(page, role, username=None, profile=None):
         page = "home"
     pages = {
         "home": dashboard_layout(role),
-        "members": members_layout(),
+        "members": members_layout(role, username),
         "payouts": payouts_layout(role, username),
         "credit": credit_layout(),
         "autoloan": autoloan_layout(),
@@ -602,6 +603,9 @@ def render_payout_selection(ajo_name, selected_user):
 def request_early_payout(n_clicks):
     """Show the local early-payout quote. Nothing is submitted or paid."""
     return [quote_body(bool(n_clicks))]
+
+
+register_members_callbacks(app)
 
 
 if __name__ == "__main__":
