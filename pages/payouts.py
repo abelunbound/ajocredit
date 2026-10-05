@@ -92,7 +92,7 @@ def detail_card(selected_user, role):
             ],
         ),
         html.Div(className="row-note", children=[icon("lock"), html.Span("Bank details hidden. Funds route through virtual account.")]),
-        html.Button("Hold to release £5,000", className="btn btn-primary btn-lg wide") if role == "admin" else html.Div("Admin action · switch role in sidebar", className="muted payout-admin"),
+        html.Button("Hold to release £5,000", className="btn btn-primary btn-lg wide") if role == "admin" else html.Div("Admin action", className="muted payout-admin"),
         html.Button("Reschedule", className="btn btn-ghost btn-sm wide") if role == "admin" else None,
     ]
 

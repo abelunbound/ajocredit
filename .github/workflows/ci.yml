@@ -26,4 +26,4 @@ jobs:
     
     - name: Run smoke tests
       run: |
-        pytest test_smoke.py -v
+        pytest -v

@@ -62,3 +62,4 @@ Desktop.ini
 # Persona and test credentials
 personas.md
 test-credentials.md
+local/stub-users.json

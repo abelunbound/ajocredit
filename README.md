@@ -52,6 +52,9 @@ AjoFinance loads secrets and runtime settings from environment variables. Never 
    - **`DASH_DEBUG`** (optional): set to `true` only for local development (default `false`)
    - **`DASH_HOST`** (optional): Dash bind address (default `127.0.0.1`)
    - **`DASH_PORT`** (optional): Dash port (default `8055`)
+   - **`AJO_ENV`** (optional): `local` on a laptop. Use any other value (`production`, `staging`, …) for deployed environments.
+   - **`ALLOW_LOCAL_STUB_LOGIN`**: keep `false` except on your own machine. See below.
+   - **`STUB_USERS_FILE`** (optional): path to the git-ignored stub passwords (default `local/stub-users.json`)
 
 3. Do not commit `.env`. `.gitignore` ignores `.env` and `.env.*` and keeps `.env.example`.
 
@@ -68,6 +71,24 @@ python app_dash_web.py
 ```
 
 Then visit http://127.0.0.1:8055 in your browser.
+
+### Local stub sign-in
+
+`admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only for `admintest`.
+
+1. Copy the password template and edit the copy. Do not commit it.
+   ```bash
+   cp local/stub-users.example.json local/stub-users.json
+   ```
+2. In `.env`, set:
+   ```bash
+   ALLOW_LOCAL_STUB_LOGIN=true
+   DASH_HOST=127.0.0.1
+   AJO_ENV=local
+   ```
+3. Start the Dash app and sign in with the username and the password from `local/stub-users.json`.
+
+Startup refuses to continue if `ALLOW_LOCAL_STUB_LOGIN` is true while `DASH_HOST` is not `127.0.0.1`, `localhost`, or `::1`, or while `AJO_ENV` is anything other than unset or `local`. With the flag off, those accounts cannot sign in. Leave the flag false in every shared or deployed environment.
 
 ### FastAPI Backend
 
@@ -87,13 +108,17 @@ This runs on http://localhost:8000 by default.
 | `DATABASE_URL` | Yes (API) | — | PostgreSQL connection string |
 | `JWT_EXPIRY_DAYS` | No | `30` | JWT token expiration in days |
 | `DASH_DEBUG` | No | `false` | Enable Dash debug mode (local development only) |
-| `DASH_HOST` | No | `127.0.0.1` | Dash server host |
+| `DASH_HOST` | No | `127.0.0.1` | Dash server host. Must be `127.0.0.1`, `localhost`, or `::1` when stub sign-in is enabled |
 | `DASH_PORT` | No | `8055` | Dash server port |
+| `AJO_ENV` | No | unset | `local` (or unset) for a laptop. Any other value is a non-local environment |
+| `ALLOW_LOCAL_STUB_LOGIN` | No | `false` | Enable `admintest` / `membertest` sign-in. Local loopback only; otherwise the process exits |
+| `STUB_USERS_FILE` | No | `local/stub-users.json` | Git-ignored JSON file with stub passwords |
 
 ## Security notes
 
 - The API fails fast if a required secret is missing or the JWT secret is too short or still the example placeholder. There is no insecure fallback.
 - Debug mode is disabled by default. Enable it only with `DASH_DEBUG=true`.
+- Stub sign-in is off unless `ALLOW_LOCAL_STUB_LOGIN=true`, and that setting is refused unless the app is bound to loopback in a local environment. Passwords are not committed; use `local/stub-users.example.json` as the template.
 - Generate a new JWT secret for every environment. Never reuse the value in `.env.example`.
 
 ## Development
@@ -104,7 +129,7 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`.
 
 ## Project Structure
 

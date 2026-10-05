@@ -6,15 +6,17 @@ This ensures that no page throws an exception when rendered.
 """
 
 import pytest
-from dash import Dash
+from flask import session
+
+from app_dash_web import app as dash_app
 from app_dash_web import render_page, render_shell
+from pages.signin import layout as signin_layout
 
 
 @pytest.fixture
 def app():
-    """Create a minimal Dash app for testing."""
-    test_app = Dash(__name__)
-    return test_app
+    """Use the real Dash app so session-backed shells can render."""
+    return dash_app
 
 
 class TestPageLayouts:
@@ -48,16 +50,29 @@ class TestPageLayouts:
     ])
     def test_render_shell_auth_screens(self, app, page, role):
         """Test that render_shell works for auth screens (landing, signin, get-started)."""
-        with app.server.app_context():
-            shell = render_shell(page, role)
+        with app.server.test_request_context():
+            session.clear()
+            if page == "signin":
+                shell = signin_layout()
+            else:
+                shell = render_shell(page, role)
             assert shell is not None, f"Shell for page {page} (role {role}) returned None"
 
     @pytest.mark.parametrize("role", ["member", "admin"])
     def test_render_shell_main_app(self, app, role):
         """Test that render_shell works for main app pages with sidebar."""
-        with app.server.app_context():
-            shell = render_shell("home", role)
+        username = "admintest" if role == "admin" else "membertest"
+        with app.server.test_request_context():
+            session.clear()
+            session["username"] = username
+            session["role"] = role
+            shell = render_shell("home", "admin" if role == "member" else "member")
             assert shell is not None, f"Shell for home page (role {role}) returned None"
+            text = str(shell)
+            if role == "admin":
+                assert "PayoutsTracker" in text
+            else:
+                assert "PayoutsTracker" not in text
 
 
 class TestPageCoverage:

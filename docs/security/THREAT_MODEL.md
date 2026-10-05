@@ -39,7 +39,7 @@ If a ticket has no matching risk, either the ticket is not needed or this docume
 **Where we are today (baseline review, M0)**
 
 - Single-process Plotly Dash app (`app_dash_web.py`, `pages/*.py`) with hardcoded data in `pages/data.py`.
-- Sign-in is a mock. The Member/Admin role is a UI toggle that anyone can flip.
+- Prototype sign-in is a local-only stub (`admintest` / `membertest`). There is no client role toggle. The stub is refused unless `ALLOW_LOCAL_STUB_LOGIN` is on and the app is bound to loopback; otherwise startup fails. Passwords live in a git-ignored file. Real sign-in is still M2.
 - `app.run(debug=True)` is on.
 - `api.py` is a FastAPI sign-up/JWT sketch that does not run yet. It hashes passwords with bcrypt (good), but has a hardcoded placeholder JWT signing key (public, so it must be replaced and never reused), 30-day tokens that cannot be revoked, uses python-jose (prefer PyJWT), and the sign-up response reveals whether an email is already registered.
 - No `.gitignore`; a `.venv`, a backup tarball and screenshots in `uploads/` are committed. No real secrets were found in the git history.
