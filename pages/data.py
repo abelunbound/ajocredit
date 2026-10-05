@@ -41,7 +41,7 @@ CRUMBS = {
     "home": ["AjoFinance", "Dashboard"],
     "circle": ["AjoFinance", "Circles", "Brum Builders"],
     "members": ["AjoFinance", "Brum Builders", "Members"],
-    "payouts": ["AjoFinance", "Brum Builders", "Payouts"],
+    "payouts": ["AjoFinance", "Brum Builders", "Payouts Tracker"],
     "credit": ["AjoFinance", "Me", "Credit & checks"],
     "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
     "wallet": ["AjoFinance", "Me", "Wallet"],

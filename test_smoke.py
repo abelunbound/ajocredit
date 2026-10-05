@@ -35,7 +35,8 @@ class TestPageLayouts:
     def test_render_page(self, app, page, role):
         """Test that render_page works for all pages and roles."""
         with app.server.app_context():
-            layout = render_page(page, role)
+            username = "admintest" if role == "admin" else "membertest"
+            layout = render_page(page, role, username)
             assert layout is not None, f"Page {page} for role {role} returned None"
 
     @pytest.mark.parametrize("role", ["member", "admin"])

@@ -87,11 +87,11 @@ Each screen has its own address, so refresh, back, and links stay on that screen
 | Auto-loan | `/autoloan` |
 | Wallet | `/wallet` |
 
-A member who opens `/payouts` directly is sent to `/dashboard`. Someone who is not signed in and opens an app address is sent to `/signin`. The server decides that from the session; the address itself does not grant a role.
+Opening `/payouts` directly is sent to `/dashboard` unless the signed-in user is the creator of an Ajo. Someone who is not signed in and opens an app address is sent to `/signin`. The server decides that from the session; the address itself does not grant a role.
 
 ### Local stub sign-in
 
-`admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only for `admintest`.
+`admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only to the creator of that Ajo. With these local accounts, that creator is `admintest`. `membertest` is redirected to the dashboard and does not see the PayoutsTracker menu.
 
 1. Copy the password template and edit the copy. Do not commit it.
    ```bash

@@ -152,7 +152,7 @@ class TestDirectUrlAccess:
         response = client.get("/payouts")
         assert response.status_code == 200
         body = _render(client, "/payouts")
-        assert "Release payout" in body
+        assert "Payouts Tracker" in body
         assert "Hold to release" in body
 
     def test_member_typed_payouts_url_is_redirected(self, local_env):
@@ -168,6 +168,17 @@ class TestDirectUrlAccess:
         assert "Hold to release" not in body
         assert "Release payout" not in body
         assert "Good afternoon, Kemi." in body
+        assert _canonical(client, "/payouts") == "/dashboard"
+
+    def test_non_creator_admin_typed_payouts_url_is_redirected(self, local_env):
+        client = _client("admin", "not-the-creator")
+        response = client.get("/payouts")
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/dashboard")
+        body = _render(client, "/payouts")
+        assert "Hold to release" not in body
+        assert "Payouts Tracker" not in body
+        assert 'href="/payouts"' not in body
         assert _canonical(client, "/payouts") == "/dashboard"
 
     def test_member_query_cannot_unlock_payouts(self, local_env):

@@ -37,7 +37,8 @@ from pages import (  # noqa: E402
 )
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
-from pages.payouts import detail_card, queue_table  # noqa: E402
+from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
+from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
 
 
 # One address per screen. The page id stays the in-app name; the path is what
@@ -90,8 +91,18 @@ def path_for_page(page: str | None) -> str:
 
 
 def gated_path(pathname: str | None, role: str | None) -> tuple[str, str]:
-    """Page and canonical path the server will allow for this session role."""
-    page = gate_page(page_from_pathname(pathname), role)
+    """Page and canonical path the server will allow for this session.
+
+    The #20 role gate runs first. The creator check then applies to `/payouts`
+    the same way it does for the menu and the rendered page, including when
+    the address was typed. The username comes from the server session.
+    """
+    username = None
+    try:
+        _session_role, username = current_identity()
+    except RuntimeError:
+        username = None
+    page = _visible_page(gate_page(page_from_pathname(pathname), role), role, username)
     return page, path_for_page(page)
 
 
@@ -106,12 +117,19 @@ def apply_signin(username, password):
     return identity
 
 
+def _visible_page(page, role, username):
+    """Apply the creator check after the #20 role gate."""
+    if page == "payouts" and not visible_ajo_names(username, role):
+        return "home"
+    return page
+
+
 def next_state(trigger, current_page, current_rev, username, password):
     """Navigation transition. The signed-in role is read from the session."""
-    role, _username = current_identity()
+    role, session_username = current_identity()
     rev = current_rev or 0
     if isinstance(trigger, dict) and trigger.get("type") == "nav-btn":
-        return gate_page(trigger.get("page"), role), rev, ""
+        return _visible_page(gate_page(trigger.get("page"), role), role, session_username), rev, ""
     if isinstance(trigger, dict) and trigger.get("type") == "auth-btn":
         action = trigger.get("action")
         if action == "home-have-account":
@@ -150,7 +168,7 @@ def next_state(trigger, current_page, current_rev, username, password):
             return "getstarted-3", rev, ""
         if trigger.get("screen") == "uk":
             return "getstarted-4", rev, ""
-    return gate_page(current_page, role), rev, ""
+    return _visible_page(gate_page(current_page, role), role, session_username), rev, ""
 
 
 def sidebar(page, role, username):
@@ -169,7 +187,7 @@ def sidebar(page, role, username):
                         className=f"nav-btn {'on' if page == key else ''}",
                         **({"aria-current": "page"} if page == key else {}),
                     )
-                    for key, item_label, icon_name in nav_entries(NAV, role)
+                    for key, item_label, icon_name in _nav_for(role, username)
                 ],
                 className="sb-nav",
             ),
@@ -230,13 +248,21 @@ def topbar(page):
     )
 
 
-def render_page(page, role):
-    if page == "payouts" and role != "admin":
+def _nav_for(role, username):
+    """#20 hides the tracker from every non-admin. #31 also hides it from an admin who did not create the Ajo."""
+    entries = nav_entries(NAV, role)
+    if not visible_ajo_names(username, role):
+        return [item for item in entries if item[0] != "payouts"]
+    return entries
+
+
+def render_page(page, role, username=None):
+    if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     pages = {
         "home": dashboard_layout(role),
         "members": members_layout(),
-        "payouts": payouts_layout(role),
+        "payouts": payouts_layout(role, username),
         "credit": credit_layout(),
         "autoloan": autoloan_layout(),
         "wallet": wallet_layout(),
@@ -253,6 +279,8 @@ def render_shell(page, _client_value=None):
     """
     role, username = current_identity()
     page = gate_page(page, role)
+    if page == "payouts" and not visible_ajo_names(username, role):
+        page = "home"
     if page == "signin":
         return html.Div()
     if page == "landing":
@@ -271,7 +299,7 @@ def render_shell(page, _client_value=None):
         className="shell",
         children=[
             sidebar(page, role, username),
-            html.Div(className="main", children=[topbar(page), html.Div(render_page(page, role), id="content", className="content")]),
+            html.Div(className="main", children=[topbar(page), html.Div(render_page(page, role, username), id="content", className="content")]),
         ],
     )
 
@@ -393,7 +421,7 @@ def render_shell_callback(pathname, auth_rev):
     prevent_initial_call=True,
 )
 def select_payout_member(_buttons, _rows, current_selected):
-    if session.get("role") != "admin":
+    if not visible_ajo_names(session.get("username"), session.get("role")):
         return current_selected
     trig = ctx.triggered_id
     if isinstance(trig, dict) and trig.get("type") in {"payout-select", "payout-select-row"}:
@@ -401,16 +429,54 @@ def select_payout_member(_buttons, _rows, current_selected):
     return current_selected
 
 
+def _ajo_tab_classes(selected):
+    specs = ctx.outputs_list[-1] if ctx.outputs_list else []
+    if not isinstance(specs, list):
+        return []
+    classes = []
+    for spec in specs:
+        ident = spec.get("id") if isinstance(spec, dict) else None
+        name = ident.get("name") if isinstance(ident, dict) else None
+        classes.append("on" if name and name == selected else "")
+    return classes
+
+
 @app.callback(
-    Output("payout-queue-wrap", "children"),
-    Output("payout-detail-card", "children"),
+    Output("payout-ajo", "data"),
+    Input({"type": "payout-ajo-btn", "name": ALL}, "n_clicks"),
+    State("payout-ajo", "data"),
+    prevent_initial_call=True,
+)
+def select_payout_ajo(_clicks, current):
+    username = session.get("username")
+    role = session.get("role")
+    allowed = visible_ajo_names(username, role)
+    if not allowed:
+        return None
+    trig = ctx.triggered_id
+    requested = trig.get("name") if isinstance(trig, dict) and trig.get("type") == "payout-ajo-btn" else current
+    return resolve_ajo(requested, username, role)
+
+
+@app.callback(
+    Output("payout-tracker-sub", "children"),
+    Output("payout-tracker-body", "children"),
+    Output({"type": "payout-ajo-btn", "name": ALL}, "className"),
+    Input("payout-ajo", "data"),
     Input("payout-selected", "data"),
 )
-def render_payout_selection(selected_user):
-    if session.get("role") != "admin":
-        return html.Div(), html.Div()
-    selected_user = selected_user or "kemi_a"
-    return queue_table(selected_user), detail_card(selected_user, "admin")
+def render_payout_selection(ajo_name, selected_user):
+    username = session.get("username")
+    role = session.get("role")
+    ajo_name = resolve_ajo(ajo_name, username, role)
+    classes = _ajo_tab_classes(ajo_name)
+    if ajo_name is None:
+        return "", html.Div(), classes
+    tracker = TRACKERS.get(ajo_name)
+    if tracker and not any(member["u"] == selected_user for member in tracker["members"]):
+        selected_user = tracker["default"]
+    left, side = tracker_body(ajo_name, selected_user, "admin")
+    return subtitle_for(ajo_name, tracker), [left, side], classes
 
 
 if __name__ == "__main__":
