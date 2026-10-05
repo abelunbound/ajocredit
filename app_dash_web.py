@@ -45,6 +45,7 @@ from pages.credit import assessment_chart, forecast_chart  # noqa: E402
 from pages.join import layout as join_layout  # noqa: E402
 from pages.join import register_join_callbacks  # noqa: E402
 from pages.members import register_callbacks as register_members_callbacks  # noqa: E402
+from pages.my_ajo import register_callbacks as register_my_ajo_callbacks  # noqa: E402
 from pages.my_circles import my_circles_rows  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
@@ -631,6 +632,7 @@ def request_early_payout(n_clicks):
 
 register_members_callbacks(app)
 register_join_callbacks(app)
+register_my_ajo_callbacks(app)
 
 
 @app.callback(

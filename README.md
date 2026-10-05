@@ -191,7 +191,7 @@ Ten synthetic personas (names, dummy `@example.test` emails, and simple password
 
 Five are members of both Brum Builders and Sister Circle Ajo. Five are members of only one of those groups. One persona is the admin who created both groups.
 
-My Ajo uses that file. `admintest` is shown as the admin persona (Amina Testperson), who created both groups when `created_by` is set. `membertest` is shown as the first member of only one group (Tunde Exampleonly, Brum Builders). Every Ajo uses the same card: name, your role, contribution, pot, creator when recorded, and member names. Emails and passwords are not shown. A group with no `created_by` still appears; the viewer's persona role is used for Admin or Member.
+My Ajo uses that file. `admintest` is shown as Amina Testperson and switches between Brum Builders and Sister Circle Ajo with the same group tabs as Payouts Tracker. `membertest` is shown as Tunde Exampleonly and sees only Brum Builders. The screen is the original rotation timeline, circle rules, and contribution progress for the selected Ajo. The signed-in person is tagged "you". Emails and passwords are not shown.
 
 The live file is git-ignored. Copy the committed template once:
 
@@ -205,7 +205,7 @@ Load it from Python:
 python -c "from pages.personas import load_personas; print(len(load_personas()['personas']))"
 ```
 
-The My Ajo page treats those groups as dummy circles. Each circle records `created_by`, and that persona is the admin of the Ajo. The page reads `data/personas.json` when the copy exists, and otherwise the example template. Persona passwords are not shown. Open My Ajo after the local stub sign-in above to see the creator on Brum Builders and Sister Circle Ajo.
+The My Ajo page reads `data/personas.json` when the copy exists, and otherwise the example template. Persona passwords are not shown. Open My Ajo after the local stub sign-in above. Amina's two groups are tabs. Tunde's sign-in shows only Brum Builders.
 
 Run the persona tests:
 

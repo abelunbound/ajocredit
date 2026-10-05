@@ -39,7 +39,7 @@ SHARED_NAV = (
 )
 SHARED_PAGES = {
     "home": "Good afternoon, Kemi.",
-    "circle": "Created by Amina Testperson",
+    "circle": "Rotation timeline",
     "members": "usernames only",
     "credit": "Financial Health Overview",
     "autoloan": "Delay Cover",
