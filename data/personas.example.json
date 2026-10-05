@@ -1,0 +1,95 @@
+{
+  "note": "Synthetic fixtures only. These are not real people. Copy this file to data/personas.json for local use. That copy is git-ignored. Do not add phone numbers, postal addresses, or bank details.",
+  "groups": [
+    {
+      "name": "Brum Builders",
+      "created_by": "persona-01"
+    },
+    {
+      "name": "Sister Circle Ajo",
+      "created_by": "persona-01"
+    }
+  ],
+  "personas": [
+    {
+      "id": "persona-01",
+      "name": "Amina Testperson",
+      "email": "amina.testperson@example.test",
+      "password": "demo1",
+      "role": "admin",
+      "groups": ["Brum Builders", "Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-02",
+      "name": "Chidi Sampledata",
+      "email": "chidi.sampledata@example.test",
+      "password": "demo2",
+      "role": "member",
+      "groups": ["Brum Builders", "Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-03",
+      "name": "Ngozi Placeholder",
+      "email": "ngozi.placeholder@example.test",
+      "password": "demo3",
+      "role": "member",
+      "groups": ["Brum Builders", "Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-04",
+      "name": "Emeka Dummyuser",
+      "email": "emeka.dummyuser@example.test",
+      "password": "demo4",
+      "role": "member",
+      "groups": ["Brum Builders", "Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-05",
+      "name": "Funke Notaperson",
+      "email": "funke.notaperson@example.test",
+      "password": "demo5",
+      "role": "member",
+      "groups": ["Brum Builders", "Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-06",
+      "name": "Tunde Exampleonly",
+      "email": "tunde.exampleonly@example.test",
+      "password": "demo6",
+      "role": "member",
+      "groups": ["Brum Builders"]
+    },
+    {
+      "id": "persona-07",
+      "name": "Yewande Faketest",
+      "email": "yewande.faketest@example.test",
+      "password": "demo7",
+      "role": "member",
+      "groups": ["Brum Builders"]
+    },
+    {
+      "id": "persona-08",
+      "name": "Kelechi Mockmember",
+      "email": "kelechi.mockmember@example.test",
+      "password": "demo8",
+      "role": "member",
+      "groups": ["Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-09",
+      "name": "Ifeoma Sandbox",
+      "email": "ifeoma.sandbox@example.test",
+      "password": "demo9",
+      "role": "member",
+      "groups": ["Sister Circle Ajo"]
+    },
+    {
+      "id": "persona-10",
+      "name": "Seyi Demoperson",
+      "email": "seyi.demoperson@example.test",
+      "password": "demo10",
+      "role": "member",
+      "groups": ["Brum Builders"]
+    }
+  ]
+}

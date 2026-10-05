@@ -60,5 +60,7 @@ Thumbs.db
 Desktop.ini
 
 # Persona and test credentials
+# Live dummy personas stay local. Commit data/personas.example.json only.
+data/personas.json
 personas.md
 test-credentials.md

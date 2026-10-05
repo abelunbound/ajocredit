@@ -104,7 +104,31 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Persona fixture checks are in `test_personas.py`.
+
+### Dummy personas
+
+Ten synthetic personas (names, dummy `@example.test` emails, and simple passwords) are the local test set for later UI work. They are not real people and include no phone numbers, addresses, or bank details.
+
+Five are members of both Brum Builders and Sister Circle Ajo. Five are members of only one of those groups. One persona is the admin who created both groups.
+
+The live file is git-ignored. Copy the committed template once:
+
+```bash
+cp data/personas.example.json data/personas.json
+```
+
+Load it from Python:
+
+```bash
+python -c "from pages.personas import load_personas; print(len(load_personas()['personas']))"
+```
+
+Run the persona tests:
+
+```bash
+pytest test_personas.py -v
+```
 
 ## Project Structure
 
