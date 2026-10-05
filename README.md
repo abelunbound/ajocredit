@@ -129,7 +129,7 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`.
 
 ### Dummy personas
 
@@ -148,6 +148,8 @@ Load it from Python:
 ```bash
 python -c "from pages.personas import load_personas; print(len(load_personas()['personas']))"
 ```
+
+The My Ajo page treats those groups as dummy circles. Each circle records `created_by`, and that persona is the admin of the Ajo. The page reads `data/personas.json` when the copy exists, and otherwise the example template. Persona passwords are not shown. Open My Ajo after the local stub sign-in above to see the creator on Brum Builders and Sister Circle Ajo.
 
 Run the persona tests:
 
