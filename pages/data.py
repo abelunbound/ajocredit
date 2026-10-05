@@ -45,4 +45,8 @@ CRUMBS = {
     "credit": ["AjoFinance", "Me", "Credit & checks"],
     "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
     "wallet": ["AjoFinance", "Me", "Wallet"],
+    "settings": ["AjoFinance", "Settings"],
+    "dd-overview": ["AjoFinance", "Settings", "Complete profile"],
+    "getstarted-uk-loading": ["AjoFinance", "Settings", "UK credit check"],
+    "getstarted-4": ["AjoFinance", "Settings", "UK credit check"],
 }

@@ -107,6 +107,16 @@ Opening `/payouts` directly is sent to `/dashboard` unless the signed-in user is
 
 Startup refuses to continue if `ALLOW_LOCAL_STUB_LOGIN` is true while `DASH_HOST` is not `127.0.0.1`, `localhost`, or `::1`, or while `AJO_ENV` is anything other than unset or `local`. With the flag off, those accounts cannot sign in. Leave the flag false in every shared or deployed environment.
 
+### Sign up, sign in, and settings
+
+1. Start the Dash app with the stub sign-in settings above.
+2. Open http://127.0.0.1:8055. The landing card is **Get started**.
+3. **Get started** opens Registration: first name, last name, email, phone, set password, and confirm password. The card is the same width as the landing card. This form does not create a server account.
+4. **I have an account** opens Sign in. Use `admintest` or `membertest` and the password in `local/stub-users.json`. There is no role toggle. The server session sets admin or member.
+5. Under the username, **Settings** opens the settings page (also available from the top bar when the sidebar is hidden).
+6. **Complete profile** starts due diligence. The UK credit check is the default path. The Nigeria step is locked, greyed out, and marked with a padlock, and it does not run.
+7. **Verified - finish setup** returns to Settings. Address completion is saved for the current session only. Phone verification, password reset by email, and direct debit are shown and do not send SMS, email, or a payment instruction in this build.
+
 ### FastAPI Backend
 
 The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). `database.py` is not in this milestone; the process still requires those environment variables before it imports the database module.

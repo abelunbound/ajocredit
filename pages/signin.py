@@ -49,6 +49,7 @@ def layout():
                     html.Span(icon("eyeoff"), className="auth-pass-icon"),
                 ],
             ),
+            html.Div(id="signin-notice", className="auth-hint"),
             html.Div(id="signin-error", className="auth-error"),
             html.Div("Local test accounts only.", className="auth-hint"),
             html.Button("Forgot password?", className="auth-forgot"),
