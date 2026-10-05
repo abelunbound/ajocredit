@@ -185,7 +185,7 @@ def request_controls():
                 **{"aria-modal": "true", "aria-labelledby": "dc-dialog-title"},
                 children=[
                     html.Button(
-                        "Close",
+                        "",
                         id="dc-backdrop",
                         n_clicks=0,
                         type="button",

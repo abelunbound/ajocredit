@@ -5,7 +5,7 @@ from .delay_cover import PRODUCT_NAME, request_controls
 
 def layout():
     return html.Div(
-        className="stack",
+        className="stack dc-page",
         children=[
             html.Div(
                 className="page-head",
