@@ -13,16 +13,11 @@ Install dependencies:
 
 import os
 import sys
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
-from passlib.context import CryptContext  # for hashing passwords
-from sqlalchemy.orm import Session
-from database import get_db, User         # we'll create database.py next
 
 # ─── Configuration: Load from environment ─────────────────────────────────────
 #
-#  All secrets MUST come from environment variables.
-#  The application will fail fast if required secrets are missing.
+#  Validate secrets before importing the rest of the app. database.py is not
+#  part of this milestone, and a missing module must not hide a bad secret.
 #
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-random-and-secure"
@@ -52,6 +47,12 @@ if not DATABASE_URL:
 
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
+
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel, EmailStr
+from passlib.context import CryptContext  # for hashing passwords
+from sqlalchemy.orm import Session
+from database import get_db, User         # we'll create database.py next
 
 app = FastAPI(title="Ajo API", version="1.0.0")
 

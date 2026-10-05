@@ -16,13 +16,15 @@ import pytest
 INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-random-and-secure"
 
 
-def run_api_startup(env_vars):
+def run_api_startup(env_vars, unset=()):
     """
     Attempt to start api.py with given environment variables.
     Returns (exit_code, stderr_output).
     """
     env = os.environ.copy()
     env.update(env_vars)
+    for name in unset:
+        env.pop(name, None)
     
     # Try to import and execute the module-level code
     # We use subprocess to isolate the sys.exit() calls
@@ -42,11 +44,7 @@ def test_missing_jwt_secret():
     env = {
         "DATABASE_URL": "postgresql://test:test@localhost/test"
     }
-    # Explicitly unset JWT_SECRET_KEY
-    if "JWT_SECRET_KEY" in os.environ:
-        env["JWT_SECRET_KEY"] = ""
-    
-    exit_code, stderr = run_api_startup(env)
+    exit_code, stderr = run_api_startup(env, unset=("JWT_SECRET_KEY",))
     
     assert exit_code == 1, "Should exit with code 1 when JWT_SECRET_KEY is missing"
     assert "JWT_SECRET_KEY environment variable is required but not set" in stderr
@@ -56,7 +54,7 @@ def test_missing_jwt_secret():
 def test_jwt_secret_too_short():
     """Test that startup fails when JWT_SECRET_KEY is shorter than 32 characters."""
     env = {
-        "JWT_SECRET_KEY": "short-key-only-25-chars",  # 25 characters
+            "JWT_SECRET_KEY": "short-key-only-25-chars!!",  # 25 characters
         "DATABASE_URL": "postgresql://test:test@localhost/test"
     }
     
