@@ -8,8 +8,45 @@ Run it alongside Dash:
   Terminal 2:  uvicorn api:app        (FastAPI, port 8000)
 
 Install dependencies:
-  pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] python-jose
+  pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] PyJWT
 """
+
+import os
+import sys
+
+# ─── Configuration: Load from environment ─────────────────────────────────────
+#
+#  Validate secrets before importing the rest of the app. database.py is not
+#  part of this milestone, and a missing module must not hide a bad secret.
+#
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-random-and-secure"
+
+if not JWT_SECRET_KEY:
+    print("ERROR: JWT_SECRET_KEY environment variable is required but not set.", file=sys.stderr)
+    print("Please set JWT_SECRET_KEY to a secure random string (at least 32 characters).", file=sys.stderr)
+    print("Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    sys.exit(1)
+
+if len(JWT_SECRET_KEY) < 32:
+    print(f"ERROR: JWT_SECRET_KEY must be at least 32 characters long (got {len(JWT_SECRET_KEY)}).", file=sys.stderr)
+    print("Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    sys.exit(1)
+
+if JWT_SECRET_KEY == INSECURE_PLACEHOLDER:
+    print("ERROR: JWT_SECRET_KEY is set to the insecure placeholder value from .env.example.", file=sys.stderr)
+    print("NEVER use the example placeholder in production!", file=sys.stderr)
+    print("Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"", file=sys.stderr)
+    sys.exit(1)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL environment variable is required but not set.", file=sys.stderr)
+    print("Please set DATABASE_URL to your database connection string.", file=sys.stderr)
+    sys.exit(1)
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
@@ -47,18 +84,15 @@ class SignupResponse(BaseModel):
 
 # ─── Helper: generate JWT token ───────────────────────────────────────────────
 
-from jose import jwt
+import jwt
 from datetime import datetime, timedelta
-
-SECRET_KEY = "change-this-to-a-long-random-string-in-production"
-ALGORITHM = "HS256"
 
 def create_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(days=30),
+        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 # ─── POST /api/v1/auth/signup ─────────────────────────────────────────────────
@@ -138,7 +172,7 @@ bearer = HTTPBearer()
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)):
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         user_id = int(payload["sub"])
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
