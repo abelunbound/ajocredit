@@ -75,6 +75,7 @@ def my_circles_rows(
     actions_path: Path | str | None = None,
     username=None,
     role=None,
+    page=None,
 ):
     """Dash rows for the sidebar: this person's circles, then Create circle, then Join Ajo."""
     if username is None and role is None:
@@ -85,11 +86,21 @@ def my_circles_rows(
         html.Div([html.Span(className="cdot"), name], className="circle-row")
         for name in names
     ]
-    action_rows = [
-        html.Div([icon(action["icon"]), action["label"]], className="circle-row muted")
-        for action in load_circle_actions(actions_path)
-    ]
+    action_rows = [_action_row(action, page) for action in load_circle_actions(actions_path)]
     return circle_rows + action_rows
+
+
+def _action_row(action: dict, page: str | None):
+    """Create circle stays a label. Join Ajo opens the search flow."""
+    children = [icon(action["icon"]), action["label"]]
+    if action["id"] == "join-ajo":
+        selected = " on" if page == "join" else ""
+        return html.A(
+            children,
+            href="/join",
+            className=f"circle-row join-ajo-link{selected}",
+        )
+    return html.Div(children, className="circle-row muted")
 
 
 def _persona_document(path: Path | str | None):

@@ -493,3 +493,48 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .home-screen .auth-title{font-size:23px;}
 .home-screen .auth-benefit-sub{font-size:13px;}
 .home-screen .auth-primary-btn{height:40px;}
+
+/* Join Ajo */
+.join-toolbar{display:flex;flex-wrap:wrap;gap:14px 16px;align-items:flex-end;}
+.join-field{display:flex;flex-direction:column;gap:6px;min-width:150px;}
+.join-field.grow{flex:1;min-width:240px;}
+.join-label{font-size:13.5px;font-weight:600;color:var(--ink);}
+.join-input{height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:0 10px;color:var(--ink);width:100%;}
+.join-textarea{width:100%;min-height:110px;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:10px;color:var(--ink);resize:vertical;font:inherit;}
+.join-dates{display:flex;align-items:center;gap:8px;}
+.join-dates .join-input{width:148px;}
+.join-dropdown{min-width:200px;}
+.join-field .dash-dropdown{min-width:200px;font-size:13.5px;}
+.join-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px;}
+.join-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.join-card-title{margin:0;font-size:18px;letter-spacing:-.02em;}
+.join-meta{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:13px;margin-top:6px;}
+.join-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:16px;}
+.join-stat-label{font-size:12.5px;color:var(--ink-3);margin-bottom:3px;}
+.join-stat-value{font-size:15px;font-weight:600;letter-spacing:-.01em;}
+.join-avatars{display:flex;align-items:center;margin-top:16px;min-height:28px;}
+.join-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;margin-right:-6px;border:2px solid #fff;}
+.join-avatar.more{background:var(--danger);}
+.join-actions{display:flex;flex-wrap:nowrap;gap:6px;justify-content:flex-end;align-items:center;margin-top:16px;}
+.join-actions .btn{white-space:nowrap;flex:0 0 auto;height:30px;padding:0 8px;font-size:12px;overflow:visible;}
+.join-btn-invite{background:var(--good);border-color:var(--good);color:#fff;}
+.join-btn-manage{background:var(--accent);border-color:var(--accent);color:#fff;}
+.join-btn-cancel{background:#5c6770;border-color:#5c6770;color:#fff;}
+.join-banner{background:var(--brand-soft);color:var(--brand);border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:600;}
+.join-empty{padding:28px;text-align:center;color:var(--ink-3);}
+.join-modal-back{position:fixed;inset:0;background:rgba(11,22,32,.48);z-index:30;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;overflow:auto;}
+.join-modal{width:min(560px,100%);background:var(--surface);border-radius:16px;border:1px solid var(--line);box-shadow:0 16px 50px rgba(11,22,32,.18);}
+.join-modal-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);}
+.join-modal-hd h2{margin:0;font-size:18px;}
+.join-modal-x{width:32px;height:32px;border-radius:8px;border:0;background:transparent;font-size:22px;line-height:1;color:var(--ink-3);cursor:pointer;}
+.join-modal-bd{padding:18px;display:flex;flex-direction:column;gap:14px;}
+.join-modal-ft{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--line);}
+.join-group-box{background:var(--surface-2);border-radius:12px;padding:14px 16px;}
+.join-group-name{font-weight:600;margin-bottom:4px;}
+.join-help{font-size:12.5px;color:var(--ink-3);line-height:1.45;}
+.join-error{color:var(--danger);font-size:13px;}
+.join-roster{display:flex;flex-direction:column;}
+.join-roster-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);font-size:14px;}
+a.join-ajo-link,button.join-ajo-link{width:100%;border:0;background:transparent;cursor:pointer;text-align:left;color:var(--ink-2);text-decoration:none;display:flex;align-items:center;gap:9px;}
+a.join-ajo-link:hover,button.join-ajo-link:hover{background:var(--surface-2);}
+a.join-ajo-link.on,button.join-ajo-link.on{background:var(--brand-soft);color:var(--brand);font-weight:600;}

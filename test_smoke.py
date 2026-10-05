@@ -33,6 +33,7 @@ class TestPageLayouts:
         "wallet",
         "circle",
         "settings",
+        "join",
     ])
     def test_render_page(self, app, page, role):
         """Test that render_page works for all pages and roles."""
@@ -100,10 +101,10 @@ class TestPageCoverage:
 
     def test_all_pages_covered(self):
         """Ensure all pages in render_page are covered by tests."""
-        pages = ["home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings"]
+        pages = ["home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings", "join"]
         for page in pages:
             assert page in [
-                "home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings"
+                "home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings", "join"
             ], f"Page {page} should be tested"
 
     def test_all_auth_screens_covered(self):
