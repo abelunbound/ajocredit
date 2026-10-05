@@ -29,7 +29,7 @@ TXNS = [
 
 NAV = [
     ("home", "Dashboard", "home"),
-    ("circle", "MyAjo", "circles"),
+    ("circle", "My Ajo", "circles"),
     ("members", "Members", "user"),
     ("payouts", "PayoutsTracker", "bolt"),
     ("credit", "FinHealth", "shield"),
@@ -39,7 +39,7 @@ NAV = [
 
 CRUMBS = {
     "home": ["AjoFinance", "Dashboard"],
-    "circle": ["AjoFinance", "Circles", "Brum Builders"],
+    "circle": ["AjoFinance", "My Ajo"],
     "members": ["AjoFinance", "Brum Builders", "Members"],
     "payouts": ["AjoFinance", "Payouts Tracker"],
     "credit": ["AjoFinance", "Me", "Credit & checks"],

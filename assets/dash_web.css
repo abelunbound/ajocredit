@@ -210,6 +210,15 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .cr-banner-ic{width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;flex-shrink:0;}
 .cr-banner-title{font-size:14px;font-weight:600;}
 .cr-banner-sub{font-size:13px;color:var(--ink-2);margin-top:4px;line-height:1.5;}
+.ajo-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+.my-ajo-card .h2{margin:0;}
+.my-ajo-card .row-head{flex-wrap:wrap;margin-bottom:8px;}
+.my-ajo-creator{margin-top:6px;}
+.my-ajo-place{margin-top:10px;font-size:13.5px;font-weight:500;}
+.my-ajo-count-label{margin-top:14px;}
+.my-ajo-members{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.my-ajo-member{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;}
+.my-ajo-member.you{background:var(--brand-soft);border-color:transparent;color:var(--brand);font-weight:600;}
 .circle-timeline{position:relative;padding-left:16px;margin-top:12px;}
 .circle-timeline::before{content:'';position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line);}
 .tl-item{position:relative;margin-bottom:8px;}
@@ -397,7 +406,7 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
   .shell{grid-template-columns:1fr;}
   .sidebar{display:none;}
   .search-wrap{display:none;}
-  .g2,.g4{grid-template-columns:1fr;}
+  .g2,.g4,.ajo-grid{grid-template-columns:1fr;}
   .cr-main{flex-direction:column;}
   .cr-break-row{grid-template-columns:1fr;gap:8px;}
   .auth-shell-wrap{padding:8px;}
