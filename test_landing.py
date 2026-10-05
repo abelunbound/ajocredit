@@ -1,9 +1,9 @@
-"""Landing, sign-in, and getting started share one card width and control height.
+"""Landing, sign-in, and Sign Up card sizes.
 
-Acceptance criteria for issue #22:
-- the sign-in card is the same width as the getting started card
-- the sign-in buttons are the same height as the Get started button
-- the fields are the same height as that button
+Issue #22 gave sign-in, home, and registration one shared width and control
+height. Issue #95 puts the home card and the Sign Up card back to 420px, and
+sets the Get started button and Sign Up fields to 40px. Sign-in stays on the
+shared 520px card and 56px controls.
 """
 
 import re
@@ -65,7 +65,7 @@ def _prop_values(component, prop):
     return found
 
 
-def test_auth_cards_share_one_width():
+def test_home_and_signup_cards_are_420px():
     css = _css()
     match = re.search(r"--auth-card-width:\s*([^;]+);", css)
     assert match is not None
@@ -74,15 +74,15 @@ def test_auth_cards_share_one_width():
         ".auth-screen{width:100%;max-width:var(--auth-card-width);",
         ".signin-screen{max-width:var(--auth-card-width);}",
         ".gs-screen{max-width:var(--auth-card-width);",
-        ".home-screen,\n.signup-screen{max-width:var(--auth-card-width);}",
+        ".home-screen,\n.signup-screen{max-width:420px;}",
     ):
         assert snippet in css
-    assert ".home-screen,\n.signup-screen{max-width:420px" not in css
+    assert ".home-screen,\n.signup-screen{max-width:var(--auth-card-width);}" not in css
     assert ".signin-screen{max-width:560px" not in css
     assert ".auth-screen{width:100%;max-width:560px" not in css
 
 
-def test_signin_buttons_and_fields_match_get_started_height():
+def test_get_started_button_and_signup_fields_are_40px():
     css = _css()
     match = re.search(r"--auth-control-height:\s*([^;]+);", css)
     assert match is not None
@@ -93,15 +93,19 @@ def test_signin_buttons_and_fields_match_get_started_height():
     assert ".auth-input,.gs-input{width:100%;height:var(--auth-control-height);" in css
     assert "button.gs-select{width:100%;height:var(--auth-control-height);" in css
     assert (
-        ".home-screen .auth-primary-btn,\n"
         ".signin-screen .auth-primary-btn,\n"
         ".signin-screen .auth-google-btn,\n"
-        ".gs-screen .auth-primary-btn,\n"
-        ".signup-screen .auth-primary-btn{\n"
+        ".gs-screen .auth-primary-btn{\n"
         "  height:var(--auth-control-height);\n"
         "}"
     ) in css
-    assert "height:40px" not in css
+    assert (
+        ".home-screen .auth-primary-btn,\n"
+        ".signup-screen .auth-input,\n"
+        ".signup-screen .auth-primary-btn{\n"
+        "  height:40px;\n"
+        "}"
+    ) in css
     assert "height:64px" not in css
     assert "height:52px" not in css
     assert "height:58px" not in css

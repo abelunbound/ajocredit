@@ -47,10 +47,40 @@ def request_ctx():
         yield
 
 
+SIGNUP_FIELDS = (
+    ("signup-first-name", "First name"),
+    ("signup-last-name", "Last name"),
+    ("signup-email", "Email"),
+    ("signup-phone", "Phone"),
+    ("signup-password", "Set password"),
+    ("signup-password-confirm", "Confirm password"),
+)
+
+
+def _nodes(component):
+    found = []
+
+    def walk(node):
+        if node is None:
+            return
+        if isinstance(node, (list, tuple)):
+            for item in node:
+                walk(item)
+            return
+        data = node.to_plotly_json() if hasattr(node, "to_plotly_json") else node
+        if not isinstance(data, dict):
+            return
+        found.append(data)
+        walk((data.get("props") or {}).get("children"))
+
+    walk(component)
+    return found
+
+
 class TestRegistration:
     def test_form_is_name_email_phone_and_password_only(self):
         text = str(registration_layout())
-        for label in ("First name", "Last name", "Email", "Phone", "Set password", "Confirm password"):
+        for _field_id, label in SIGNUP_FIELDS:
             assert label in text
         assert "Country of origin" not in text
         assert "Nigeria" not in text
@@ -58,9 +88,43 @@ class TestRegistration:
         assert "signup-screen" in text
         assert "gs-screen" not in text
 
+    def test_card_title_is_sign_up(self):
+        titles = [
+            (node.get("props") or {}).get("children")
+            for node in _nodes(registration_layout())
+            if "gs-title" in ((node.get("props") or {}).get("className") or "")
+        ]
+        assert titles == ["Sign Up"]
+        assert "Registration" not in str(registration_layout())
+
+    def test_fields_use_placeholders_without_labels_above(self):
+        nodes = _nodes(registration_layout())
+        assert not any("gs-label" in ((node.get("props") or {}).get("className") or "") for node in nodes)
+        inputs = {
+            (node.get("props") or {}).get("id"): node.get("props") or {}
+            for node in nodes
+            if (node.get("props") or {}).get("className") == "auth-input"
+        }
+        labels = [
+            node.get("props") or {}
+            for node in nodes
+            if (node.get("props") or {}).get("className") == "visually-hidden"
+        ]
+        assert len(inputs) == len(SIGNUP_FIELDS)
+        assert len(labels) == len(SIGNUP_FIELDS)
+        for field_id, label in SIGNUP_FIELDS:
+            assert inputs[field_id]["placeholder"] == label
+            match = next(item for item in labels if item.get("htmlFor") == field_id)
+            assert match["children"] == label
+            assert match["aria-label"] == label
+        css = Path("assets/dash_web.css").read_text(encoding="utf-8")
+        assert ".signup-screen .auth-input .dash-input-element::placeholder{" in css
+        assert "color:var(--ink-4);" in css
+
     def test_signup_card_matches_get_started_card_width(self):
         css = Path("assets/dash_web.css").read_text(encoding="utf-8")
-        assert ".home-screen,\n.signup-screen{max-width:var(--auth-card-width);}" in css
+        assert ".home-screen,\n.signup-screen{max-width:420px;}" in css
+        assert ".home-screen .auth-primary-btn,\n.signup-screen .auth-input,\n.signup-screen .auth-primary-btn{\n  height:40px;\n}" in css
 
     def test_incomplete_form_stays_on_registration(self, request_ctx):
         page, _rev, error = _signup({"first": "Ada"})
