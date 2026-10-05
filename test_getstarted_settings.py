@@ -60,7 +60,7 @@ class TestRegistration:
 
     def test_signup_card_matches_get_started_card_width(self):
         css = Path("assets/dash_web.css").read_text(encoding="utf-8")
-        assert ".home-screen,\n.signup-screen{max-width:420px;}" in css
+        assert ".home-screen,\n.signup-screen{max-width:var(--auth-card-width);}" in css
 
     def test_incomplete_form_stays_on_registration(self, request_ctx):
         page, _rev, error = _signup({"first": "Ada"})
