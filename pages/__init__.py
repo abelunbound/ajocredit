@@ -15,6 +15,7 @@ from .getstarted import due_diligence_layout as due_diligence_layout
 from .getstarted import nigeria_locked_layout as nigeria_locked_layout
 from .settings import layout as settings_layout
 from .wallet import layout as wallet_layout
+from .support import layout as support_layout
 
 __all__ = [
     "dashboard_layout",
@@ -34,4 +35,5 @@ __all__ = [
     "autoloan_layout",
     "wallet_layout",
     "circle_layout",
+    "support_layout",
 ]

@@ -35,6 +35,7 @@ from pages import (  # noqa: E402
     settings_layout,
     signin_layout,
     wallet_layout,
+    support_layout,
 )
 from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
 from pages.settings import apply_settings_action  # noqa: E402
@@ -48,6 +49,7 @@ from pages.my_circles import my_circles_rows  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
 from pages.wallet import quote_body  # noqa: E402
+from pages.support import contact_reply  # noqa: E402
 
 
 # One address per screen. The page id stays the in-app name; the path is what
@@ -70,6 +72,7 @@ PAGE_PATHS = {
     "settings": "/settings",
     "dd-overview": "/settings/complete-profile",
     "join": "/join",
+    "support": "/support",
 }
 PATH_PAGES = {path: page for page, path in PAGE_PATHS.items()}
 
@@ -298,6 +301,7 @@ def render_page(page, role, username=None, profile=None):
         "circle": circle_layout(role, username),
         "settings": settings_layout(username, profile or {}),
         "join": join_layout(role),
+        "support": support_layout(),
     }
     return pages.get(page, dashboard_layout(role))
 
@@ -598,6 +602,21 @@ def render_payout_selection(ajo_name, selected_user):
         selected_user = tracker["default"]
     left, side = tracker_body(ajo_name, selected_user, "admin")
     return subtitle_for(ajo_name, tracker), [left, side], classes
+
+
+@app.callback(
+    Output("support-feedback", "children"),
+    Input("support-send", "n_clicks"),
+    State("support-topic", "value"),
+    State("support-subject", "value"),
+    State("support-message", "value"),
+    prevent_initial_call=True,
+)
+def submit_support_note(_n_clicks, topic, subject, message):
+    """Confirm a support note on screen. No email or SMS is sent."""
+    if session.get("role") not in {"admin", "member"}:
+        return ""
+    return contact_reply(topic, subject, message)
 
 
 @app.callback(

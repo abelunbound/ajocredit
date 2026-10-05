@@ -19,6 +19,7 @@ ICONS = {
     "check": "bi bi-check2",
     "flag": "bi bi-flag",
     "pound": "bi bi-currency-pound",
+    "support": "bi bi-life-buoy",
 }
 
 

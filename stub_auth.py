@@ -48,6 +48,7 @@ APP_PAGES = frozenset(
         "getstarted-uk-loading",
         "getstarted-4",
         "join",
+        "support",
     }
 )
 AUTH_PAGES = frozenset(
