@@ -42,6 +42,7 @@ from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
+from pages.wallet import quote_body  # noqa: E402
 
 
 # One address per screen. The page id stays the in-app name; the path is what
@@ -593,6 +594,16 @@ def render_payout_selection(ajo_name, selected_user):
         selected_user = tracker["default"]
     left, side = tracker_body(ajo_name, selected_user, "admin")
     return subtitle_for(ajo_name, tracker), [left, side], classes
+
+
+@app.callback(
+    Output("early-payout-quote", "children"),
+    Input("early-payout-request", "n_clicks"),
+    prevent_initial_call=True,
+)
+def request_early_payout(n_clicks):
+    """Show the local early-payout quote. Nothing is submitted or paid."""
+    return [quote_body(bool(n_clicks))]
 
 
 if __name__ == "__main__":
