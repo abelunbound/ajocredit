@@ -318,10 +318,10 @@ class TestMemberCannotReachAdminPages:
                     {"id": "signin-dock", "property": "style"},
                 ],
                 "inputs": [
-                    {"id": "store-page", "property": "data", "value": "payouts"},
+                    {"id": "url", "property": "pathname", "value": "/payouts"},
                     {"id": "store-auth-rev", "property": "data", "value": "admin"},
                 ],
-                "changedPropIds": ["store-page.data"],
+                "changedPropIds": ["url.pathname"],
                 "state": [],
             },
         )
@@ -343,10 +343,10 @@ class TestMemberCannotReachAdminPages:
                     {"id": "signin-dock", "property": "style"},
                 ],
                 "inputs": [
-                    {"id": "store-page", "property": "data", "value": "payouts"},
+                    {"id": "url", "property": "pathname", "value": "/payouts"},
                     {"id": "store-auth-rev", "property": "data", "value": 1},
                 ],
-                "changedPropIds": ["store-page.data"],
+                "changedPropIds": ["url.pathname"],
                 "state": [],
             },
         )

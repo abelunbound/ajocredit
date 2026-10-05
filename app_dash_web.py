@@ -2,7 +2,7 @@ import os
 import secrets
 
 from dotenv import load_dotenv
-from flask import session
+from flask import redirect, request, session
 
 load_dotenv(override=False)
 
@@ -17,7 +17,7 @@ from stub_auth import (  # noqa: E402
 # Refuse a stub flag that is enabled off localhost before serving anything.
 enforce_local_stub_policy()
 
-from dash import ALL, Dash, Input, Output, State, ctx, dcc, html  # noqa: E402
+from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update  # noqa: E402
 
 from pages import (  # noqa: E402
     autoloan_layout,
@@ -40,9 +40,59 @@ from pages.data import CRUMBS, NAV  # noqa: E402
 from pages.payouts import detail_card, queue_table  # noqa: E402
 
 
+# One address per screen. The page id stays the in-app name; the path is what
+# refresh, back, and links use. Unknown paths are not a page.
+PAGE_PATHS = {
+    "landing": "/",
+    "signin": "/signin",
+    "getstarted-1": "/get-started",
+    "getstarted-2": "/get-started/checking",
+    "getstarted-3": "/get-started/origin-result",
+    "getstarted-uk-loading": "/get-started/uk-check",
+    "getstarted-4": "/get-started/uk-result",
+    "home": "/dashboard",
+    "circle": "/circle",
+    "members": "/members",
+    "payouts": "/payouts",
+    "credit": "/credit",
+    "autoloan": "/autoloan",
+    "wallet": "/wallet",
+}
+PATH_PAGES = {path: page for page, path in PAGE_PATHS.items()}
+
+
 def current_identity():
     """Role and username from the server session. Never from the client."""
     return session.get("role"), session.get("username")
+
+
+def normalize_pathname(pathname: str | None) -> str:
+    """Path only, without a query, hash, or trailing slash."""
+    if pathname is None:
+        return "/"
+    path = str(pathname).split("?", 1)[0].split("#", 1)[0].strip()
+    if not path:
+        return "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    if len(path) > 1:
+        path = path.rstrip("/") or "/"
+    return path
+
+
+def page_from_pathname(pathname: str | None) -> str | None:
+    """Return the page id for a known address, or None when it is not one."""
+    return PATH_PAGES.get(normalize_pathname(pathname))
+
+
+def path_for_page(page: str | None) -> str:
+    return PAGE_PATHS.get(page or "", "/")
+
+
+def gated_path(pathname: str | None, role: str | None) -> tuple[str, str]:
+    """Page and canonical path the server will allow for this session role."""
+    page = gate_page(page_from_pathname(pathname), role)
+    return page, path_for_page(page)
 
 
 def apply_signin(username, password):
@@ -113,11 +163,11 @@ def sidebar(page, role, username):
             html.Div([html.Div("a", className="brandmark"), "AjoFinance"], className="sb-brand"),
             html.Div(
                 [
-                    html.Button(
+                    html.A(
                         [icon(icon_name), item_label],
-                        id={"type": "nav-btn", "page": key},
-                        n_clicks=0,
+                        href=path_for_page(key),
                         className=f"nav-btn {'on' if page == key else ''}",
+                        **({"aria-current": "page"} if page == key else {}),
                     )
                     for key, item_label, icon_name in nav_entries(NAV, role)
                 ],
@@ -251,7 +301,7 @@ app.server.config.update(
 app.layout = html.Div(
     className="app-root",
     children=[
-        dcc.Store(id="store-page", data="landing"),
+        dcc.Location(id="url", refresh=False),
         dcc.Store(id="store-auth-rev", data=0),
         html.Div(id="app-shell"),
         html.Div(
@@ -264,31 +314,74 @@ app.layout = html.Div(
 )
 
 
+def _skip_document_gate(path: str) -> bool:
+    return path.startswith("/_dash") or path.startswith("/assets/") or path.startswith("/_favicon")
+
+
+@app.server.before_request
+def redirect_disallowed_path():
+    """Send a direct visit to the address this session is allowed to see.
+
+    Dash serves the app shell for every path. The role check happens here,
+    before that shell is returned, so typing an admin URL does not render it.
+    """
+    if request.method not in {"GET", "HEAD"}:
+        return None
+    path = request.path or "/"
+    if _skip_document_gate(path):
+        return None
+    role, _username = current_identity()
+    _page, target = gated_path(path, role)
+    if path != target:
+        return redirect(target)
+    return None
+
+
 @app.callback(
-    Output("store-page", "data"),
+    Output("url", "pathname", allow_duplicate=True),
     Output("store-auth-rev", "data"),
     Output("signin-error", "children"),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
     Input({"type": "gs-timer", "screen": ALL}, "n_intervals"),
-    State("store-page", "data"),
+    State("url", "pathname"),
     State("store-auth-rev", "data"),
     State("signin-username", "value"),
     State("signin-password", "value"),
     prevent_initial_call=True,
 )
-def update_state(_nav, _auth, _timers, current_page, current_rev, username, password):
+def update_state(_nav, _auth, _timers, current_pathname, current_rev, username, password):
+    current_page = page_from_pathname(current_pathname) or "landing"
     page, rev, error = next_state(ctx.triggered_id, current_page, current_rev, username, password)
-    return page, rev, error
+    target = path_for_page(page)
+    path_out = target if normalize_pathname(current_pathname) != target else no_update
+    return path_out, rev, error
+
+
+@app.callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Input("url", "pathname"),
+    Input("store-auth-rev", "data"),
+    prevent_initial_call="initial_duplicate",
+)
+def canonicalize_pathname(pathname, _auth_rev):
+    """Rewrite a client-side address the session is not allowed to keep."""
+    role, _username = current_identity()
+    _page, target = gated_path(pathname, role)
+    if normalize_pathname(pathname) == target:
+        return no_update
+    return target
 
 
 @app.callback(
     Output("app-shell", "children"),
     Output("signin-dock", "style"),
-    Input("store-page", "data"),
+    Input("url", "pathname"),
     Input("store-auth-rev", "data"),
 )
-def render_shell_callback(page, auth_rev):
+def render_shell_callback(pathname, auth_rev):
+    role, _username = current_identity()
+    page, _target = gated_path(pathname, role)
     return render_shell(page, auth_rev), signin_dock_style(page)
 
 
