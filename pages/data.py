@@ -33,7 +33,7 @@ NAV = [
     ("members", "Members", "user"),
     ("payouts", "PayoutsTracker", "bolt"),
     ("credit", "FinHealth", "shield"),
-    ("autoloan", "DelayCover", "spark"),
+    ("autoloan", "Delay Cover", "spark"),
     ("wallet", "EarlyPayouts", "wallet"),
 ]
 
@@ -43,7 +43,7 @@ CRUMBS = {
     "members": ["AjoFinance", "Brum Builders", "Members"],
     "payouts": ["AjoFinance", "Payouts Tracker"],
     "credit": ["AjoFinance", "Me", "Credit & checks"],
-    "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
+    "autoloan": ["AjoFinance", "Safety", "Delay Cover"],
     "wallet": ["AjoFinance", "Me", "EarlyPayout Wallet"],
     "settings": ["AjoFinance", "Settings"],
     "dd-overview": ["AjoFinance", "Settings", "Complete profile"],

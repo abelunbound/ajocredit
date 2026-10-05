@@ -360,6 +360,10 @@ app = Dash(
     ],
 )
 app.title = "AjoFinance"
+
+from pages.delay_cover import register_callbacks  # noqa: E402
+
+register_callbacks(app)
 app.config.suppress_callback_exceptions = True
 app.server.secret_key = secrets.token_hex(32)
 app.server.config.update(

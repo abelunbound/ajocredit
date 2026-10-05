@@ -133,7 +133,7 @@ def detail_card(selected_user, role, tracker):
                 html.Div([html.Div("Method", className="pmeta-k"), html.Div("Virtual account · FPS", className="pmeta-v")], className="pmeta-row"),
                 html.Div([html.Div("KYC", className="pmeta-k"), pill("Verified", "good")], className="pmeta-row"),
                 html.Div([html.Div("Credit band", className="pmeta-k"), pill(band, _score_style(member["score"]))], className="pmeta-row"),
-                html.Div([html.Div("Auto-loan cover", className="pmeta-k"), html.Div(tracker["cover_detail"], className="pmeta-v mono")], className="pmeta-row"),
+                html.Div([html.Div("Delay Cover cover", className="pmeta-k"), html.Div(tracker["cover_detail"], className="pmeta-v mono")], className="pmeta-row"),
                 html.Div([html.Div("Fee", className="pmeta-k"), html.Div("Free", className="pmeta-v fee-free")], className="pmeta-row"),
             ],
         ),
