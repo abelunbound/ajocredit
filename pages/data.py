@@ -49,4 +49,5 @@ CRUMBS = {
     "dd-overview": ["AjoFinance", "Settings", "Complete profile"],
     "getstarted-uk-loading": ["AjoFinance", "Settings", "UK credit check"],
     "getstarted-4": ["AjoFinance", "Settings", "UK credit check"],
+    "join": ["AjoFinance", "Join Ajo"],
 }

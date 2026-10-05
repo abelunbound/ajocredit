@@ -117,6 +117,21 @@ Startup refuses to continue if `ALLOW_LOCAL_STUB_LOGIN` is true while `DASH_HOST
 6. **Complete profile** starts due diligence. The UK credit check is the default path. The Nigeria step is locked, greyed out, and marked with a padlock, and it does not run.
 7. **Verified - finish setup** returns to Settings. Address completion is saved for the current session only. Phone verification, password reset by email, and direct debit are shown and do not send SMS, email, or a payment instruction in this build.
 
+### Join Ajo
+
+After the stub sign-in above, open **+ Join Ajo** under **My circles** in the sidebar. The address is http://127.0.0.1:8055/join.
+
+1. Search by circle name or city, then choose **Search** (or press Enter).
+2. Filter by All groups, Active, Completed, Open to join, or Groups I manage.
+3. Set a date range. A circle stays on the page when its start and end overlap that range.
+4. On a card, **View details** opens the circle summary. **Join** sends a local join request when the circle is open and you are not already a member.
+5. **Invite Member** opens the invitation dialog (email required, personal message optional). Nothing is emailed in this preview; the screen confirms the invitation was queued.
+6. **Manage Members** is on the same button row only when the signed-in profile created that circle. `admintest` sees it on Brum Builders, Sister Circle Ajo, and Wolverhampton Sisters. `membertest` does not see it.
+
+```bash
+pytest test_join.py -v
+```
+
 ### FastAPI Backend
 
 The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). `database.py` is not in this milestone; the process still requires those environment variables before it imports the database module.
@@ -156,10 +171,10 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`.
 
 ```bash
-pytest test_role_visibility.py test_dashboard.py test_my_circles.py -v
+pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py -v
 ```
 
 ### Dummy personas

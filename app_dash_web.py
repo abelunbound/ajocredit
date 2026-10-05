@@ -40,6 +40,8 @@ from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
+from pages.join import layout as join_layout  # noqa: E402
+from pages.join import register_join_callbacks  # noqa: E402
 from pages.members import register_callbacks as register_members_callbacks  # noqa: E402
 from pages.my_circles import my_circles_rows  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
@@ -66,6 +68,7 @@ PAGE_PATHS = {
     "wallet": "/wallet",
     "settings": "/settings",
     "dd-overview": "/settings/complete-profile",
+    "join": "/join",
 }
 PATH_PAGES = {path: page for page, path in PAGE_PATHS.items()}
 
@@ -208,7 +211,7 @@ def sidebar(page, role, username):
                 className="sb-nav",
             ),
             html.Div("My circles", className="sb-section"),
-            html.Div(my_circles_rows(username=username, role=role), className="sb-nav"),
+            html.Div(my_circles_rows(username=username, role=role, page=page), className="sb-nav"),
             html.Div([profile_button(page, role, username)], className="sb-footer"),
         ],
     )
@@ -293,6 +296,7 @@ def render_page(page, role, username=None, profile=None):
         "wallet": wallet_layout(),
         "circle": circle_layout(role, username),
         "settings": settings_layout(username, profile or {}),
+        "join": join_layout(role),
     }
     return pages.get(page, dashboard_layout(role))
 
@@ -606,6 +610,7 @@ def request_early_payout(n_clicks):
 
 
 register_members_callbacks(app)
+register_join_callbacks(app)
 
 
 if __name__ == "__main__":
