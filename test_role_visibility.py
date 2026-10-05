@@ -31,7 +31,7 @@ MEMBER_PW = "pw-member"
 # Labels and headings the shell actually renders for both roles.
 SHARED_NAV = (
     "Dashboard",
-    "MyAjo",
+    "My Ajo",
     "Members",
     "FinHealth",
     "DelayCover",
@@ -39,7 +39,7 @@ SHARED_NAV = (
 )
 SHARED_PAGES = {
     "home": "Good afternoon, Kemi.",
-    "circle": "Circle rules",
+    "circle": "Created by Amina Testperson",
     "members": "10 credit-verified",
     "credit": "Credit & checks",
     "autoloan": "Auto-loan",

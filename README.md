@@ -156,10 +156,10 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`.
 
 ```bash
-pytest test_role_visibility.py -v
+pytest test_role_visibility.py test_dashboard.py -v
 ```
 
 ### Dummy personas
@@ -167,6 +167,8 @@ pytest test_role_visibility.py -v
 Ten synthetic personas (names, dummy `@example.test` emails, and simple passwords) are the local test set for later UI work. They are not real people and include no phone numbers, addresses, or bank details.
 
 Five are members of both Brum Builders and Sister Circle Ajo. Five are members of only one of those groups. One persona is the admin who created both groups.
+
+My Ajo uses that file. `admintest` is shown as the admin persona (Amina Testperson), who created both groups when `created_by` is set. `membertest` is shown as the first member of only one group (Tunde Exampleonly, Brum Builders). Every Ajo uses the same card: name, your role, contribution, pot, creator when recorded, and member names. Emails and passwords are not shown. A group with no `created_by` still appears; the viewer's persona role is used for Admin or Member.
 
 The live file is git-ignored. Copy the committed template once:
 

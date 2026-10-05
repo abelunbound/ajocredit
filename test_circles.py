@@ -71,48 +71,60 @@ def test_load_dummy_circles_falls_back_to_the_example(tmp_path, monkeypatch):
     assert {circle["created_by"] for circle in records} == {"persona-01"}
 
 
-def test_my_ajo_shows_each_circle_creator_for_both_stub_roles():
-    """Server session role does not change the recorded creator, and there is no toggle."""
+def test_my_ajo_shows_the_recorded_creator_for_both_stub_roles():
+    """The creator stays on the card. The client-supplied role does not change it."""
     with app.server.test_request_context():
-        for role, username in (("admin", "admintest"), ("member", "membertest")):
-            session.clear()
-            session["role"] = role
-            session["username"] = username
-            text = str(render_shell("circle", "admin" if role == "member" else "member"))
-            assert "Created by Amina Testperson, admin of this Ajo" in text
-            assert text.count("admin of this Ajo") >= 3
-            assert "Brum Builders" in text
-            assert "Sister Circle Ajo" in text
-            assert "role-btn" not in text
-            assert "demo1" not in text
-            assert "@example.test" not in text
-            if role == "member":
-                assert "PayoutsTracker" not in text
+        session.clear()
+        session["role"] = "admin"
+        session["username"] = "admintest"
+        admin_text = str(render_shell("circle", "member"))
+        assert "Created by Amina Testperson" in admin_text
+        assert admin_text.count("You are the admin of this Ajo.") == 2
+        assert "Brum Builders" in admin_text
+        assert "Sister Circle Ajo" in admin_text
+        assert "role-btn" not in admin_text
+        assert "demo1" not in admin_text
+        assert "@example.test" not in admin_text
+        assert "PayoutsTracker" in admin_text
+
+        session.clear()
+        session["role"] = "member"
+        session["username"] = "membertest"
+        member_text = str(render_shell("circle", "admin"))
+        assert "Created by Amina Testperson" in member_text
+        assert "You are a member of this Ajo." in member_text
+        assert "Sister Circle Ajo" not in member_text
+        assert "PayoutsTracker" not in member_text
+        assert "role-btn" not in member_text
+        assert "demo1" not in member_text
+        assert "@example.test" not in member_text
 
 
 def test_circle_layout_reads_the_loader(monkeypatch):
     monkeypatch.setattr(
-        "pages.circle.load_dummy_circles",
-        lambda: [
-            {
-                "name": "Brum Builders",
-                "created_by": "persona-01",
-                "creator_name": "Fixture Creator",
-                "admin_id": "persona-01",
-                "admin_name": "Fixture Creator",
-                "members": [],
-            },
-            {
-                "name": "Sister Circle Ajo",
-                "created_by": "persona-01",
-                "creator_name": "Fixture Creator",
-                "admin_id": "persona-01",
-                "admin_name": "Fixture Creator",
-                "members": [],
-            },
-        ],
+        "pages.my_ajo.load_ajo_document",
+        lambda: {
+            "groups": [
+                {"name": "Brum Builders", "created_by": "persona-01"},
+                {"name": "Sister Circle Ajo", "created_by": "persona-01"},
+            ],
+            "personas": [
+                {
+                    "id": "persona-01",
+                    "name": "Fixture Creator",
+                    "role": "admin",
+                    "groups": ["Brum Builders", "Sister Circle Ajo"],
+                },
+                {
+                    "id": "persona-06",
+                    "name": "Member Fixture",
+                    "role": "member",
+                    "groups": ["Brum Builders"],
+                },
+            ],
+        },
     )
 
     text = str(circle_layout("member"))
-    assert "Created by Fixture Creator, admin of this Ajo" in text
+    assert "Created by Fixture Creator" in text
     assert "Amina Testperson" not in text

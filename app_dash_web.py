@@ -296,7 +296,7 @@ def render_page(page, role, username=None, profile=None):
         "credit": credit_layout(),
         "autoloan": autoloan_layout(),
         "wallet": wallet_layout(),
-        "circle": circle_layout(role),
+        "circle": circle_layout(role, username),
         "settings": settings_layout(username, profile or {}),
     }
     return pages.get(page, dashboard_layout(role))
