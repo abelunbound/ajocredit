@@ -156,7 +156,11 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. Page-address checks are in `test_page_routes.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`.
+
+```bash
+pytest test_role_visibility.py -v
+```
 
 ### Dummy personas
 
