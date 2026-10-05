@@ -40,6 +40,7 @@ from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
+from pages.credit import assessment_chart, forecast_chart  # noqa: E402
 from pages.join import layout as join_layout  # noqa: E402
 from pages.join import register_join_callbacks  # noqa: E402
 from pages.members import register_callbacks as register_members_callbacks  # noqa: E402
@@ -611,6 +612,22 @@ def request_early_payout(n_clicks):
 
 register_members_callbacks(app)
 register_join_callbacks(app)
+
+
+@app.callback(
+    Output("fh-assess-chart", "children"),
+    Input("fh-assess-view", "value"),
+)
+def render_finhealth_assessment(view):
+    return assessment_chart(view or "history")
+
+
+@app.callback(
+    Output("fh-forecast-chart", "children"),
+    Input("fh-forecast-view", "value"),
+)
+def render_finhealth_forecast(view):
+    return forecast_chart(view or "forecast")
 
 
 if __name__ == "__main__":

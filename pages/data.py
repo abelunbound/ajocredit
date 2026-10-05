@@ -42,7 +42,7 @@ CRUMBS = {
     "circle": ["AjoFinance", "My Ajo"],
     "members": ["AjoFinance", "Members"],
     "payouts": ["AjoFinance", "Payouts Tracker"],
-    "credit": ["AjoFinance", "Me", "Credit & checks"],
+    "credit": ["AjoFinance", "Me", "Financial Health Overview"],
     "autoloan": ["AjoFinance", "Safety", "Delay Cover"],
     "wallet": ["AjoFinance", "Me", "EarlyPayout Wallet"],
     "settings": ["AjoFinance", "Settings"],

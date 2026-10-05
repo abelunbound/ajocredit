@@ -83,7 +83,7 @@ Each screen has its own address, so refresh, back, and links stay on that screen
 | My Ajo | `/circle` |
 | Members | `/members` |
 | Payouts Tracker (admin only) | `/payouts` |
-| Credit & checks | `/credit` |
+| Financial Health Overview | `/credit` |
 | Auto-loan | `/autoloan` |
 | Wallet | `/wallet` |
 
@@ -171,11 +171,19 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`. Wallet checks are in `test_wallet.py`. FinHealth checks are in `test_finhealth.py`.
 
 ```bash
-pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py -v
+pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py test_finhealth.py -v
 ```
+
+### Financial Health Overview
+
+Sign in with a local stub account, then choose **FinHealth** in the sidebar. The page title and breadcrumb are **Financial Health Overview**. The address is `/credit`.
+
+- The country-of-origin card is greyed out and locked. It cannot be clicked.
+- **Affordability Assessment** shows tuition £14000, bank balance £16258, threshold met, and cross-border debt £0. The chart switches between 12-month financial history and a 7-day volatility check.
+- **Affordability Forecast** shows tuition £14000.00, a 30th-day forecast of £17950.00, a buffer of £3950.00, and a 50-90% probability. The chart switches between the next 30 days and forecast versus validation data.
 
 ### Dummy personas
 
