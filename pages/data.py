@@ -40,7 +40,7 @@ NAV = [
 CRUMBS = {
     "home": ["AjoFinance", "Dashboard"],
     "circle": ["AjoFinance", "My Ajo"],
-    "members": ["AjoFinance", "Brum Builders", "Members"],
+    "members": ["AjoFinance", "Members"],
     "payouts": ["AjoFinance", "Payouts Tracker"],
     "credit": ["AjoFinance", "Me", "Credit & checks"],
     "autoloan": ["AjoFinance", "Safety", "Delay Cover"],
