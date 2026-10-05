@@ -1,10 +1,44 @@
 from dash import html
 
+from .circles import load_dummy_circles
 from .components import icon, pill
 from .data import CIRCLE
 
 
+def _creator_line(circle: dict) -> str:
+    return f"Created by {circle['creator_name']}, admin of this Ajo"
+
+
+def _records_card(circles: list[dict]):
+    return html.Div(
+        className="card",
+        id="circle-records",
+        children=[
+            html.Div("Circle records", className="h2"),
+            html.Div(
+                "Each dummy circle records its creator. The creator is the admin of that Ajo.",
+                className="sub",
+            ),
+            html.Div(
+                className="rules-list",
+                children=[
+                    html.Div(
+                        className="rule-item",
+                        children=[
+                            html.Div(circle["name"], className="label-xs"),
+                            html.Div(_creator_line(circle), className="rule-val"),
+                        ],
+                    )
+                    for circle in circles
+                ],
+            ),
+        ],
+    )
+
+
 def layout(_role):
+    circles = load_dummy_circles()
+    focused = next((circle for circle in circles if circle["name"] == CIRCLE["name"]), None)
     timeline = [
         ("ola_t", "Ola T.", 1, "received", "OT", "#4F6AA3"),
         ("ebuka_n", "Ebuka N.", 2, "received", "EN", "#4E5FA8"),
@@ -28,6 +62,7 @@ def layout(_role):
                         [
                             html.Div([html.H1(CIRCLE["name"]), pill("Verified", "good"), pill("Month 3/10", "brand")], className="row-head"),
                             html.Div(f"{CIRCLE['city']}  ·  £{CIRCLE['amount']} x {CIRCLE['size']} monthly  ·  pot £{CIRCLE['pot']:,}", className="sub"),
+                            html.Div(_creator_line(focused), className="sub circle-creator", id="circle-creator") if focused else None,
                         ]
                     )
                 ],
@@ -79,6 +114,7 @@ def layout(_role):
                     html.Div(
                         className="stack",
                         children=[
+                            _records_card(circles),
                             html.Div(
                                 className="card",
                                 children=[
