@@ -35,6 +35,7 @@ NAV = [
     ("credit", "FinHealth", "shield"),
     ("autoloan", "Delay Cover", "spark"),
     ("wallet", "EarlyPayouts", "wallet"),
+    ("support", "Support", "support"),
 ]
 
 CRUMBS = {
@@ -50,4 +51,5 @@ CRUMBS = {
     "getstarted-uk-loading": ["AjoFinance", "Settings", "UK credit check"],
     "getstarted-4": ["AjoFinance", "Settings", "UK credit check"],
     "join": ["AjoFinance", "Join Ajo"],
+    "support": ["AjoFinance", "Support"],
 }
