@@ -371,6 +371,7 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 @media(max-width:900px){
   .shell{grid-template-columns:1fr;}
   .sidebar{display:none;}
+  .search-wrap{display:none;}
   .g2,.g4{grid-template-columns:1fr;}
   .cr-main{flex-direction:column;}
   .cr-break-row{grid-template-columns:1fr;gap:8px;}
@@ -414,10 +415,13 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .settings-card .auth-input{height:44px;}
 .settings-action{margin-top:14px;}
 .settings-status{font-size:13.5px;color:var(--ink-2);margin:8px 0;}
-.settings-feedback{min-height:20px;font-size:14px;color:var(--ink-2);}
+.settings-feedback{min-height:22px;font-size:14px;font-weight:600;color:var(--ink);}
 .top-settings{display:none;}
 @media(max-width:900px){
-  .top-settings{display:block;}
+  .top-settings{display:block;flex-shrink:0;}
+  .top-settings .meta-main{display:none;}
+  .top-settings .me-btn{width:auto;gap:6px;padding:4px 2px;}
+  .top-right{gap:4px;}
   .signup-screen .gs-title{font-size:22px;}
 }
 .home-screen .auth-title{font-size:23px;}

@@ -49,6 +49,7 @@ def layout(username=None, profile=None):
                     )
                 ],
             ),
+            html.Div(id="settings-feedback", className="settings-feedback"),
             html.Div(
                 className="card settings-card",
                 children=[
@@ -148,6 +149,5 @@ def layout(username=None, profile=None):
                     ),
                 ],
             ),
-            html.Div(id="settings-feedback", className="settings-feedback"),
         ],
     )
