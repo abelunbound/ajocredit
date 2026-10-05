@@ -41,7 +41,7 @@ SHARED_PAGES = {
     "home": "Good afternoon, Kemi.",
     "circle": "Created by Amina Testperson",
     "members": "usernames only",
-    "credit": "Credit & checks",
+    "credit": "Financial Health Overview",
     "autoloan": "Delay Cover",
     "wallet": "Wallet",
 }

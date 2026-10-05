@@ -132,7 +132,7 @@ class TestDirectUrlAccess:
             ("/dashboard", "Good afternoon, Kemi."),
             ("/members", "usernames only"),
             ("/circle", "viewing as Tunde Exampleonly"),
-            ("/credit", "Credit & checks"),
+            ("/credit", "Financial Health Overview"),
             ("/autoloan", "Interest-free safety net"),
             ("/wallet", "Available Early Payout"),
         ],
@@ -280,14 +280,14 @@ class TestLinksAndBack:
             seen.append(_render(client, path))
         assert "Good afternoon, Kemi." in seen[0]
         assert "usernames only" in seen[1]
-        assert "Credit & checks" in seen[2]
+        assert "Financial Health Overview" in seen[2]
         # Browser back from credit to members, then to the dashboard.
         back_members = _render(client, history[-2])
         back_dashboard = _render(client, history[-3])
-        assert "Credit & checks" not in back_members
+        assert "Financial Health Overview" not in back_members
         assert "usernames only" in back_members
         assert "Good afternoon, Kemi." in back_dashboard
-        assert "Credit & checks" not in back_dashboard
+        assert "Financial Health Overview" not in back_dashboard
 
     def test_admin_back_from_payouts_returns_to_members(self, local_env):
         client = _client("admin", "admintest")
