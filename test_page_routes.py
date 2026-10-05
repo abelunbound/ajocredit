@@ -134,7 +134,7 @@ class TestDirectUrlAccess:
             ("/circle", "Rotation timeline"),
             ("/credit", "Credit & checks"),
             ("/autoloan", "Interest-free safety net"),
-            ("/wallet", "Available balance"),
+            ("/wallet", "Available Early Payout"),
         ],
     )
     def test_member_refresh_renders_that_page(self, local_env, path, needle):

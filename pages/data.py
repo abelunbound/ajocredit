@@ -44,7 +44,7 @@ CRUMBS = {
     "payouts": ["AjoFinance", "Payouts Tracker"],
     "credit": ["AjoFinance", "Me", "Credit & checks"],
     "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
-    "wallet": ["AjoFinance", "Me", "Wallet"],
+    "wallet": ["AjoFinance", "Me", "EarlyPayout Wallet"],
     "settings": ["AjoFinance", "Settings"],
     "dd-overview": ["AjoFinance", "Settings", "Complete profile"],
     "getstarted-uk-loading": ["AjoFinance", "Settings", "UK credit check"],
