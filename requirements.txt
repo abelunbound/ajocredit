@@ -21,7 +21,7 @@ psycopg2-binary==2.9.13       # PostgreSQL adapter (binary distribution)
 # We pin bcrypt to 4.0.1 to ensure compatibility until passlib is updated
 # or we migrate to a maintained alternative (e.g., argon2-cffi)
 passlib==1.7.4
-bcrypt==4.0.1
+bcrypt==5.0.0
 
 PyJWT==2.15.1                 # JWT token generation/validation (team chose over python-jose)
 
