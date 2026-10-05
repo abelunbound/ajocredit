@@ -24,17 +24,20 @@ from pages import (  # noqa: E402
     circle_layout,
     credit_layout,
     dashboard_layout,
-    getstarted_loading_layout,
+    due_diligence_layout,
     getstarted_loading_uk_layout,
-    getstarted_result_origin_layout,
     getstarted_result_uk_layout,
     getstarted_layout,
     home_layout,
     members_layout,
+    nigeria_locked_layout,
     payouts_layout,
+    settings_layout,
     signin_layout,
     wallet_layout,
 )
+from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
+from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
 from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
@@ -58,6 +61,8 @@ PAGE_PATHS = {
     "credit": "/credit",
     "autoloan": "/autoloan",
     "wallet": "/wallet",
+    "settings": "/settings",
+    "dd-overview": "/settings/complete-profile",
 }
 PATH_PAGES = {path: page for page, path in PAGE_PATHS.items()}
 
@@ -124,7 +129,13 @@ def _visible_page(page, role, username):
     return page
 
 
-def next_state(trigger, current_page, current_rev, username, password):
+def _app_page(page, role):
+    if role in {"admin", "member"}:
+        return page
+    return "signin"
+
+
+def next_state(trigger, current_page, current_rev, username, password, signup=None):
     """Navigation transition. The signed-in role is read from the session."""
     role, session_username = current_identity()
     rev = current_rev or 0
@@ -144,37 +155,39 @@ def next_state(trigger, current_page, current_rev, username, password):
                 return "signin", rev + 1, SIGNIN_FAILED
             return "home", rev + 1, ""
         if action == "signin-get-started":
-            return "landing", rev, ""
+            return "getstarted-1", rev, ""
         if action == "getstarted-back-home":
             return "landing", rev, ""
-        if action == "getstarted-run-check":
-            return "getstarted-2", rev, ""
-        if action == "getstarted-back-step1":
-            return "getstarted-1", rev, ""
-        if action == "getstarted-back-step2":
-            return "getstarted-2", rev, ""
-        if action == "getstarted-to-uk":
-            return "getstarted-uk-loading", rev, ""
-        if action == "getstarted-back-step3":
-            return "getstarted-3", rev, ""
+        if action == "signup-submit":
+            problem = signup_problem(signup)
+            if problem:
+                return "getstarted-1", rev, problem
+            return "signin", rev + 1, ""
+        if action == "settings-complete-profile":
+            return _app_page("dd-overview", role), rev, ""
+        if action in {"dd-back-settings", "getstarted-finish"}:
+            if action == "getstarted-finish" and role in {"admin", "member"}:
+                session["profile_uk_checked"] = True
+            return _app_page("settings", role), rev, ""
+        if action == "dd-start-uk":
+            return _app_page("getstarted-uk-loading", role), rev, ""
+        if action in {"dd-back-overview", "getstarted-back-step3", "getstarted-back-step1"}:
+            return _app_page("dd-overview", role), rev, ""
         if action == "getstarted-back-uk-loading":
-            return "getstarted-uk-loading", rev, ""
-        if action == "getstarted-finish":
-            if role in {"admin", "member"}:
-                return "home", rev, ""
-            return "signin", rev, ""
+            return _app_page("getstarted-uk-loading", role), rev, ""
+        if action == "getstarted-to-uk":
+            return _app_page("getstarted-uk-loading", role), rev, ""
+        if action in {"getstarted-run-check", "getstarted-back-step2"}:
+            return _app_page("dd-overview", role), rev, ""
     if isinstance(trigger, dict) and trigger.get("type") == "gs-timer":
-        if trigger.get("screen") == "2":
-            return "getstarted-3", rev, ""
         if trigger.get("screen") == "uk":
-            return "getstarted-4", rev, ""
+            return _app_page("getstarted-4", role), rev, ""
+        if trigger.get("screen") == "2":
+            return _app_page("dd-overview", role), rev, ""
     return _visible_page(gate_page(current_page, role), role, session_username), rev, ""
 
 
 def sidebar(page, role, username):
-    label = "Admin" if role == "admin" else "Member"
-    handle = username or "signed-in"
-    initials = handle[:2].upper()
     return html.Aside(
         className="sidebar",
         children=[
@@ -200,28 +213,33 @@ def sidebar(page, role, username):
                 ],
                 className="sb-nav",
             ),
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.Div(initials, className="av"),
-                            html.Div(
-                                [
-                                    html.Div(f"@{handle}", className="meta-main"),
-                                    html.Div(label, className="role-fixed"),
-                                ]
-                            ),
-                        ],
-                        className="me-row",
-                    ),
-                ],
-                className="sb-footer",
-            ),
+            html.Div([profile_button(page, role, username)], className="sb-footer"),
         ],
     )
 
 
-def topbar(page):
+def profile_button(page, role, username):
+    label = "Admin" if role == "admin" else "Member"
+    handle = username or "signed-in"
+    initials = handle[:2].upper()
+    return html.A(
+        [
+            html.Div(initials, className="av"),
+            html.Div(
+                [
+                    html.Div(f"@{handle}", className="meta-main"),
+                    html.Div("Settings", className="settings-link"),
+                    html.Div(label, className="role-fixed"),
+                ]
+            ),
+        ],
+        href=path_for_page("settings"),
+        className=f"me-btn {'on' if page == 'settings' else ''}",
+        **({"aria-current": "page"} if page == "settings" else {}),
+    )
+
+
+def topbar(page, role, username):
     crumbs = CRUMBS.get(page, ["AjoFinance"])
     return html.Div(
         className="topbar",
@@ -241,6 +259,7 @@ def topbar(page):
                 [
                     html.Div([icon("search"), dcc.Input(placeholder="Search members, circles…", className="search-input")], className="search-wrap"),
                     html.Button([icon("bell"), html.Span(className="notif-dot")], className="ib"),
+                    html.Div(profile_button(page, role, username), className="top-settings"),
                 ],
                 className="top-right",
             ),
@@ -256,7 +275,17 @@ def _nav_for(role, username):
     return entries
 
 
-def render_page(page, role, username=None):
+def profile_from_session():
+    return {
+        "address_line": session.get("address_line", ""),
+        "address_city": session.get("address_city", ""),
+        "address_postcode": session.get("address_postcode", ""),
+        "profile_phone": session.get("profile_phone", ""),
+        "uk_checked": bool(session.get("profile_uk_checked")),
+    }
+
+
+def render_page(page, role, username=None, profile=None):
     if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     pages = {
@@ -267,6 +296,7 @@ def render_page(page, role, username=None):
         "autoloan": autoloan_layout(),
         "wallet": wallet_layout(),
         "circle": circle_layout(role),
+        "settings": settings_layout(username, profile or {}),
     }
     return pages.get(page, dashboard_layout(role))
 
@@ -286,11 +316,11 @@ def render_shell(page, _client_value=None):
     if page == "landing":
         return html.Div(className="auth-shell-wrap", children=home_layout())
     if page == "getstarted-1":
-        return html.Div(className="auth-shell-wrap", children=getstarted_layout())
-    if page == "getstarted-2":
-        return html.Div(className="auth-shell-wrap", children=getstarted_loading_layout())
-    if page == "getstarted-3":
-        return html.Div(className="auth-shell-wrap", children=getstarted_result_origin_layout())
+        return html.Div()
+    if page == "dd-overview":
+        return html.Div(className="auth-shell-wrap", children=due_diligence_layout())
+    if page in {"getstarted-2", "getstarted-3"}:
+        return html.Div(className="auth-shell-wrap", children=nigeria_locked_layout())
     if page == "getstarted-uk-loading":
         return html.Div(className="auth-shell-wrap", children=getstarted_loading_uk_layout())
     if page == "getstarted-4":
@@ -299,7 +329,17 @@ def render_shell(page, _client_value=None):
         className="shell",
         children=[
             sidebar(page, role, username),
-            html.Div(className="main", children=[topbar(page), html.Div(render_page(page, role, username), id="content", className="content")]),
+            html.Div(
+                className="main",
+                children=[
+                    topbar(page, role, username),
+                    html.Div(
+                        render_page(page, role, username, profile_from_session()),
+                        id="content",
+                        className="content",
+                    ),
+                ],
+            ),
         ],
     )
 
@@ -307,6 +347,12 @@ def render_shell(page, _client_value=None):
 def signin_dock_style(page):
     role, _username = current_identity()
     if gate_page(page, role) == "signin":
+        return {}
+    return {"display": "none"}
+
+
+def signup_dock_style(page):
+    if page == "getstarted-1":
         return {}
     return {"display": "none"}
 
@@ -337,6 +383,12 @@ app.layout = html.Div(
             className="auth-shell-wrap",
             style={"display": "none"},
             children=signin_layout(),
+        ),
+        html.Div(
+            id="signup-dock",
+            className="auth-shell-wrap",
+            style={"display": "none"},
+            children=getstarted_layout(),
         ),
     ],
 )
@@ -369,6 +421,8 @@ def redirect_disallowed_path():
     Output("url", "pathname", allow_duplicate=True),
     Output("store-auth-rev", "data"),
     Output("signin-error", "children"),
+    Output("signup-error", "children"),
+    Output("signin-notice", "children"),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
     Input({"type": "gs-timer", "screen": ALL}, "n_intervals"),
@@ -376,14 +430,47 @@ def redirect_disallowed_path():
     State("store-auth-rev", "data"),
     State("signin-username", "value"),
     State("signin-password", "value"),
+    State("signup-first-name", "value"),
+    State("signup-last-name", "value"),
+    State("signup-email", "value"),
+    State("signup-phone", "value"),
+    State("signup-password", "value"),
+    State("signup-password-confirm", "value"),
     prevent_initial_call=True,
 )
-def update_state(_nav, _auth, _timers, current_pathname, current_rev, username, password):
+def update_state(
+    _nav,
+    _auth,
+    _timers,
+    current_pathname,
+    current_rev,
+    username,
+    password,
+    first_name,
+    last_name,
+    email,
+    phone,
+    signup_password,
+    signup_confirm,
+):
     current_page = page_from_pathname(current_pathname) or "landing"
-    page, rev, error = next_state(ctx.triggered_id, current_page, current_rev, username, password)
+    trigger = ctx.triggered_id
+    signup = {
+        "first": first_name,
+        "last": last_name,
+        "email": email,
+        "phone": phone,
+        "password": signup_password,
+        "confirm": signup_confirm,
+    }
+    page, rev, error = next_state(trigger, current_page, current_rev, username, password, signup)
+    action = trigger.get("action") if isinstance(trigger, dict) else None
+    signup_error = error if page == "getstarted-1" and action == "signup-submit" else ""
+    signin_error = error if page == "signin" and action == "signin-submit" else ""
+    notice = SIGNUP_NOTICE if action == "signup-submit" and page == "signin" and not error else ""
     target = path_for_page(page)
     path_out = target if normalize_pathname(current_pathname) != target else no_update
-    return path_out, rev, error
+    return path_out, rev, signin_error, signup_error, notice
 
 
 @app.callback(
@@ -399,6 +486,35 @@ def canonicalize_pathname(pathname, _auth_rev):
     if normalize_pathname(pathname) == target:
         return no_update
     return target
+
+
+@app.callback(
+    Output("signup-dock", "style"),
+    Input("url", "pathname"),
+)
+def toggle_signup_dock(pathname):
+    return signup_dock_style(page_from_pathname(pathname))
+
+
+@app.callback(
+    Output("settings-feedback", "children"),
+    Input({"type": "settings-action", "action": ALL}, "n_clicks"),
+    State("settings-address-line", "value"),
+    State("settings-city", "value"),
+    State("settings-postcode", "value"),
+    State("settings-phone", "value"),
+    prevent_initial_call=True,
+)
+def update_settings_action(_clicks, line, city, postcode, phone):
+    if session.get("role") not in {"admin", "member"}:
+        return ""
+    trigger = ctx.triggered_id
+    action = trigger.get("action") if isinstance(trigger, dict) else None
+    return apply_settings_action(
+        action,
+        {"line": line, "city": city, "postcode": postcode, "phone": phone},
+        session,
+    )
 
 
 @app.callback(

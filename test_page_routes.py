@@ -196,7 +196,18 @@ class TestDirectUrlAccess:
         assert response.status_code == 302
         assert response.headers["Location"].endswith("/payouts")
 
-    @pytest.mark.parametrize("path", ["/dashboard", "/members", "/payouts", "/wallet"])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/dashboard",
+            "/members",
+            "/payouts",
+            "/wallet",
+            "/settings",
+            "/settings/complete-profile",
+            "/get-started/uk-check",
+        ],
+    )
     def test_signed_out_app_url_goes_to_signin(self, local_env, path):
         client = _client()
         response = client.get(path)
@@ -208,6 +219,15 @@ class TestDirectUrlAccess:
         assert "Hold to release" not in body
         assert "Good afternoon, Kemi." not in body
         assert _canonical(client, path) == "/signin"
+
+    def test_member_can_open_settings(self, local_env):
+        client = _client("member", "membertest")
+        response = client.get("/settings")
+        assert response.status_code == 200
+        assert response.request.path == "/settings"
+        body = _render(client, "/settings")
+        assert "Complete profile" in body
+        assert "Hold to release" not in body
 
     def test_signed_out_can_open_landing_and_signin(self, local_env):
         client = _client()
@@ -283,10 +303,11 @@ class TestLinksAndBack:
             cases = [
                 ({"type": "auth-btn", "action": "home-have-account"}, "landing", "/signin"),
                 ({"type": "auth-btn", "action": "home-get-started"}, "landing", "/get-started"),
-                ({"type": "auth-btn", "action": "getstarted-run-check"}, "getstarted-1", "/get-started/checking"),
-                ({"type": "gs-timer", "screen": "2"}, "getstarted-2", "/get-started/origin-result"),
-                ({"type": "auth-btn", "action": "getstarted-to-uk"}, "getstarted-3", "/get-started/uk-check"),
+                ({"type": "auth-btn", "action": "getstarted-run-check"}, "getstarted-1", "/settings/complete-profile"),
+                ({"type": "gs-timer", "screen": "2"}, "getstarted-2", "/settings/complete-profile"),
+                ({"type": "auth-btn", "action": "dd-start-uk"}, "dd-overview", "/get-started/uk-check"),
                 ({"type": "gs-timer", "screen": "uk"}, "getstarted-uk-loading", "/get-started/uk-result"),
+                ({"type": "auth-btn", "action": "getstarted-finish"}, "getstarted-4", "/settings"),
                 ({"type": "nav-btn", "page": "members"}, "home", "/members"),
                 ({"type": "nav-btn", "page": "payouts"}, "home", "/dashboard"),
             ]

@@ -10,6 +10,7 @@ from flask import session
 
 from app_dash_web import app as dash_app
 from app_dash_web import render_page, render_shell
+from pages.getstarted import layout as getstarted_layout
 from pages.signin import layout as signin_layout
 
 
@@ -31,6 +32,7 @@ class TestPageLayouts:
         "autoloan",
         "wallet",
         "circle",
+        "settings",
     ])
     def test_render_page(self, app, page, role):
         """Test that render_page works for all pages and roles."""
@@ -44,19 +46,36 @@ class TestPageLayouts:
         "landing",
         "signin",
         "getstarted-1",
+    ])
+    def test_render_shell_auth_screens(self, app, page, role):
+        """Test that render_shell works for auth screens (landing, signin, registration)."""
+        with app.server.test_request_context():
+            session.clear()
+            if page == "signin":
+                shell = signin_layout()
+            elif page == "getstarted-1":
+                shell = getstarted_layout()
+            else:
+                shell = render_shell(page, role)
+            assert shell is not None, f"Shell for page {page} (role {role}) returned None"
+
+    @pytest.mark.parametrize("role", ["member", "admin"])
+    @pytest.mark.parametrize("page", [
+        "settings",
+        "dd-overview",
         "getstarted-2",
         "getstarted-3",
         "getstarted-uk-loading",
         "getstarted-4",
     ])
-    def test_render_shell_auth_screens(self, app, page, role):
-        """Test that render_shell works for auth screens (landing, signin, get-started)."""
+    def test_render_shell_profile_flow(self, app, page, role):
+        """Signed-in settings and credit-check screens render for both roles."""
+        username = "admintest" if role == "admin" else "membertest"
         with app.server.test_request_context():
             session.clear()
-            if page == "signin":
-                shell = signin_layout()
-            else:
-                shell = render_shell(page, role)
+            session["username"] = username
+            session["role"] = role
+            shell = render_shell(page, "admin" if role == "member" else "member")
             assert shell is not None, f"Shell for page {page} (role {role}) returned None"
 
     @pytest.mark.parametrize("role", ["member", "admin"])
@@ -81,10 +100,10 @@ class TestPageCoverage:
 
     def test_all_pages_covered(self):
         """Ensure all pages in render_page are covered by tests."""
-        pages = ["home", "members", "payouts", "credit", "autoloan", "wallet", "circle"]
+        pages = ["home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings"]
         for page in pages:
             assert page in [
-                "home", "members", "payouts", "credit", "autoloan", "wallet", "circle"
+                "home", "members", "payouts", "credit", "autoloan", "wallet", "circle", "settings"
             ], f"Page {page} should be tested"
 
     def test_all_auth_screens_covered(self):
@@ -93,13 +112,8 @@ class TestPageCoverage:
             "landing",
             "signin",
             "getstarted-1",
-            "getstarted-2",
-            "getstarted-3",
-            "getstarted-uk-loading",
-            "getstarted-4",
         ]
         for screen in auth_screens:
             assert screen in [
-                "landing", "signin", "getstarted-1", "getstarted-2", "getstarted-3",
-                "getstarted-uk-loading", "getstarted-4"
+                "landing", "signin", "getstarted-1",
             ], f"Auth screen {screen} should be tested"

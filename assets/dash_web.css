@@ -371,6 +371,7 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 @media(max-width:900px){
   .shell{grid-template-columns:1fr;}
   .sidebar{display:none;}
+  .search-wrap{display:none;}
   .g2,.g4{grid-template-columns:1fr;}
   .cr-main{flex-direction:column;}
   .cr-break-row{grid-template-columns:1fr;gap:8px;}
@@ -393,7 +394,36 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
   .gs-result-title{font-size:42px;}
   .gs-aff-total{font-size:32px;}
 }
-.home-screen{max-width:420px;}
+.home-screen,
+.signup-screen{max-width:420px;}
+.dd-steps{display:flex;flex-direction:column;gap:12px;margin-top:16px;}
+.dd-step{border:1px solid #e4e9ee;border-radius:16px;padding:14px 16px;background:#fff;}
+.dd-step-uk{border-color:#cfe0db;}
+.dd-step-locked{background:#eef1f4;color:#8b98a7;filter:grayscale(1);opacity:.72;pointer-events:none;}
+.dd-step-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.dd-step-title{font-size:16px;font-weight:700;color:#102132;}
+.dd-step-copy{margin:8px 0 0;font-size:14px;line-height:1.4;color:#516274;}
+.dd-step-locked .dd-step-title,.dd-step-locked .dd-step-copy,.dd-lock{color:#8b98a7;}
+.dd-kicker{font-size:11px;letter-spacing:.14em;font-weight:700;color:#1f7d57;margin-bottom:6px;}
+.dd-lock{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;}
+.dd-nigeria-parked{filter:grayscale(1);}
+.dd-parked-title{color:#8b98a7;}
+.me-btn{display:flex;align-items:center;gap:10px;width:100%;padding:8px 6px;border:0;background:transparent;text-align:left;cursor:pointer;border-radius:9px;}
+.me-btn:hover{background:var(--surface-2);}
+.me-btn.on{background:var(--brand-soft);}
+.settings-link{font-size:12px;font-weight:600;color:var(--brand);padding-top:2px;}
+.settings-card .auth-input{height:44px;}
+.settings-action{margin-top:14px;}
+.settings-status{font-size:13.5px;color:var(--ink-2);margin:8px 0;}
+.settings-feedback{min-height:22px;font-size:14px;font-weight:600;color:var(--ink);}
+.top-settings{display:none;}
+@media(max-width:900px){
+  .top-settings{display:block;flex-shrink:0;}
+  .top-settings .meta-main{display:none;}
+  .top-settings .me-btn{width:auto;gap:6px;padding:4px 2px;}
+  .top-right{gap:4px;}
+  .signup-screen .gs-title{font-size:22px;}
+}
 .home-screen .auth-title{font-size:23px;}
 .home-screen .auth-benefit-sub{font-size:13px;}
 .home-screen .auth-primary-btn{height:40px;}

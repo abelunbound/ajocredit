@@ -11,6 +11,9 @@ from .getstarted import loading_layout as getstarted_loading_layout
 from .getstarted import loading_uk_layout as getstarted_loading_uk_layout
 from .getstarted import result_origin_layout as getstarted_result_origin_layout
 from .getstarted import result_uk_layout as getstarted_result_uk_layout
+from .getstarted import due_diligence_layout as due_diligence_layout
+from .getstarted import nigeria_locked_layout as nigeria_locked_layout
+from .settings import layout as settings_layout
 from .wallet import layout as wallet_layout
 
 __all__ = [
@@ -22,6 +25,9 @@ __all__ = [
     "getstarted_loading_uk_layout",
     "getstarted_result_origin_layout",
     "getstarted_result_uk_layout",
+    "due_diligence_layout",
+    "nigeria_locked_layout",
+    "settings_layout",
     "members_layout",
     "payouts_layout",
     "credit_layout",

@@ -33,17 +33,27 @@ PLACEHOLDER_PASSWORDS = frozenset(
 )
 ADMIN_ONLY_PAGES = frozenset({"payouts"})
 APP_PAGES = frozenset(
-    {"home", "members", "payouts", "credit", "autoloan", "wallet", "circle"}
+    {
+        "home",
+        "members",
+        "payouts",
+        "credit",
+        "autoloan",
+        "wallet",
+        "circle",
+        "settings",
+        "dd-overview",
+        "getstarted-2",
+        "getstarted-3",
+        "getstarted-uk-loading",
+        "getstarted-4",
+    }
 )
 AUTH_PAGES = frozenset(
     {
         "landing",
         "signin",
         "getstarted-1",
-        "getstarted-2",
-        "getstarted-3",
-        "getstarted-uk-loading",
-        "getstarted-4",
     }
 )
 SIGNIN_FAILED = "Sign-in failed."
