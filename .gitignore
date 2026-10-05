@@ -64,3 +64,4 @@ Desktop.ini
 data/personas.json
 personas.md
 test-credentials.md
+local/stub-users.json

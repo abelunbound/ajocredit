@@ -45,6 +45,12 @@ if not DATABASE_URL:
     print("Please set DATABASE_URL to your database connection string.", file=sys.stderr)
     sys.exit(1)
 
+# The Dash stub sign-in flag must not be enabled in a non-local environment,
+# including when only this API process is started.
+from stub_auth import enforce_local_stub_policy
+
+enforce_local_stub_policy()
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
