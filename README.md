@@ -72,6 +72,23 @@ python app_dash_web.py
 
 Then visit http://127.0.0.1:8055 in your browser.
 
+Each screen has its own address, so refresh, back, and links stay on that screen:
+
+| Screen | Address |
+| --- | --- |
+| Landing | `/` |
+| Sign in | `/signin` |
+| Get started | `/get-started` |
+| Dashboard | `/dashboard` |
+| My Ajo | `/circle` |
+| Members | `/members` |
+| Payouts Tracker (admin only) | `/payouts` |
+| Credit & checks | `/credit` |
+| Auto-loan | `/autoloan` |
+| Wallet | `/wallet` |
+
+A member who opens `/payouts` directly is sent to `/dashboard`. Someone who is not signed in and opens an app address is sent to `/signin`. The server decides that from the session; the address itself does not grant a role.
+
 ### Local stub sign-in
 
 `admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only for `admintest`.
@@ -129,7 +146,7 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. Page-address checks are in `test_page_routes.py`.
 
 ### Dummy personas
 
