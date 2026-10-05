@@ -156,10 +156,10 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`.
 
 ```bash
-pytest test_role_visibility.py test_dashboard.py -v
+pytest test_role_visibility.py test_dashboard.py test_my_circles.py -v
 ```
 
 ### Dummy personas
@@ -188,6 +188,19 @@ Run the persona tests:
 
 ```bash
 pytest test_personas.py -v
+```
+
+### Sidebar My circles
+
+The signed-in sidebar reads its circle list and the Create circle / Join Ajo rows from dummy data.
+
+- Circle names are the signed-in persona's groups from the persona fixture, in file order. `admintest` sees both groups. `membertest` sees Brum Builders only. The app reads `data/personas.json` when that file exists, and otherwise `data/personas.example.json`.
+- Create circle and Join Ajo (Join Ajo directly under Create circle) are the two rows in `data/circle_actions.json`.
+
+Both files are temporary stand-ins until circles are stored in the database. Payouts Tracker stays limited to the creator of that Ajo. With the local stub accounts, that creator is `admintest`.
+
+```bash
+pytest test_my_circles.py -v
 ```
 
 ## Project Structure
