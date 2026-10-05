@@ -1,0 +1,32 @@
+# AjoFinance - Production Dependencies
+# Python 3.12+
+#
+# This file pins all dependencies for reproducible builds across both:
+# - Dash web application (app_dash_web.py)
+# - FastAPI backend service (api.py)
+
+# ─── Dash Web Application ───────────────────────────────────────────────────
+dash==4.4.1
+
+# ─── FastAPI Backend Service ────────────────────────────────────────────────
+fastapi==0.142.2
+uvicorn[standard]==0.54.0     # ASGI server with production features
+
+# ─── Database ───────────────────────────────────────────────────────────────
+sqlalchemy==2.1.3             # ORM for database operations
+psycopg2-binary==2.9.13       # PostgreSQL adapter (binary distribution)
+
+# ─── Authentication & Security ──────────────────────────────────────────────
+# NOTE: passlib 1.7.4 has compatibility issues with bcrypt >= 4.1
+# We pin bcrypt to 4.0.1 to ensure compatibility until passlib is updated
+# or we migrate to a maintained alternative (e.g., argon2-cffi)
+passlib==1.7.4
+bcrypt==4.0.1
+
+PyJWT==2.15.1                 # JWT token generation/validation (team chose over python-jose)
+
+# ─── Data Validation ────────────────────────────────────────────────────────
+pydantic[email]==2.13.5       # Request/response models with email validation support
+
+# ─── Configuration ──────────────────────────────────────────────────────────
+python-dotenv==1.2.4          # Load environment variables from .env files

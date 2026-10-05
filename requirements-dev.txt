@@ -1,0 +1,5 @@
+# AjoFinance - Development & Testing Dependencies
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+
+# ─── Testing ────────────────────────────────────────────────────────────────
+pytest==9.1.1                 # Testing framework
