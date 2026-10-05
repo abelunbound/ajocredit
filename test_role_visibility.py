@@ -34,7 +34,7 @@ SHARED_NAV = (
     "My Ajo",
     "Members",
     "FinHealth",
-    "DelayCover",
+    "Delay Cover",
     "EarlyPayouts",
 )
 SHARED_PAGES = {
@@ -42,7 +42,7 @@ SHARED_PAGES = {
     "circle": "Created by Amina Testperson",
     "members": "10 credit-verified",
     "credit": "Credit & checks",
-    "autoloan": "Auto-loan",
+    "autoloan": "Delay Cover",
     "wallet": "Wallet",
 }
 # Strings that mark the admin payout surface. Shared copy such as
