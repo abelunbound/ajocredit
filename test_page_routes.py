@@ -131,7 +131,7 @@ class TestDirectUrlAccess:
         [
             ("/dashboard", "Good afternoon, Kemi."),
             ("/members", "usernames only"),
-            ("/circle", "viewing as Tunde Exampleonly"),
+            ("/circle", "Tunde Exampleonly"),
             ("/credit", "Financial Health Overview"),
             ("/autoloan", "Interest-free safety net"),
             ("/wallet", "Available Early Payout"),

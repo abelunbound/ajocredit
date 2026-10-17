@@ -71,15 +71,15 @@ def test_load_dummy_circles_falls_back_to_the_example(tmp_path, monkeypatch):
     assert {circle["created_by"] for circle in records} == {"persona-01"}
 
 
-def test_my_ajo_shows_the_recorded_creator_for_both_stub_roles():
-    """The creator stays on the card. The client-supplied role does not change it."""
+def test_my_ajo_shows_the_viewers_groups_for_both_stub_roles():
+    """The client-supplied role does not change which Ajo is on screen."""
     with app.server.test_request_context():
         session.clear()
         session["role"] = "admin"
         session["username"] = "admintest"
         admin_text = str(render_shell("circle", "member"))
-        assert "Created by Amina Testperson" in admin_text
-        assert admin_text.count("You are the admin of this Ajo.") == 2
+        assert "Rotation timeline" in admin_text
+        assert "Amina Testperson" in admin_text
         assert "Brum Builders" in admin_text
         assert "Sister Circle Ajo" in admin_text
         assert "role-btn" not in admin_text
@@ -91,8 +91,8 @@ def test_my_ajo_shows_the_recorded_creator_for_both_stub_roles():
         session["role"] = "member"
         session["username"] = "membertest"
         member_text = str(render_shell("circle", "admin"))
-        assert "Created by Amina Testperson" in member_text
-        assert "You are a member of this Ajo." in member_text
+        assert "Rotation timeline" in member_text
+        assert "Tunde Exampleonly" in member_text
         assert "Sister Circle Ajo" not in member_text
         assert "PayoutsTracker" not in member_text
         assert "role-btn" not in member_text
@@ -126,5 +126,7 @@ def test_circle_layout_reads_the_loader(monkeypatch):
     )
 
     text = str(circle_layout("member"))
-    assert "Created by Fixture Creator" in text
+    assert "Fixture Creator" in text
+    assert "Member Fixture" in text
+    assert "Rotation timeline" in text
     assert "Amina Testperson" not in text

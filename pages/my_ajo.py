@@ -1,22 +1,23 @@
-"""My Ajo: the signed-in person's circles, in one card shape.
+"""My Ajo: the original rotation screen for the signed-in person's circles.
 
-Membership comes from the synthetic persona file (#16). Local stub sign-in
-(#20) chooses which persona is on screen: ``admintest`` is the admin persona,
-and ``membertest`` is the first member who belongs to only one group.
+Membership comes from the synthetic persona file. Local stub sign-in chooses
+which persona is on screen: ``admintest`` is the admin persona, and
+``membertest`` is the first member who belongs to only one group.
 
-When a group records ``created_by`` (#24, already on the persona file), that
-persona is the admin of the Ajo. A group without ``created_by`` still renders;
-the viewer's own persona role is used instead. Emails and passwords are never
-copied onto a card.
+When that persona is in more than one Ajo, group tabs (the same control
+Payouts Tracker uses) switch the whole screen. Emails and passwords are
+never copied onto the page.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from dash import html
+from dash import ALL, Input, Output, State, ctx, dcc, html
+from flask import session
 
-from .components import pill
+from .components import icon, pill
+from .data import CIRCLE
 from .personas import (
     DEFAULT_PERSONAS_PATH,
     EXAMPLE_PERSONAS_PATH,
@@ -30,6 +31,23 @@ CONTRIBUTION = {
     "Sister Circle Ajo": {"city": "Birmingham, UK", "amount": 250, "frequency": "monthly"},
 }
 DEFAULT_CONTRIBUTION = {"city": "UK", "amount": 100, "frequency": "monthly"}
+
+# The demo cycle is month 3, matching the original Brum Builders screen.
+# A shorter circle highlights its last month instead.
+CURRENT_MONTH = 3
+PAYOUT_DATE = CIRCLE["next_date"]
+MIN_CREDIT_SCORE = 680
+AVATAR_COLORS = (
+    "#4F6AA3",
+    "#4E5FA8",
+    "#B88A2A",
+    "#B0392E",
+    "#4A89B0",
+    "#7C5AA8",
+    "#2F7A4C",
+    "#7F6BB3",
+    "#2A6E89",
+)
 
 # Stub accounts are not rows in the persona file. These ids are the people
 # each local login is viewing as.
@@ -100,8 +118,66 @@ def _is_admin(group: dict, viewer: dict, creator: dict | None) -> bool:
     return viewer.get("role") == "admin"
 
 
+def _initials(name: str) -> str:
+    parts = [part for part in str(name).split() if part]
+    letters = "".join(part[0] for part in parts[:2])
+    return letters.upper() or "?"
+
+
+def _handle(name: str) -> str:
+    """Short public tag. This is not an email address."""
+    parts = [part for part in str(name).split() if part]
+    if not parts:
+        return "@member"
+    if len(parts) == 1:
+        return f"@{parts[0].lower()}"
+    return f"@{parts[0].lower()}_{parts[-1][0].lower()}"
+
+
+def _money(amount: int) -> str:
+    return f"£{amount:,}"
+
+
+def _timeline(members: list[dict]) -> list[dict]:
+    size = len(members)
+    current = min(CURRENT_MONTH, size) if size else 0
+    rows = []
+    for index, member in enumerate(members, start=1):
+        if current and index < current:
+            state = "received"
+            detail = "received"
+        elif index == current:
+            state = "now"
+            detail = PAYOUT_DATE
+        else:
+            state = "upcoming"
+            detail = "upcoming"
+        rows.append(
+            {
+                **member,
+                "position": index,
+                "state": state,
+                "detail": detail,
+                "initials": _initials(member["name"]),
+                "color": AVATAR_COLORS[(index - 1) % len(AVATAR_COLORS)],
+                "handle": _handle(member["name"]),
+            }
+        )
+    return rows
+
+
+def _cover_row(rows: list[dict]) -> dict | None:
+    """One missed contribution, matching the original progress note."""
+    if len(rows) < 2:
+        return None
+    for row in reversed(rows):
+        if row["state"] != "now":
+            return row
+    return None
+
+
 def ajos_for_viewer(document: dict, viewer: dict | None) -> list[dict]:
-    """Public Ajo cards for one viewer. Safe when ``created_by`` is absent."""
+    """Public Ajo screens for one viewer. Safe when ``created_by`` is absent."""
     if not viewer:
         return []
     by_id = {persona["id"]: persona for persona in _personas(document)}
@@ -126,73 +202,259 @@ def ajos_for_viewer(document: dict, viewer: dict | None) -> list[dict]:
             )
         contribution = CONTRIBUTION.get(name, DEFAULT_CONTRIBUTION)
         amount = contribution["amount"]
+        rows = _timeline(members)
+        cover = _cover_row(rows)
+        size = len(members)
+        collected_count = size - (1 if cover else 0)
+        current = min(CURRENT_MONTH, size) if size else 0
         cards.append(
             {
                 "name": name,
                 "city": contribution["city"],
                 "amount": amount,
                 "frequency": contribution["frequency"],
-                "member_count": len(members),
-                "pot": amount * len(members),
+                "member_count": size,
+                "pot": amount * size,
+                "month": current,
+                "collected_count": collected_count,
+                "collected_amount": amount * collected_count,
+                "cover_handle": cover["handle"] if cover else None,
+                "cover_amount": amount if cover else 0,
                 "viewer_is_admin": _is_admin(group, viewer, creator),
                 "created_by": creator.get("id") if creator else None,
                 "creator_name": creator.get("name") if creator else None,
                 "members": members,
+                "rows": rows,
             }
         )
     return cards
 
 
-def _money(amount: int) -> str:
-    return f"£{amount:,}"
+def _safe_document() -> dict:
+    try:
+        return load_ajo_document()
+    except (OSError, ValueError):
+        return {}
 
 
-def _card(ajo: dict):
-    role_label = "Admin" if ajo["viewer_is_admin"] else "Member"
-    role_style = "brand" if ajo["viewer_is_admin"] else ""
-    creator = ajo.get("creator_name")
-    slug = ajo["name"].lower().replace(" ", "-")
+def resolve_ajo_name(requested: str | None, username: str | None, role: str | None, document: dict | None = None) -> str | None:
+    """Return a group this viewer belongs to. Unknown names fall back to the first."""
+    loaded = document if document is not None else _safe_document()
+    names = [card["name"] for card in ajos_for_viewer(loaded, resolve_viewer(loaded, username, role))]
+    if not names:
+        return None
+    if requested in names:
+        return requested
+    return names[0]
+
+
+def ajo_switch(names: list[str], selected: str | None):
     return html.Div(
-        className="card my-ajo-card",
-        id=f"my-ajo-card-{slug}",
+        className="tabs",
+        id="my-ajo-switch",
+        children=[
+            html.Button(
+                name,
+                id={"type": "my-ajo-btn", "name": name},
+                n_clicks=0,
+                className="on" if name == selected else "",
+            )
+            for name in names
+        ],
+    )
+
+
+def _header(ajo: dict):
+    size = ajo["member_count"]
+    subtitle = (
+        f"{ajo['city']} · {_money(ajo['amount'])} x {size} {ajo['frequency']} · pot {_money(ajo['pot'])}"
+    )
+    return html.Div(
+        className="page-head",
         children=[
             html.Div(
-                className="row-head",
+                [
+                    html.Div(
+                        [
+                            html.H1(ajo["name"], id="my-ajo-title"),
+                            html.Span(
+                                [icon("shield"), "Verified"],
+                                className="pill good my-ajo-verified",
+                            ),
+                            pill(f"Month {ajo['month']}/{size}", "brand"),
+                        ],
+                        className="row-head my-ajo-title",
+                    ),
+                    html.Div(subtitle, className="sub", id="my-ajo-subtitle"),
+                ]
+            )
+        ],
+    )
+
+
+def _timeline_card(ajo: dict):
+    pot = _money(ajo["pot"])
+    return html.Div(
+        className="card",
+        children=[
+            html.Div("Rotation timeline", className="h2"),
+            html.Div(
+                className="circle-timeline",
+                id="my-ajo-timeline",
                 children=[
-                    html.H2(ajo["name"], className="h2 my-ajo-name"),
-                    pill(role_label, role_style),
-                    pill("Verified", "good"),
-                ],
-            ),
-            html.Div(
-                f"{ajo['city']}  ·  {_money(ajo['amount'])} {ajo['frequency']}  ·  pot {_money(ajo['pot'])}",
-                className="sub",
-            ),
-            html.Div(
-                f"Created by {creator}" if creator else "Creator not recorded",
-                className="sub my-ajo-creator",
-            ) if creator else html.Div(className="my-ajo-creator"),
-            html.Div(
-                "You are the admin of this Ajo." if ajo["viewer_is_admin"] else "You are a member of this Ajo.",
-                className="my-ajo-place",
-            ),
-            html.Div(f"{ajo['member_count']} members", className="label-xs my-ajo-count-label"),
-            html.Div(
-                className="my-ajo-members",
-                children=[
-                    html.Span(
-                        className="my-ajo-member" + (" you" if member["is_viewer"] else ""),
+                    html.Div(
+                        className=f"tl-item {row['state']}",
                         children=[
-                            member["name"],
-                            html.Span("you", className="pill brand mini-pill") if member["is_viewer"] else None,
-                            html.Span("creator", className="pill gold mini-pill") if member["is_creator"] else None,
+                            html.Span(className="tl-dot"),
+                            html.Div(
+                                className="tl-row",
+                                children=[
+                                    html.Div(
+                                        row["initials"],
+                                        className="tl-av",
+                                        style={"background": row["color"]},
+                                    ),
+                                    html.Div(
+                                        className="tl-main",
+                                        children=[
+                                            html.Div(
+                                                [
+                                                    html.Span(row["name"]),
+                                                    html.Span("you", className="pill brand tl-you")
+                                                    if row["is_viewer"]
+                                                    else None,
+                                                ],
+                                                className="tl-name",
+                                            ),
+                                            html.Div(
+                                                f"Month {row['position']} · {row['detail']}",
+                                                className="tl-sub",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(pot, className="mono tl-amt"),
+                                ],
+                            ),
                         ],
                     )
-                    for member in ajo["members"]
+                    for row in ajo["rows"]
                 ],
             ),
         ],
     )
+
+
+def _rules_card(ajo: dict):
+    rules = (
+        ("Contribution", f"{_money(ajo['amount'])} {ajo['frequency']} · autopay 1st"),
+        ("Rotation", "Fixed by join-date"),
+        ("Late grace", "48 hours"),
+        ("Exit", "Only after payout month"),
+        ("Min credit score", str(MIN_CREDIT_SCORE)),
+    )
+    return html.Div(
+        className="card",
+        children=[
+            html.Div("Circle rules", className="h2"),
+            html.Div(
+                className="rules-list",
+                children=[
+                    html.Div(
+                        [
+                            html.Div(label, className="label-xs"),
+                            html.Div(value, className="rule-val"),
+                        ],
+                        className="rule-item",
+                    )
+                    for label, value in rules
+                ],
+            ),
+        ],
+    )
+
+
+def _progress_card(ajo: dict):
+    size = ajo["member_count"] or 1
+    width = f"{(ajo['collected_count'] / size) * 100:.4g}%"
+    note = None
+    if ajo.get("cover_handle"):
+        note = html.Div(
+            className="prog-note",
+            children=[
+                icon("bolt"),
+                html.Span(
+                    f"Delay Cover covering {_money(ajo['cover_amount'])} for {ajo['cover_handle']}"
+                ),
+            ],
+        )
+    return html.Div(
+        className="card",
+        children=[
+            html.Div("Contribution progress", className="h2"),
+            html.Div(
+                className="between prog-meta",
+                children=[
+                    html.Span(f"{ajo['collected_count']} of {ajo['member_count']} collected"),
+                    html.Span(
+                        f"{_money(ajo['collected_amount'])} / {_money(ajo['pot'])}",
+                        className="mono",
+                    ),
+                ],
+            ),
+            html.Div(className="bar prog-bar", children=[html.Span(style={"width": width})]),
+            note,
+        ],
+    )
+
+
+def ajo_body(ajo: dict):
+    """Header, rotation timeline, rules, and progress for one Ajo."""
+    return [
+        _header(ajo),
+        html.Div(
+            className="g3-1",
+            children=[
+                _timeline_card(ajo),
+                html.Div(
+                    className="stack",
+                    children=[_rules_card(ajo), _progress_card(ajo)],
+                ),
+            ],
+        ),
+    ]
+
+
+def _empty_body():
+    return html.Div(
+        className="card",
+        id="my-ajo-empty",
+        children=[
+            html.Div("No Ajos yet", className="h2"),
+            html.Div("This profile is not in an Ajo.", className="sub"),
+        ],
+    )
+
+
+def _unavailable_body():
+    return html.Div(
+        className="card",
+        children=[
+            html.Div("My Ajo is unavailable", className="h2"),
+            html.Div("The local persona file could not be read.", className="sub"),
+        ],
+    )
+
+
+def _tab_classes(selected: str | None) -> list[str]:
+    specs = ctx.outputs_list[-1] if ctx.outputs_list else []
+    if not isinstance(specs, list):
+        return []
+    classes = []
+    for spec in specs:
+        ident = spec.get("id") if isinstance(spec, dict) else None
+        name = ident.get("name") if isinstance(ident, dict) else None
+        classes.append("on" if name and name == selected else "")
+    return classes
 
 
 def layout(role: str | None, username: str | None = None, document: dict | None = None):
@@ -208,49 +470,54 @@ def layout(role: str | None, username: str | None = None, document: dict | None 
 
     viewer = resolve_viewer(loaded, username, role)
     cards = ajos_for_viewer(loaded, viewer)
-    viewer_name = viewer.get("name") if viewer else "this profile"
-    count = len(cards)
-    noun = "Ajo" if count == 1 else "Ajos"
-
     if error:
-        body = html.Div(
-            className="card",
-            children=[
-                html.Div("My Ajo is unavailable", className="h2"),
-                html.Div("The local persona file could not be read.", className="sub"),
-            ],
-        )
+        body = _unavailable_body()
+        switch = None
+        store = None
     elif not cards:
-        body = html.Div(
-            className="card",
-            id="my-ajo-empty",
-            children=[
-                html.Div("No Ajos yet", className="h2"),
-                html.Div("This profile is not in an Ajo.", className="sub"),
-            ],
-        )
+        body = _empty_body()
+        switch = None
+        store = None
     else:
-        body = html.Div(className="ajo-grid", children=[_card(ajo) for ajo in cards])
+        selected = cards[0]["name"]
+        store = dcc.Store(id="my-ajo-selected", data=selected)
+        switch = ajo_switch([card["name"] for card in cards], selected)
+        body = html.Div(id="my-ajo-body", children=ajo_body(cards[0]))
 
     return html.Div(
         className="stack",
         id="my-ajo",
-        children=[
-            html.Div(
-                className="page-head",
-                children=[
-                    html.Div(
-                        [
-                            html.H1("My Ajo"),
-                            html.Div(
-                                f"{count} {noun} · viewing as {viewer_name}",
-                                className="sub",
-                                id="my-ajo-summary",
-                            ),
-                        ]
-                    )
-                ],
-            ),
-            body,
-        ],
+        children=[child for child in (store, switch, body) if child is not None],
     )
+
+
+def register_callbacks(app) -> None:
+    @app.callback(
+        Output("my-ajo-selected", "data"),
+        Input({"type": "my-ajo-btn", "name": ALL}, "n_clicks"),
+        State("my-ajo-selected", "data"),
+        prevent_initial_call=True,
+    )
+    def select_my_ajo(_clicks, current):
+        username = session.get("username")
+        role = session.get("role")
+        trig = ctx.triggered_id
+        requested = trig.get("name") if isinstance(trig, dict) and trig.get("type") == "my-ajo-btn" else current
+        return resolve_ajo_name(requested, username, role)
+
+    @app.callback(
+        Output("my-ajo-body", "children"),
+        Output({"type": "my-ajo-btn", "name": ALL}, "className"),
+        Input("my-ajo-selected", "data"),
+    )
+    def render_my_ajo_selection(ajo_name):
+        username = session.get("username")
+        role = session.get("role")
+        document = _safe_document()
+        allowed = resolve_ajo_name(ajo_name, username, role, document)
+        classes = _tab_classes(allowed)
+        if allowed is None:
+            return _empty_body(), classes
+        viewer = resolve_viewer(document, username, role)
+        card = next(card for card in ajos_for_viewer(document, viewer) if card["name"] == allowed)
+        return ajo_body(card), classes
