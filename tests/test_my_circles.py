@@ -19,7 +19,7 @@ from pages.my_circles import (
 )
 from pages.personas import EXAMPLE_PERSONAS_PATH
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _text(role, username="signed-in", page="home"):

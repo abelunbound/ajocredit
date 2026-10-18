@@ -11,7 +11,7 @@ from pages.circle import layout as circle_layout
 from pages.circles import circle_records, load_dummy_circles
 from pages.personas import EXAMPLE_PERSONAS_PATH
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _example_document():

@@ -78,7 +78,7 @@ def _run_import(module, env):
         env=child_env,
         capture_output=True,
         text=True,
-        cwd=os.path.dirname(os.path.abspath(__file__)),
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     )
 
 
@@ -387,6 +387,6 @@ class TestRoleToggleRemoved:
         assert "ALLOW_LOCAL_STUB_LOGIN=true" not in env_example
         ignored = subprocess.run(
             ["git", "check-ignore", "-q", "local/stub-users.json"],
-            cwd=os.path.dirname(os.path.abspath(__file__)),
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         )
         assert ignored.returncode == 0
