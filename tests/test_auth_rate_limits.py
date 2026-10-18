@@ -307,19 +307,72 @@ def test_password_reset_lockout_is_the_same_for_known_and_unknown(monkeypatch):
     assert len(notices) == 1
     assert token not in notices[0]["body"]
     assert "/reset-password#" not in notices[0]["body"]
-    refused = client.post(
-        "/api/v1/auth/password/reset",
-        json={"token": token, "password": "another-password"},
-    )
-    assert refused.status_code == 429
-    assert refused.json() == locked.json()
-    advance(timedelta(minutes=1))
     reset = client.post(
         "/api/v1/auth/password/reset",
         json={"token": token, "password": "another-password"},
     )
     assert reset.status_code == 200, reset.text
     assert _login(known, "another-password").status_code == 200
+
+
+def test_five_reset_requests_still_let_a_valid_token_complete(monkeypatch):
+    """Five emails are allowed. The link is not the sixth account attempt."""
+    monkeypatch.setitem(auth.ACCOUNT_LIMITS, "password_reset", 5)
+    email = _email()
+    _signup(email)
+    mail.clear_memory_inbox()
+    codes = []
+    for _ in range(5):
+        response = client.post("/api/v1/auth/password/forgot", json={"email": email})
+        codes.append(response.status_code)
+    assert codes == [200, 200, 200, 200, 200]
+    sixth = client.post("/api/v1/auth/password/forgot", json={"email": email})
+    assert sixth.status_code == 429
+    assert sixth.json()["detail"] == auth.RATE_LIMITED
+    token = mail.memory_inbox()[0]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    completed = client.post(
+        "/api/v1/auth/password/reset",
+        json={"token": token, "password": "another-password"},
+    )
+    assert completed.status_code == 200, completed.text
+    assert _login(email, "another-password").status_code == 200
+
+
+def test_reset_confirm_keeps_the_per_ip_limit(monkeypatch):
+    monkeypatch.setitem(auth.IP_LIMITS, "password_reset", 1)
+    monkeypatch.setattr(auth, "LOCKOUT_THRESHOLDS", (50, 100, 150))
+    email = _email()
+    _signup(email)
+    mail.clear_memory_inbox()
+    http = _from("203.0.113.80")
+    assert http.post("/api/v1/auth/password/forgot", json={"email": email}).status_code == 200
+    token = mail.memory_inbox()[-1]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    blocked = http.post(
+        "/api/v1/auth/password/reset",
+        json={"token": token, "password": "another-password"},
+    )
+    assert blocked.status_code == 429
+    assert blocked.json()["detail"] == auth.RATE_LIMITED
+    other = _from("203.0.113.81")
+    allowed = other.post(
+        "/api/v1/auth/password/reset",
+        json={"token": token, "password": "another-password"},
+    )
+    assert allowed.status_code == 200, allowed.text
+
+
+def test_fifth_resend_is_sent_and_the_sixth_is_limited(monkeypatch):
+    monkeypatch.setitem(auth.ACCOUNT_LIMITS, "resend_verification", 5)
+    email = _email()
+    _signup(email)
+    mail.clear_memory_inbox()
+    codes = [
+        client.post("/api/v1/auth/verification/resend", json={"email": email}).status_code
+        for _ in range(6)
+    ]
+    assert codes == [200, 200, 200, 200, 200, 429]
+    sent = [item for item in mail.memory_inbox() if item["subject"] == "Verify your Ajo email"]
+    assert len(sent) == 5
 
 
 def test_verification_resend_is_limited_per_account(monkeypatch):

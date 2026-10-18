@@ -173,6 +173,8 @@ def as_utc(value: datetime) -> datetime:
 
 AUTH_ATTEMPT_ACTIONS = frozenset({"signup", "login", "password_reset", "resend_verification"})
 LOCKOUT_ACTIONS = frozenset({"login", "password_reset", "resend_verification"})
+# Messages, not password guesses. The account cap allows this many to be sent.
+EMAIL_ACTIONS = frozenset({"password_reset", "resend_verification"})
 ATTEMPT_WINDOW = timedelta(minutes=15)
 QUIET_PERIOD = timedelta(hours=24)
 DEV_ENVS = frozenset({"local", "dev"})
@@ -380,7 +382,27 @@ def _notify_lockout(
         return
 
 
-def _bump_guard(db: Session, request: Request, *, action: str, email: str, email_hash: str, now: datetime) -> bool:
+def _email_lock_cuts_allowance(action: str, failures: int, account_cap: int) -> bool:
+    """True when a lock would refuse an email the account cap still allows.
+
+    The first lock step and the account cap are both 5. Locking on that count
+    would send only 4 messages. A lower lock step, set below the cap, still locks.
+    """
+    if action not in EMAIL_ACTIONS or not LOCKOUT_THRESHOLDS:
+        return False
+    return LOCKOUT_THRESHOLDS[0] >= account_cap and failures <= account_cap
+
+
+def _bump_guard(
+    db: Session,
+    request: Request,
+    *,
+    action: str,
+    email: str,
+    email_hash: str,
+    now: datetime,
+    account_cap: int | None = None,
+) -> bool:
     """Count one failed attempt. Return True when this failure starts a lock."""
     guard = _guard(db, action=action, subject=email_hash, now=now)
     if guard.locked_until is not None and as_utc(guard.locked_until) > now:
@@ -389,6 +411,8 @@ def _bump_guard(db: Session, request: Request, *, action: str, email: str, email
     guard.last_attempt_at = now
     duration = _lock_duration(guard.failures)
     if duration is None:
+        return False
+    if account_cap is not None and _email_lock_cuts_allowance(action, guard.failures, account_cap):
         return False
     guard.level += 1
     guard.locked_until = now + duration
@@ -405,42 +429,59 @@ def _bump_guard(db: Session, request: Request, *, action: str, email: str, email
     return True
 
 
-def _apply_attempt_policy(db: Session, request: Request, *, action: str, email: str) -> bool:
+def _apply_attempt_policy(
+    db: Session, request: Request, *, action: str, email: str, account: bool = True
+) -> bool:
     """Record one attempt. Return True when the request must be refused.
 
     Login failures are counted by ``record_auth_failure`` after the password
     check, so a correct password is not treated as a failure. Reset and
     resend count here because each request is the attempt.
+
+    ``account=False`` is the valid reset-token path. It keeps the per-IP
+    limit and skips the per-account limit and the lockout, so a stranger's
+    forgot-password requests cannot block the link.
     """
     now = clock_now()
-    email_hash = _email_subject(email)
-    if action in LOCKOUT_ACTIONS:
+    email_hash = _email_subject(email) if account else ""
+    guard = None
+    if account and action in LOCKOUT_ACTIONS:
         guard = _guard(db, action=action, subject=email_hash, now=now)
         if guard.locked_until is not None and as_utc(guard.locked_until) > now:
             return True
-    else:
-        guard = None
 
     ip_caps, account_caps = attempt_limits()
     ip_bucket = _bucket(
         db, action=action, scope=_bucket_scope("ip"), subject=client_host(request), now=now
     )
-    account_bucket = _bucket(
-        db, action=action, scope=_bucket_scope("account"), subject=email_hash, now=now
-    )
-    if ip_bucket.attempts >= ip_caps[action] or account_bucket.attempts >= account_caps[action]:
+    account_bucket = None
+    if account:
+        account_bucket = _bucket(
+            db, action=action, scope=_bucket_scope("account"), subject=email_hash, now=now
+        )
+    over_account = account_bucket is not None and account_bucket.attempts >= account_caps[action]
+    if ip_bucket.attempts >= ip_caps[action] or over_account:
         return True
 
     ip_bucket.attempts += 1
-    account_bucket.attempts += 1
-    if guard is None or action == "login":
+    if account_bucket is not None:
+        account_bucket.attempts += 1
+    if not account or guard is None or action == "login":
         return False
     return _bump_guard(
-        db, request, action=action, email=email, email_hash=email_hash, now=now
+        db,
+        request,
+        action=action,
+        email=email,
+        email_hash=email_hash,
+        now=now,
+        account_cap=account_caps[action],
     )
 
 
-def enforce_auth_attempt_policy(request: Request, *, action: str, email: str) -> None:
+def enforce_auth_attempt_policy(
+    request: Request, *, action: str, email: str, account: bool = True
+) -> None:
     """Rate-limit one auth attempt and lock the account when the streak says so.
 
     Signup, login, password reset, and resend-verification call this after the
@@ -448,6 +489,10 @@ def enforce_auth_attempt_policy(request: Request, *, action: str, email: str) ->
     the normalised address. The stored subject is its HMAC, not the address.
     The client IP is ``request.client.host`` when present. ``X-Forwarded-For``
     is not read.
+
+    Pass ``account=False`` for a valid password-reset token. That request
+    still counts against the IP cap and does not count against the account
+    cap or the lockout.
 
     A refused attempt raises ``HTTPException(status_code=429)`` with the same
     detail for every action and every address. This is the only limiter on
@@ -459,7 +504,9 @@ def enforce_auth_attempt_policy(request: Request, *, action: str, email: str) ->
         raise ValueError("email is required")
     db = SessionLocal()
     try:
-        blocked = _apply_attempt_policy(db, request, action=action, email=email)
+        blocked = _apply_attempt_policy(
+            db, request, action=action, email=email, account=account
+        )
         db.commit()
     except Exception:
         db.rollback()
