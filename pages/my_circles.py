@@ -76,6 +76,7 @@ def my_circles_rows(
     username=None,
     role=None,
     page=None,
+    email_verified: bool = True,
 ):
     """Dash rows for the sidebar: this person's circles, then Create Ajo, then Join Ajo."""
     if username is None and role is None:
@@ -87,7 +88,11 @@ def my_circles_rows(
         for name in names
     ]
     action_rows = [_action_row(action, page) for action in load_circle_actions(actions_path)]
-    return circle_rows + action_rows
+    if email_verified:
+        return circle_rows + action_rows
+    from pages.verification_prompt import verify_email_banner
+
+    return [verify_email_banner(False), *circle_rows, *action_rows]
 
 
 def _action_row(action: dict, page: str | None):

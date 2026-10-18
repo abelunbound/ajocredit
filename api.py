@@ -86,7 +86,9 @@ from auth import (
     create_access_token as _create_access_token,
     register_auth_routes,
 )
+from circles import register_circle_routes
 from database import User, get_db
+from email_verification import register_email_verification_routes
 from password_reset import register_password_reset_routes
 
 JWT_ALGORITHM = "HS256"
@@ -95,6 +97,8 @@ app = FastAPI(title="Ajo API", version="1.0.0")
 get_current_user = register_auth_routes(app, jwt_secret=JWT_SECRET_KEY)
 seed_demo_accounts()
 register_password_reset_routes(app)
+register_email_verification_routes(app)
+register_circle_routes(app, get_current_user)
 
 
 def create_access_token(user_id: int, session_id: int) -> str:
@@ -137,6 +141,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "user_id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
+        "email_verified": current_user.email_verified_at is not None,
     }
 
 

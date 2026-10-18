@@ -210,12 +210,12 @@ def test_forgot_password_uses_the_rate_limit_hook(monkeypatch):
 
 
 def test_dev_sender_fails_closed_when_the_environment_is_not_local(monkeypatch, tmp_path):
+    email = _email()
+    _signup(email)
     monkeypatch.setenv("AJO_ENV", "")
     monkeypatch.setenv("AJO_EMAIL_INBOX", str(tmp_path))
     monkeypatch.delenv("EMAIL_SENDER", raising=False)
     mail.clear_memory_inbox()
-    email = _email()
-    _signup(email)
     response = _forgot(email)
     assert response.status_code == 503
     assert response.json()["detail"] == password_reset.EMAIL_UNAVAILABLE

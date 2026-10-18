@@ -436,15 +436,30 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
         if not name:
             raise HTTPException(status_code=422, detail="Enter a name.")
         _reject_password(body.password)
+        from email_verification import require_sender, send_signup_notice
+
+        require_sender()
         # Hash on every attempt so an existing email is not cheaper to probe.
         hashed_password = hash_password(body.password)
         existing = db.query(User).filter(User.email == email).one_or_none()
+        created = False
+        user = existing
         if existing is None:
-            db.add(User(name=name, email=email, hashed_password=hashed_password))
+            user = User(name=name, email=email, hashed_password=hashed_password)
+            db.add(user)
             try:
-                db.commit()
+                db.flush()
             except IntegrityError:
                 db.rollback()
+                user = db.query(User).filter(User.email == email).one_or_none()
+            else:
+                created = True
+        try:
+            send_signup_notice(db, user=user, email=email, created=created)
+        except HTTPException:
+            db.rollback()
+            raise
+        db.commit()
         return SignupResponse(detail=SIGNUP_DETAIL)
 
     @fastapi_app.post("/api/v1/auth/login", response_model=AuthTokens)

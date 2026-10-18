@@ -14,6 +14,9 @@ from pathlib import Path
 os.environ["JWT_SECRET_KEY"] = "test-only-jwt-secret-key-32chars!!"
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
 os.environ["SEED_DEMO_ACCOUNTS"] = "false"
+os.environ.setdefault("AJO_ENV", "local")
+os.environ.setdefault("EMAIL_SENDER", "dev")
+os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
 _configured_url = os.environ.get("DATABASE_URL", "")
 USING_POSTGRES = _configured_url.startswith("postgres")
