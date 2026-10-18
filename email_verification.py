@@ -1,9 +1,11 @@
 """Email verification. Unverified users can sign in, but cannot create or join an Ajo.
 
 The link is single-use, expires 24 hours after ``clock.now()``, and only its
-SHA-256 hash is stored. Sign-up and resend use the dev inbox from ``mail.py``.
+SHA-256 hash is stored. The presented token is consumed by one conditional
+update. Sign-up and resend use the dev inbox from ``mail.py``.
 The HTTP response does not say whether the email is registered. Audit rows
-do not store the token, the link, or the password.
+store HMAC-SHA256 of the email and do not store the token, the link, or the
+password.
 """
 
 from __future__ import annotations
@@ -14,10 +16,12 @@ from datetime import timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+import audit_email
 import mail
-from auth import as_utc, enforce_auth_attempt_policy, hash_token, normalise_email
+from auth import enforce_auth_attempt_policy, hash_token, normalise_email
 from clock import now as clock_now
 from database import AuthAuditEvent, EmailVerificationToken, User, get_db
 
@@ -27,6 +31,7 @@ RESEND_DETAIL = "If an account needs verification, a new link is on its way."
 VERIFIED_DETAIL = "Your email is verified."
 VERIFY_INVALID = "This verification link is invalid or has expired."
 EMAIL_UNAVAILABLE = "Email cannot be sent until a mail provider is configured."
+AUDIT_UNAVAILABLE = "Audit logging is not configured."
 ALREADY_REGISTERED = (
     "An account for this email already exists. Sign in with your password.\n"
     "If you still need to verify the address, ask for another verification link.\n"
@@ -69,13 +74,20 @@ def _client_ip(request: Request) -> str | None:
     return host[:64] if host else None
 
 
+def _email_hash(email: str) -> str:
+    try:
+        return audit_email.hash_audit_email(email)
+    except audit_email.AuditKeyError as exc:
+        raise HTTPException(status_code=503, detail=AUDIT_UNAVAILABLE) from exc
+
+
 def _audit(db: Session, *, action: str, user_id: int | None, email: str, request: Request | None) -> None:
     db.add(
         AuthAuditEvent(
             created_at=clock_now(),
             action=action,
             user_id=user_id,
-            email_hash=hash_token(email),
+            email_hash=_email_hash(email),
             ip=_client_ip(request) if request is not None else None,
         )
     )
@@ -159,18 +171,24 @@ def register_email_verification_routes(fastapi_app: FastAPI) -> None:
 
     @fastapi_app.post("/api/v1/auth/verification/confirm", response_model=MessageResponse)
     def confirm(body: ConfirmRequest, request: Request, db: Session = Depends(get_db)):
-        row = (
-            db.query(EmailVerificationToken)
-            .filter(EmailVerificationToken.token_hash == hash_token(body.token))
-            .one_or_none()
-        )
         when = clock_now()
-        if row is None or row.used_at is not None or as_utc(row.expires_at) <= when:
+        consumed = db.execute(
+            update(EmailVerificationToken)
+            .where(
+                EmailVerificationToken.token_hash == hash_token(body.token),
+                EmailVerificationToken.used_at.is_(None),
+                EmailVerificationToken.expires_at > when,
+            )
+            .values(used_at=when)
+            .returning(EmailVerificationToken.user_id)
+        ).all()
+        if len(consumed) != 1:
+            db.rollback()
             raise HTTPException(status_code=400, detail=VERIFY_INVALID)
-        user = db.get(User, row.user_id)
+        user = db.get(User, int(consumed[0].user_id))
         if user is None:
+            db.rollback()
             raise HTTPException(status_code=400, detail=VERIFY_INVALID)
-        row.used_at = when
         if user.email_verified_at is None:
             user.email_verified_at = when
         _audit(db, action="email_verified", user_id=user.id, email=user.email, request=request)

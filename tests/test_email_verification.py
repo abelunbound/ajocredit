@@ -2,21 +2,38 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import sys
+import tempfile
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+os.environ["SEED_DEMO_ACCOUNTS"] = "false"
 os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
+os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
+
+if "api" not in sys.modules:
+    _configured_url = os.environ.get("DATABASE_URL", "")
+    if not _configured_url.startswith("postgres"):
+        _db_dir = tempfile.mkdtemp(prefix="ajo-verify-")
+        os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_db_dir) / "ajo.db")
+    from alembic import command
+    from alembic.config import Config
+
+    command.upgrade(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head")
 
 import pytest
 from fastapi.testclient import TestClient
 from flask import Flask, session
 
 import api
+import audit_email
 import auth
 import database
 import email_verification
@@ -130,12 +147,28 @@ def test_signup_sends_a_hashed_single_use_link_and_blocks_circles_until_verified
         events = [row.action for row in db.query(database.AuthAuditEvent).all()]
         assert "email_verification_sent" in events
         assert "email_verified" in events
-        for row in db.query(database.AuthAuditEvent).all():
+        plain = hashlib.sha256(email.encode("utf-8")).hexdigest()
+        for row in db.query(database.AuthAuditEvent).filter_by(user_id=verified.id).all():
             blob = f"{row.action} {row.email_hash}"
             assert token not in blob
             assert PASSWORD not in blob
+            assert row.email_hash != plain
+            assert row.email_hash == audit_email.hash_audit_email(email)
     finally:
         db.close()
+
+
+def test_verification_token_second_use_fails():
+    email = _email()
+    assert _signup(email).status_code == 201
+    token = _link_token()
+    first = client.post("/api/v1/auth/verification/confirm", json={"token": token})
+    assert first.status_code == 200, first.text
+    second = client.post("/api/v1/auth/verification/confirm", json={"token": token})
+    assert second.status_code == 400
+    assert second.json()["detail"] == email_verification.VERIFY_INVALID
+    me = client.get("/api/v1/me", headers=_auth(_login(email)))
+    assert me.json()["email_verified"] is True
 
 
 def test_resend_hides_whether_the_email_is_registered_and_uses_the_hook(monkeypatch):
