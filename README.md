@@ -72,9 +72,26 @@ python app_dash_web.py
 
 Then visit http://127.0.0.1:8055 in your browser.
 
+Each screen has its own address, so refresh, back, and links stay on that screen:
+
+| Screen | Address |
+| --- | --- |
+| Landing | `/` |
+| Sign in | `/signin` |
+| Get started | `/get-started` |
+| Dashboard | `/dashboard` |
+| My Ajo | `/circle` |
+| Members | `/members` |
+| Payouts Tracker (admin only) | `/payouts` |
+| Financial Health Overview | `/credit` |
+| Auto-loan | `/autoloan` |
+| Wallet | `/wallet` |
+
+Opening `/payouts` directly is sent to `/dashboard` unless the signed-in user is the creator of an Ajo. Someone who is not signed in and opens an app address is sent to `/signin`. The server decides that from the session; the address itself does not grant a role.
+
 ### Local stub sign-in
 
-`admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only for `admintest`.
+`admintest` (admin) and `membertest` (member) can sign in only on your machine. There is no role toggle. The server decides the role; the browser cannot switch it. Payouts Tracker is shown only to the creator of that Ajo. With these local accounts, that creator is `admintest`. `membertest` is redirected to the dashboard and does not see the PayoutsTracker menu.
 
 1. Copy the password template and edit the copy. Do not commit it.
    ```bash
@@ -89,6 +106,31 @@ Then visit http://127.0.0.1:8055 in your browser.
 3. Start the Dash app and sign in with the username and the password from `local/stub-users.json`.
 
 Startup refuses to continue if `ALLOW_LOCAL_STUB_LOGIN` is true while `DASH_HOST` is not `127.0.0.1`, `localhost`, or `::1`, or while `AJO_ENV` is anything other than unset or `local`. With the flag off, those accounts cannot sign in. Leave the flag false in every shared or deployed environment.
+
+### Sign up, sign in, and settings
+
+1. Start the Dash app with the stub sign-in settings above.
+2. Open http://127.0.0.1:8055. The landing card is **Get started**.
+3. **Get started** opens Registration: first name, last name, email, phone, set password, and confirm password. The card is the same width as the landing card. This form does not create a server account.
+4. **I have an account** opens Sign in. Use `admintest` or `membertest` and the password in `local/stub-users.json`. There is no role toggle. The server session sets admin or member.
+5. Under the username, **Settings** opens the settings page (also available from the top bar when the sidebar is hidden).
+6. **Complete profile** starts due diligence. The UK credit check is the default path. The Nigeria step is locked, greyed out, and marked with a padlock, and it does not run.
+7. **Verified - finish setup** returns to Settings. Address completion is saved for the current session only. Phone verification, password reset by email, and direct debit are shown and do not send SMS, email, or a payment instruction in this build.
+
+### Join Ajo
+
+After the stub sign-in above, open **+ Join Ajo** under **My circles** in the sidebar. The address is http://127.0.0.1:8055/join.
+
+1. Search by circle name or city, then choose **Search** (or press Enter).
+2. Filter by All groups, Active, Completed, Open to join, or Groups I manage.
+3. Set a date range. A circle stays on the page when its start and end overlap that range.
+4. On a card, **View details** opens the circle summary. **Join** sends a local join request when the circle is open and you are not already a member.
+5. **Invite Member** opens the invitation dialog (email required, personal message optional). Nothing is emailed in this preview; the screen confirms the invitation was queued.
+6. **Manage Members** is on the same button row only when the signed-in profile created that circle. `admintest` sees it on Brum Builders, Sister Circle Ajo, and Wolverhampton Sisters. `membertest` does not see it.
+
+```bash
+pytest test_join.py -v
+```
 
 ### FastAPI Backend
 
@@ -129,13 +171,27 @@ This runs on http://localhost:8000 by default.
 pytest
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`.
+Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`. Wallet checks are in `test_wallet.py`. FinHealth checks are in `test_finhealth.py`.
+
+```bash
+pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py test_finhealth.py -v
+```
+
+### Financial Health Overview
+
+Sign in with a local stub account, then choose **FinHealth** in the sidebar. The page title and breadcrumb are **Financial Health Overview**. The address is `/credit`.
+
+- The country-of-origin card is greyed out and locked. It cannot be clicked.
+- **Affordability Assessment** shows tuition £14000, bank balance £16258, threshold met, and cross-border debt £0. The chart switches between 12-month financial history and a 7-day volatility check.
+- **Affordability Forecast** shows tuition £14000.00, a 30th-day forecast of £17950.00, a buffer of £3950.00, and a 50-90% probability. The chart switches between the next 30 days and forecast versus validation data.
 
 ### Dummy personas
 
 Ten synthetic personas (names, dummy `@example.test` emails, and simple passwords) are the local test set for later UI work. They are not real people and include no phone numbers, addresses, or bank details.
 
 Five are members of both Brum Builders and Sister Circle Ajo. Five are members of only one of those groups. One persona is the admin who created both groups.
+
+My Ajo uses that file. `admintest` is shown as Amina Testperson and switches between Brum Builders and Sister Circle Ajo with the same group tabs as Payouts Tracker. `membertest` is shown as Tunde Exampleonly and sees only Brum Builders. The screen is the original rotation timeline, circle rules, and contribution progress for the selected Ajo. The signed-in person is tagged "you". Emails and passwords are not shown.
 
 The live file is git-ignored. Copy the committed template once:
 
@@ -149,10 +205,25 @@ Load it from Python:
 python -c "from pages.personas import load_personas; print(len(load_personas()['personas']))"
 ```
 
+The My Ajo page reads `data/personas.json` when the copy exists, and otherwise the example template. Persona passwords are not shown. Open My Ajo after the local stub sign-in above. Amina's two groups are tabs. Tunde's sign-in shows only Brum Builders.
+
 Run the persona tests:
 
 ```bash
 pytest test_personas.py -v
+```
+
+### Sidebar My circles
+
+The signed-in sidebar reads its circle list and the Create circle / Join Ajo rows from dummy data.
+
+- Circle names are the signed-in persona's groups from the persona fixture, in file order. `admintest` sees both groups. `membertest` sees Brum Builders only. The app reads `data/personas.json` when that file exists, and otherwise `data/personas.example.json`.
+- Create circle and Join Ajo (Join Ajo directly under Create circle) are the two rows in `data/circle_actions.json`.
+
+Both files are temporary stand-ins until circles are stored in the database. Payouts Tracker stays limited to the creator of that Ajo. With the local stub accounts, that creator is `admintest`.
+
+```bash
+pytest test_my_circles.py -v
 ```
 
 ## Project Structure

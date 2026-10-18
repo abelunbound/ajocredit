@@ -2,10 +2,67 @@ from dash import dcc, html
 
 from .components import icon
 
+SIGNUP_NOTICE = (
+    "Registration on this screen does not create a server account. "
+    "Sign in with a local test account."
+)
+SIGNUP_INCOMPLETE = "Enter first name, last name, email, phone, and both password fields."
+
+
+def signup_problem(fields):
+    """Return a registration error, or an empty string when the form is complete.
+
+    Passwords are checked for a match only. They are not stored.
+    """
+    fields = fields or {}
+    first = fields.get("first")
+    last = fields.get("last")
+    email = fields.get("email")
+    phone = fields.get("phone")
+    password = fields.get("password")
+    confirm = fields.get("confirm")
+    values = (first, last, email, phone, password, confirm)
+    if not all(isinstance(value, str) and value.strip() for value in values):
+        return SIGNUP_INCOMPLETE
+    address = email.strip()
+    domain = address.split("@")[-1] if "@" in address else ""
+    if address.startswith("@") or "@" not in address or "." not in domain:
+        return "Enter a valid email address."
+    if password != confirm:
+        return "Passwords do not match."
+    return ""
+
+
+def _signup_field(field_id, input_type, label, autocomplete):
+    """Field title sits inside the control. dcc.Input does not forward aria-*.
+
+    A visually hidden label associated with htmlFor is the accessible name.
+    """
+    return html.Div(
+        className="signup-field",
+        children=[
+            html.Label(
+                label,
+                htmlFor=field_id,
+                className="visually-hidden",
+                **{"aria-label": label},
+            ),
+            dcc.Input(
+                id=field_id,
+                type=input_type,
+                value="",
+                placeholder=label,
+                autoComplete=autocomplete,
+                className="auth-input",
+            ),
+        ],
+    )
+
 
 def layout():
+    """Sign Up only. Credit checks live on Settings."""
     return html.Div(
-        className="auth-screen gs-screen",
+        className="auth-screen signup-screen",
         children=[
             html.Div(
                 className="signin-top-row",
@@ -16,58 +73,25 @@ def layout():
                         n_clicks=0,
                         className="signin-back-btn",
                     ),
-                    html.Div("Credit check setup", className="gs-top-title"),
+                    html.Div("Get started", className="gs-top-title"),
                 ],
             ),
-            html.Div(icon("flag"), className="gs-icon-wrap"),
-            # html.Div("STEP 2 OF 4", className="auth-kicker gs-kicker"),
-            html.H2("Registration", className="gs-title"),
+            html.Div(icon("user"), className="gs-icon-wrap"),
+            html.H2("Sign Up", className="gs-title"),
             html.P(
-                "We'll check your credit in your country of origin to see any pending debt or liability. "
-                "This never affects your UK score.",
+                "Create your profile with your name, email, phone, and password.",
                 className="gs-copy",
             ),
-            html.Div("First Name", className="gs-label"),
-            dcc.Input(value="", type="text", className=""),
-
-            html.Div("Last Name", className="gs-label"),
-            dcc.Input(value="", type="text", className=""),
-
-            html.Div("Email:", className="gs-label"),
-            dcc.Input(value="", type="text", className=""),
-
-            html.Div("Phone number:", className="gs-label"),
-            dcc.Input(value="", type="text", className=""),
-
-            html.Div("Country of origin", className="gs-label"),
-            dcc.Dropdown(
-                options=[{"label": "Nigeria", "value": "nigeria"}, {"label": "Ghana", "value": "ghana"}, {"label": "Kenya", "value": "kenya"}],
-                value="nigeria",
-                clearable=False,
-                searchable=False,
-                className="gs-select",
-            ),
-            html.Div("National identifier (BVN / NIN / equivalent)", className="gs-label"),
-            dcc.Input(value="2210  ****  ****  4187", type="text", className=""),
-            html.Div(
-                className="gs-note",
-                children=[
-                    html.Div(icon("lock"), className="gs-note-ic"),
-                    html.Div("Encrypted submission to accredited bureau. Soft check - no impact on your score.", className="gs-note-text"),
-                ],
-            ),
-
-            html.Div("Set password", className="gs-label"),
-            dcc.Input(value="********", type="text", className=""),
-
-            html.Div("Reenter password", className="gs-label"),
-            dcc.Input(value="********", type="text", className=""),
-
-
-            html.Div("Date of birth:", className="gs-label"),
+            _signup_field("signup-first-name", "text", "First name", "given-name"),
+            _signup_field("signup-last-name", "text", "Last name", "family-name"),
+            _signup_field("signup-email", "email", "Email", "email"),
+            _signup_field("signup-phone", "tel", "Phone", "tel"),
+            _signup_field("signup-password", "password", "Set password", "new-password"),
+            _signup_field("signup-password-confirm", "password", "Confirm password", "new-password"),
+            html.Div(id="signup-error", className="auth-error"),
             html.Button(
-                "Continue",
-                id={"type": "auth-btn", "action": "getstarted-run-check"},
+                "Create account",
+                id={"type": "auth-btn", "action": "signup-submit"},
                 n_clicks=0,
                 className="auth-primary-btn gs-primary",
             ),
@@ -75,7 +99,106 @@ def layout():
     )
 
 
+def nigeria_locked_step():
+    """Nigeria credit check, visible but not runnable. UK stays the default path."""
+    return html.Div(
+        className="dd-step dd-step-locked",
+        **{"aria-disabled": "true"},
+        children=[
+            html.Div(
+                className="dd-step-head",
+                children=[
+                    html.Div("Checking your credit in Nigeria", className="dd-step-title"),
+                    html.Div(
+                        [icon("lock"), html.Span("Locked")],
+                        className="dd-lock",
+                    ),
+                ],
+            ),
+            html.P(
+                "This step is locked. The default path is the UK credit check only.",
+                className="dd-step-copy",
+            ),
+        ],
+    )
+
+
+def due_diligence_layout():
+    """Credit checks opened from Settings. UK first; Nigeria is locked."""
+    return html.Div(
+        className="auth-screen gs-screen",
+        children=[
+            html.Div(
+                className="signin-top-row",
+                children=[
+                    html.Button(
+                        html.I(className="bi bi-chevron-left"),
+                        id={"type": "auth-btn", "action": "dd-back-settings"},
+                        n_clicks=0,
+                        className="signin-back-btn",
+                    ),
+                    html.Div("Complete profile", className="gs-top-title"),
+                ],
+            ),
+            html.Div("UK-ONLY DEFAULT", className="auth-kicker gs-kicker"),
+            html.H2("Credit and affordability", className="gs-title"),
+            html.P(
+                "The UK check runs first. The Nigeria check stays locked until it is available.",
+                className="gs-copy",
+            ),
+            html.Div(
+                className="dd-steps",
+                children=[
+                    html.Div(
+                        className="dd-step dd-step-uk",
+                        children=[
+                            html.Div("1 · Default path", className="dd-kicker"),
+                            html.Div("Check UK credit", className="dd-step-title"),
+                            html.P(
+                                "UK bureau file, electoral roll, and affordability.",
+                                className="dd-step-copy",
+                            ),
+                            html.Button(
+                                ["Check UK credit ", html.I(className="bi bi-arrow-right")],
+                                id={"type": "auth-btn", "action": "dd-start-uk"},
+                                n_clicks=0,
+                                className="auth-primary-btn gs-primary",
+                            ),
+                        ],
+                    ),
+                    nigeria_locked_step(),
+                ],
+            ),
+        ],
+    )
+
+
+def nigeria_locked_layout():
+    """Full-page locked Nigeria step. It does not start a bureau check."""
+    return html.Div(
+        className="auth-screen gs-screen",
+        children=[
+            html.Div(
+                className="signin-top-row",
+                children=[
+                    html.Button(
+                        html.I(className="bi bi-chevron-left"),
+                        id={"type": "auth-btn", "action": "dd-back-overview"},
+                        n_clicks=0,
+                        className="signin-back-btn",
+                    ),
+                    html.Div("Credit check origin", className="gs-top-title"),
+                ],
+            ),
+            html.Div(icon("lock"), className="gs-icon-wrap"),
+            html.H2("Nigeria check", className="gs-title"),
+            nigeria_locked_step(),
+        ],
+    )
+
+
 def loading_layout():
+    """Kept for the Nigeria screen. The live path does not mount this timer."""
     steps = [
         ("Verifying identity", True),
         ("Pulling bureau data", True),
@@ -83,35 +206,23 @@ def loading_layout():
         ("Scoring", False),
     ]
     return html.Div(
-        className="auth-screen gs-screen gs-loading-screen",
+        className="auth-screen gs-screen gs-loading-screen dd-nigeria-parked",
         children=[
-            dcc.Interval(
-                id={"type": "gs-timer", "screen": "2"},
-                interval=5000,
-                n_intervals=0,
-                max_intervals=1,
-            ),
             html.Div(
                 className="signin-top-row",
                 children=[
                     html.Button(
                         html.I(className="bi bi-chevron-left"),
-                        id={"type": "auth-btn", "action": "getstarted-back-step1"},
+                        id={"type": "auth-btn", "action": "dd-back-overview"},
                         n_clicks=0,
                         className="signin-back-btn",
                     ),
-                    html.Div("Running credit check", className="gs-top-title"),
+                    html.Div("Nigeria check", className="gs-top-title"),
                 ],
             ),
-            html.Div(
-                className="gs-loader-wrap",
-                children=[
-                    html.Div(className="gs-loader-ring"),
-                    html.Div(className="gs-loader-arc"),
-                ],
-            ),
-            html.H3("Checking your credit in Nigeria...", className="gs-load-title"),
-            html.P("Usually takes under a minute.", className="gs-load-sub"),
+            nigeria_locked_step(),
+            html.H3("Checking your credit in Nigeria...", className="gs-load-title dd-parked-title"),
+            html.P("Locked. This check does not run.", className="gs-load-sub"),
             html.Div(
                 className="gs-steps",
                 children=[
@@ -131,72 +242,27 @@ def loading_layout():
 
 
 def result_origin_layout():
-    rows = [
-        ("Active liabilities", "£0.00"),
-        ("Accounts past due", "0"),
-        ("Credit enquiries (12m)", "2"),
-        ("Oldest account", "6 yr 4 mo"),
-    ]
     return html.Div(
-        className="auth-screen gs-screen",
+        className="auth-screen gs-screen dd-nigeria-parked",
         children=[
             html.Div(
                 className="signin-top-row",
                 children=[
                     html.Button(
                         html.I(className="bi bi-chevron-left"),
-                        id={"type": "auth-btn", "action": "getstarted-back-step2"},
+                        id={"type": "auth-btn", "action": "dd-back-overview"},
                         n_clicks=0,
                         className="signin-back-btn",
                     ),
-                    html.Div("Credit check origin", className="gs-top-title"),
+                    html.Div("Credit check result", className="gs-top-title"),
                 ],
             ),
+            nigeria_locked_step(),
             html.Div("RESULT", className="auth-kicker gs-kicker"),
-            html.H2("No pending debt found.", className="gs-title gs-result-title"),
-            html.Div(
-                className="gs-score-card",
-                children=[
-                    html.Div(
-                        className="gs-score-left",
-                        children=[
-                            html.Div(
-                                className="gs-score-ring",
-                                children=[
-                                    html.Div("CREDIT SCORE", className="gs-score-label"),
-                                    html.Div("712", className="gs-score-value"),
-                                    html.Div("Good", className="gs-score-band"),
-                                ],
-                            )
-                        ],
-                    ),
-                    html.Div(
-                        className="gs-score-right",
-                        children=[
-                            html.Div("ORIGIN: NIGERIA · CRC BUREAU", className="gs-meta-kicker"),
-                            html.P(
-                                "Verified via BVN + NIN. No outstanding loans, no collections, no active judgments.",
-                                className="gs-meta-copy",
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-            html.Div(
-                className="gs-table-card",
-                children=[
-                    html.Div(
-                        className="gs-table-row",
-                        children=[html.Span(label, className="gs-row-label"), html.Span(value, className="gs-row-value")]
-                    )
-                    for label, value in rows
-                ],
-            ),
-            html.Button(
-                ["Continue to UK check ", html.I(className="bi bi-arrow-right")],
-                id={"type": "auth-btn", "action": "getstarted-to-uk"},
-                n_clicks=0,
-                className="auth-primary-btn gs-primary",
+            html.H2("Nigeria credit check result", className="gs-title gs-result-title"),
+            html.P(
+                "The Nigeria result stays locked. Finish the UK check to complete your profile.",
+                className="gs-copy",
             ),
         ],
     )
@@ -335,6 +401,7 @@ def result_uk_layout():
                     ),
                 ],
             ),
+            nigeria_locked_step(),
             html.Button(
                 "Verified - finish setup",
                 id={"type": "auth-btn", "action": "getstarted-finish"},

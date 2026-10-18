@@ -12,10 +12,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.12'
     
@@ -26,4 +26,4 @@ jobs:
     
     - name: Run smoke tests
       run: |
-        pytest test_smoke.py test_stub_login.py test_personas.py test_api_startup.py -v
+        pytest test_smoke.py test_stub_login.py test_personas.py test_circles.py test_my_circles.py test_my_ajo.py test_api_startup.py test_page_routes.py test_payouts_tracker.py test_getstarted_settings.py test_role_visibility.py test_dashboard.py test_wallet.py test_delay_cover.py test_members.py test_join.py test_finhealth.py test_landing.py test_support.py -v

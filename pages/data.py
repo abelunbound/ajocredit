@@ -29,20 +29,29 @@ TXNS = [
 
 NAV = [
     ("home", "Dashboard", "home"),
-    ("circle", "MyAjo", "circles"),
+    ("circle", "My Ajo", "circles"),
     ("members", "Members", "user"),
     ("payouts", "PayoutsTracker", "bolt"),
     ("credit", "FinHealth", "shield"),
-    ("autoloan", "DelayCover", "spark"),
+    ("autoloan", "Delay Cover", "spark"),
     ("wallet", "EarlyPayouts", "wallet"),
+    ("support", "Support", "support"),
 ]
+# Temporarily hidden from the sidebar (#103). The page and /credit route stay.
+HIDDEN_NAV_PAGES = frozenset({"credit"})
 
 CRUMBS = {
     "home": ["AjoFinance", "Dashboard"],
-    "circle": ["AjoFinance", "Circles", "Brum Builders"],
-    "members": ["AjoFinance", "Brum Builders", "Members"],
-    "payouts": ["AjoFinance", "Brum Builders", "Payouts"],
-    "credit": ["AjoFinance", "Me", "Credit & checks"],
-    "autoloan": ["AjoFinance", "Safety", "Auto-loan"],
-    "wallet": ["AjoFinance", "Me", "Wallet"],
+    "circle": ["AjoFinance", "My Ajo"],
+    "members": ["AjoFinance", "Members"],
+    "payouts": ["AjoFinance", "Payouts Tracker"],
+    "credit": ["AjoFinance", "Me", "Financial Health Overview"],
+    "autoloan": ["AjoFinance", "Safety", "Delay Cover"],
+    "wallet": ["AjoFinance", "Me", "EarlyPayout Wallet"],
+    "settings": ["AjoFinance", "Settings"],
+    "dd-overview": ["AjoFinance", "Settings", "Complete profile"],
+    "getstarted-uk-loading": ["AjoFinance", "Settings", "UK credit check"],
+    "getstarted-4": ["AjoFinance", "Settings", "UK credit check"],
+    "join": ["AjoFinance", "Join Ajo"],
+    "support": ["AjoFinance", "Support"],
 }

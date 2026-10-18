@@ -5,6 +5,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # bcrypt 5 breaks passlib; stay on 4.x until M2 auth work
+      - dependency-name: "bcrypt"
+        update-types:
+          - "version-update:semver-major"
     groups:
       dependencies:
         patterns:
