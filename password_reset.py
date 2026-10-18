@@ -1,8 +1,10 @@
 """Forgot-password links. The HTTP response does not reveal whether the email exists.
 
 The link is single-use, expires 30 minutes after ``clock.now()``, and only its
-SHA-256 hash is stored. A successful reset re-hashes the password, ends every
-session and refresh token, and uses up any other open reset links.
+SHA-256 hash is stored. The presented token is consumed by one conditional
+update. A successful reset re-hashes the password, ends every session and
+refresh token, and uses up any other open reset links. Audit rows store
+HMAC-SHA256 of the email, never the address itself.
 
 Requests call ``enforce_auth_attempt_policy`` so #40 can rate-limit by email
 and IP. Nothing is rate-limited yet. Audit rows record the request and the
@@ -17,11 +19,12 @@ from datetime import timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+import audit_email
 import mail
 from auth import (
-    as_utc,
     enforce_auth_attempt_policy,
     hash_password,
     hash_token,
@@ -37,6 +40,7 @@ FORGOT_DETAIL = "If an account exists for that email, a reset link is on its way
 RESET_OK = "Your password has been reset. Sign in again."
 RESET_INVALID = "This reset link is invalid or has expired."
 EMAIL_UNAVAILABLE = "Email cannot be sent until a mail provider is configured."
+AUDIT_UNAVAILABLE = "Audit logging is not configured."
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -63,13 +67,20 @@ def _client_ip(request: Request) -> str | None:
     return host[:64] if host else None
 
 
+def _require_audit_key() -> None:
+    try:
+        audit_email.audit_email_key()
+    except audit_email.AuditKeyError as exc:
+        raise HTTPException(status_code=503, detail=AUDIT_UNAVAILABLE) from exc
+
+
 def _audit(db: Session, *, action: str, user_id: int | None, email: str, request: Request) -> None:
     db.add(
         AuthAuditEvent(
             created_at=clock_now(),
             action=action,
             user_id=user_id,
-            email_hash=hash_token(email),
+            email_hash=audit_email.hash_audit_email(email),
             ip=_client_ip(request),
         )
     )
@@ -95,6 +106,7 @@ def register_password_reset_routes(fastapi_app: FastAPI) -> None:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         enforce_auth_attempt_policy(request, action="password_reset", email=email)
         _require_sender()
+        _require_audit_key()
         user = db.query(User).filter(User.email == email).one_or_none()
         raw = secrets.token_urlsafe(32)
         if user is not None:
@@ -133,28 +145,37 @@ def register_password_reset_routes(fastapi_app: FastAPI) -> None:
     @fastapi_app.post("/api/v1/auth/password/reset", response_model=ResetPasswordResponse)
     def reset_password(body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
         reject_password(body.password)
+        _require_audit_key()
         hashed = hash_password(body.password)
-        row = (
-            db.query(PasswordResetToken)
-            .filter(PasswordResetToken.token_hash == hash_token(body.token))
-            .one_or_none()
-        )
         when = clock_now()
-        if row is None or row.used_at is not None or as_utc(row.expires_at) <= when:
+        consumed = db.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.token_hash == hash_token(body.token),
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > when,
+            )
+            .values(used_at=when)
+            .returning(PasswordResetToken.user_id)
+        ).all()
+        if len(consumed) != 1:
+            db.rollback()
             raise HTTPException(status_code=400, detail=RESET_INVALID)
-        user = db.get(User, row.user_id)
+        user = db.get(User, int(consumed[0].user_id))
         if user is None:
+            db.rollback()
             raise HTTPException(status_code=400, detail=RESET_INVALID)
         enforce_auth_attempt_policy(request, action="password_reset", email=user.email)
         user.hashed_password = hashed
         revoke_all_sessions(db, user.id, when)
-        open_links = (
-            db.query(PasswordResetToken)
-            .filter(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
-            .all()
+        db.execute(
+            update(PasswordResetToken)
+            .where(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+            )
+            .values(used_at=when)
         )
-        for link in open_links:
-            link.used_at = when
         _audit(
             db,
             action="password_reset_completed",
