@@ -129,7 +129,7 @@ After the stub sign-in above, open **+ Join Ajo** under **My circles** in the si
 6. **Manage Members** is on the same button row only when the signed-in profile created that circle. `admintest` sees it on Brum Builders, Sister Circle Ajo, and Wolverhampton Sisters. `membertest` does not see it.
 
 ```bash
-pytest test_join.py -v
+pytest tests/test_join.py -v
 ```
 
 ### FastAPI Backend
@@ -168,13 +168,13 @@ This runs on http://localhost:8000 by default.
 ### Running Tests
 
 ```bash
-pytest
+pytest tests/
 ```
 
 Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`. Wallet checks are in `test_wallet.py`. FinHealth checks are in `test_finhealth.py`.
 
 ```bash
-pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py test_finhealth.py -v
+pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
 ```
 
 ### Financial Health Overview
@@ -210,7 +210,7 @@ The My Ajo page reads `data/personas.json` when the copy exists, and otherwise t
 Run the persona tests:
 
 ```bash
-pytest test_personas.py -v
+pytest tests/test_personas.py -v
 ```
 
 ### Sidebar My circles
@@ -223,7 +223,7 @@ The signed-in sidebar reads its circle list and the Create circle / Join Ajo row
 Both files are temporary stand-ins until circles are stored in the database. Payouts Tracker stays limited to the creator of that Ajo. With the local stub accounts, that creator is `admintest`.
 
 ```bash
-pytest test_my_circles.py -v
+pytest tests/test_my_circles.py -v
 ```
 
 ## Project Structure

@@ -13,7 +13,7 @@ from pages.personas import (
     validate_personas,
 )
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_loader_reads_example_personas():

@@ -33,7 +33,7 @@ def run_api_startup(env_vars, unset=()):
         env=env,
         capture_output=True,
         text=True,
-        cwd=os.path.dirname(os.path.abspath(__file__))
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
     
     return result.returncode, result.stderr
