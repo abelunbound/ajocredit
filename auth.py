@@ -156,18 +156,22 @@ def as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+AUTH_ATTEMPT_ACTIONS = frozenset({"signup", "login", "password_reset", "resend_verification"})
+
+
 def enforce_auth_attempt_policy(request: Request, *, action: str, email: str) -> None:
     """Plug-in point for #40. Rate limiting and lockout are not implemented.
 
-    Signup and login both call this after the email is normalised and before
-    any password work. ``action`` is ``signup`` or ``login``. ``email`` is the
-    normalised address. The client IP is ``request.client.host`` when present.
-    ``X-Forwarded-For`` is not read.
+    Signup, login, password reset, and resend-verification all call this after
+    the email is normalised and before any password or token work. ``action``
+    is one of ``signup``, ``login``, ``password_reset``, or
+    ``resend_verification``. ``email`` is the normalised address. The client
+    IP is ``request.client.host`` when present. ``X-Forwarded-For`` is not read.
 
     #40 should replace this function. Raise ``HTTPException(status_code=429)``
     to refuse an attempt. Do not add a second limiter on the routes.
     """
-    if action not in {"signup", "login"}:
+    if action not in AUTH_ATTEMPT_ACTIONS:
         raise ValueError(f"unknown auth action: {action}")
     if not email:
         raise ValueError("email is required")
@@ -297,6 +301,23 @@ def _active_session(db: Session, session_id: int) -> AuthSession:
     if row is None or row.revoked_at is not None or as_utc(row.expires_at) <= clock_now():
         raise HTTPException(status_code=401, detail=TOKEN_FAILED)
     return row
+
+
+def reject_password(password: str) -> None:
+    """Raise 422 when a password is outside the bcrypt length rules."""
+    _reject_password(password)
+
+
+def revoke_all_sessions(db: Session, user_id: int, when: datetime | None = None) -> None:
+    """End every live session for this account, including refresh tokens."""
+    moment = when or clock_now()
+    rows = (
+        db.query(AuthSession)
+        .filter(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
+        .all()
+    )
+    for row in rows:
+        revoke_session(db, row, moment)
 
 
 def revoke_session(db: Session, row: AuthSession, when: datetime | None = None) -> None:

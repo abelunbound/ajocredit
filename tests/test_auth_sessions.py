@@ -73,7 +73,7 @@ def _login(email: str, password: str = PASSWORD):
 
 def test_migration_head_is_auth_sessions_only():
     script = ScriptDirectory.from_config(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")))
-    assert script.get_heads() == ["0003_auth_sessions"]
+    assert script.get_heads() == ["0004_password_reset"]
 
 
 def test_email_is_trimmed_and_lowercased_before_uniqueness_and_login():
