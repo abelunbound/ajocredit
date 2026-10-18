@@ -172,6 +172,48 @@ class AuthAuditEvent(Base):
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
+class AuthRateBucket(Base):
+    """Fixed window of auth attempts for one IP or one email HMAC.
+
+    ``subject`` is the client host, or the HMAC of the email. It is never the
+    raw address. ``scope`` is ``ip`` or ``account``.
+    """
+
+    __tablename__ = "auth_rate_buckets"
+    __table_args__ = (
+        UniqueConstraint("action", "scope", "subject", name="uq_auth_rate_buckets_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject: Mapped[str] = mapped_column(String(64), nullable=False)
+    window_started: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class AuthAccountGuard(Base):
+    """Progressive lockout for one action and one email HMAC.
+
+    ``subject`` is the HMAC of the email, never the address. ``locked_until``
+    is compared with ``clock.now()``.
+    """
+
+    __tablename__ = "auth_account_guards"
+    __table_args__ = (
+        UniqueConstraint("action", "subject", name="uq_auth_account_guards_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    subject: Mapped[str] = mapped_column(String(64), nullable=False)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    notified_level: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class EmailVerificationToken(Base):
     """Single-use email verification. Only the SHA-256 hash of the token is stored."""
 

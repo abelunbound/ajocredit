@@ -9,9 +9,10 @@ Sign-up returns the same body whether or not the email is already registered.
 Sign-in returns the same error for an unknown email and a wrong password, and
 runs a bcrypt check on both paths.
 
-``enforce_auth_attempt_policy`` is the single function #40 should replace to
-add rate limits and lockout. Signup and login both call it. It does not limit
-anything yet.
+``enforce_auth_attempt_policy`` rate-limits signup, login, password reset,
+and verification resend per IP and per account. Login, reset, and resend also
+lock the account for longer after repeated attempts. Windows and lock expiry
+use ``clock.now()``. The client IP is ``request.client.host`` only.
 """
 
 from __future__ import annotations
@@ -32,8 +33,19 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import audit_email
+import mail
 from clock import now as clock_now
-from database import AuthSession, RefreshToken, User, get_db
+from database import (
+    AuthAccountGuard,
+    AuthAuditEvent,
+    AuthRateBucket,
+    AuthSession,
+    RefreshToken,
+    SessionLocal,
+    User,
+    get_db,
+)
 
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_MINUTES = 15
@@ -48,6 +60,8 @@ SIGNUP_DETAIL = "If this email can be registered, the account is ready. Sign in 
 LOGIN_FAILED = "Invalid email or password."
 REFRESH_FAILED = "Invalid or expired refresh token."
 TOKEN_FAILED = "Invalid or expired token."
+RATE_LIMITED = "Too many attempts. Try again later."
+AUDIT_UNAVAILABLE = "Audit logging is not configured."
 
 _email_adapter = TypeAdapter(EmailStr)
 _bearer = HTTPBearer()
@@ -157,25 +171,295 @@ def as_utc(value: datetime) -> datetime:
 
 
 AUTH_ATTEMPT_ACTIONS = frozenset({"signup", "login", "password_reset", "resend_verification"})
+LOCKOUT_ACTIONS = frozenset({"login", "password_reset", "resend_verification"})
+ATTEMPT_WINDOW = timedelta(minutes=15)
+QUIET_PERIOD = timedelta(hours=24)
+# Per-IP and per-account caps inside one window. The full test suite shares
+# one client address, so the IP caps sit above that volume. Tests lower them.
+IP_LIMITS = {
+    "signup": 10000,
+    "login": 10000,
+    "password_reset": 10000,
+    "resend_verification": 10000,
+}
+ACCOUNT_LIMITS = {
+    "signup": 100,
+    "login": 100,
+    "password_reset": 100,
+    "resend_verification": 100,
+}
+# Failure counts that start a lock. Further multiples of the first step stay
+# at the longest duration. A successful login, reset, or confirmation clears
+# the matching guard.
+LOCKOUT_THRESHOLDS = (5, 10, 20)
+LOCKOUT_DURATIONS = (
+    timedelta(minutes=1),
+    timedelta(minutes=15),
+    timedelta(hours=1),
+)
+_LOCKOUT_NOTICE = {
+    "login": (
+        "Ajo sign-in locked",
+        "Sign-in for this account is locked after too many attempts. "
+        "You can try again later. If this was not you, reset your password.\n",
+    ),
+    "password_reset": (
+        "Ajo password reset locked",
+        "Password reset for this account is locked after too many requests. "
+        "You can try again later.\n",
+    ),
+    "resend_verification": (
+        "Ajo verification email locked",
+        "Verification email for this account is locked after too many requests. "
+        "You can try again later.\n",
+    ),
+}
+
+
+def client_host(request: Request) -> str:
+    """Client address from the connection. ``X-Forwarded-For`` is not read."""
+    if request.client is None or not request.client.host:
+        return "unknown"
+    return request.client.host[:64]
+
+
+def _email_subject(email: str) -> str:
+    try:
+        return audit_email.hash_audit_email(email)
+    except audit_email.AuditKeyError as exc:
+        raise HTTPException(status_code=503, detail=AUDIT_UNAVAILABLE) from exc
+
+
+def _lock_duration(failures: int) -> timedelta | None:
+    if not LOCKOUT_THRESHOLDS or failures < LOCKOUT_THRESHOLDS[0]:
+        return None
+    if failures in LOCKOUT_THRESHOLDS:
+        index = LOCKOUT_THRESHOLDS.index(failures)
+    elif failures > LOCKOUT_THRESHOLDS[-1] and (failures % LOCKOUT_THRESHOLDS[0] == 0):
+        index = len(LOCKOUT_DURATIONS) - 1
+    else:
+        return None
+    return LOCKOUT_DURATIONS[min(index, len(LOCKOUT_DURATIONS) - 1)]
+
+
+def _window_open(started: datetime, now: datetime) -> bool:
+    return as_utc(started) + ATTEMPT_WINDOW > now
+
+
+def _bucket(db: Session, *, action: str, scope: str, subject: str, now: datetime) -> AuthRateBucket:
+    row = (
+        db.query(AuthRateBucket)
+        .filter_by(action=action, scope=scope, subject=subject)
+        .one_or_none()
+    )
+    if row is None:
+        row = AuthRateBucket(
+            action=action,
+            scope=scope,
+            subject=subject,
+            window_started=now,
+            attempts=0,
+        )
+        try:
+            with db.begin_nested():
+                db.add(row)
+                db.flush()
+        except IntegrityError:
+            row = (
+                db.query(AuthRateBucket)
+                .filter_by(action=action, scope=scope, subject=subject)
+                .one()
+            )
+    if not _window_open(row.window_started, now):
+        row.window_started = now
+        row.attempts = 0
+    return row
+
+
+def _guard(db: Session, *, action: str, subject: str, now: datetime) -> AuthAccountGuard:
+    row = db.query(AuthAccountGuard).filter_by(action=action, subject=subject).one_or_none()
+    if row is None:
+        row = AuthAccountGuard(
+            action=action,
+            subject=subject,
+            failures=0,
+            level=0,
+            locked_until=None,
+            last_attempt_at=now,
+            notified_level=0,
+        )
+        try:
+            with db.begin_nested():
+                db.add(row)
+                db.flush()
+        except IntegrityError:
+            row = db.query(AuthAccountGuard).filter_by(action=action, subject=subject).one()
+    if as_utc(row.last_attempt_at) + QUIET_PERIOD <= now and (
+        row.locked_until is None or as_utc(row.locked_until) <= now
+    ):
+        row.failures = 0
+        row.level = 0
+        row.locked_until = None
+        row.notified_level = 0
+    return row
+
+
+def _notify_lockout(
+    db: Session,
+    *,
+    action: str,
+    email: str,
+    email_hash: str,
+    request: Request,
+    now: datetime,
+) -> None:
+    user = db.query(User).filter(User.email == email).one_or_none()
+    db.add(
+        AuthAuditEvent(
+            created_at=now,
+            action=f"{action}_lockout",
+            user_id=user.id if user is not None else None,
+            email_hash=email_hash,
+            ip=client_host(request),
+        )
+    )
+    if user is None or not mail.sender_available():
+        return
+    subject, body = _LOCKOUT_NOTICE[action]
+    try:
+        mail.send_message(recipient=email, subject=subject, body=body)
+    except mail.EmailNotConfigured:
+        return
+
+
+def _bump_guard(db: Session, request: Request, *, action: str, email: str, email_hash: str, now: datetime) -> bool:
+    """Count one failed attempt. Return True when this failure starts a lock."""
+    guard = _guard(db, action=action, subject=email_hash, now=now)
+    if guard.locked_until is not None and as_utc(guard.locked_until) > now:
+        return True
+    guard.failures += 1
+    guard.last_attempt_at = now
+    duration = _lock_duration(guard.failures)
+    if duration is None:
+        return False
+    guard.level += 1
+    guard.locked_until = now + duration
+    if guard.notified_level != guard.level:
+        _notify_lockout(
+            db,
+            action=action,
+            email=email,
+            email_hash=email_hash,
+            request=request,
+            now=now,
+        )
+        guard.notified_level = guard.level
+    return True
+
+
+def _apply_attempt_policy(db: Session, request: Request, *, action: str, email: str) -> bool:
+    """Record one attempt. Return True when the request must be refused.
+
+    Login failures are counted by ``record_auth_failure`` after the password
+    check, so a correct password is not treated as a failure. Reset and
+    resend count here because each request is the attempt.
+    """
+    now = clock_now()
+    email_hash = _email_subject(email)
+    if action in LOCKOUT_ACTIONS:
+        guard = _guard(db, action=action, subject=email_hash, now=now)
+        if guard.locked_until is not None and as_utc(guard.locked_until) > now:
+            return True
+    else:
+        guard = None
+
+    ip_bucket = _bucket(db, action=action, scope="ip", subject=client_host(request), now=now)
+    account_bucket = _bucket(
+        db, action=action, scope="account", subject=email_hash, now=now
+    )
+    if ip_bucket.attempts >= IP_LIMITS[action] or account_bucket.attempts >= ACCOUNT_LIMITS[action]:
+        return True
+
+    ip_bucket.attempts += 1
+    account_bucket.attempts += 1
+    if guard is None or action == "login":
+        return False
+    return _bump_guard(
+        db, request, action=action, email=email, email_hash=email_hash, now=now
+    )
 
 
 def enforce_auth_attempt_policy(request: Request, *, action: str, email: str) -> None:
-    """Plug-in point for #40. Rate limiting and lockout are not implemented.
+    """Rate-limit one auth attempt and lock the account when the streak says so.
 
-    Signup, login, password reset, and resend-verification all call this after
-    the email is normalised and before any password or token work. ``action``
-    is one of ``signup``, ``login``, ``password_reset``, or
-    ``resend_verification``. ``email`` is the normalised address. The client
-    IP is ``request.client.host`` when present. ``X-Forwarded-For`` is not read.
+    Signup, login, password reset, and resend-verification call this after the
+    email is normalised. ``action`` is one of those four names. ``email`` is
+    the normalised address. The stored subject is its HMAC, not the address.
+    The client IP is ``request.client.host`` when present. ``X-Forwarded-For``
+    is not read.
 
-    #40 should replace this function. Raise ``HTTPException(status_code=429)``
-    to refuse an attempt. Do not add a second limiter on the routes.
+    A refused attempt raises ``HTTPException(status_code=429)`` with the same
+    detail for every action and every address. This is the only limiter on
+    these routes.
     """
     if action not in AUTH_ATTEMPT_ACTIONS:
         raise ValueError(f"unknown auth action: {action}")
     if not email:
         raise ValueError("email is required")
-    del request
+    db = SessionLocal()
+    try:
+        blocked = _apply_attempt_policy(db, request, action=action, email=email)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+    if blocked:
+        raise HTTPException(status_code=429, detail=RATE_LIMITED)
+
+
+def record_auth_failure(request: Request, *, action: str, email: str) -> None:
+    """Count a failed login. Raise 429 when this failure starts a lock.
+
+    Known and unknown addresses share this path. The stored subject is the
+    email HMAC. A correct password does not call this.
+    """
+    if action not in LOCKOUT_ACTIONS:
+        raise ValueError(f"unknown auth action: {action}")
+    if not email:
+        raise ValueError("email is required")
+    now = clock_now()
+    email_hash = _email_subject(email)
+    db = SessionLocal()
+    try:
+        locked = _bump_guard(
+            db, request, action=action, email=email, email_hash=email_hash, now=now
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+    if locked:
+        raise HTTPException(status_code=429, detail=RATE_LIMITED)
+
+
+def clear_auth_failure_state(db: Session, action: str, email: str) -> None:
+    """Forget the lockout streak after a successful login, reset, or confirmation.
+
+    The per-IP window is left as it is. A missing audit key does not block the
+    success path.
+    """
+    if action not in LOCKOUT_ACTIONS:
+        return
+    try:
+        email_hash = audit_email.hash_audit_email(email)
+    except audit_email.AuditKeyError:
+        return
+    db.query(AuthAccountGuard).filter_by(action=action, subject=email_hash).delete()
+    db.query(AuthRateBucket).filter_by(action=action, scope="account", subject=email_hash).delete()
 
 
 def _password_problem(password: str) -> str | None:
@@ -465,14 +749,30 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
     @fastapi_app.post("/api/v1/auth/login", response_model=AuthTokens)
     def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         email = body.normalised_email()
-        enforce_auth_attempt_policy(request, action="login", email=email)
+        limited: HTTPException | None = None
+        try:
+            enforce_auth_attempt_policy(request, action="login", email=email)
+        except HTTPException as exc:
+            if exc.status_code != 429:
+                raise
+            limited = exc
+        # A locked or rate-limited attempt still runs bcrypt, so a known
+        # address and an unknown one take the same time and return the same
+        # 429. The password result is not used once the attempt is refused.
         _reject_password(body.password)
         user = db.query(User).filter(User.email == email).one_or_none()
         if user is None:
             password_matches(body.password, dummy_password_hash())
+        elif not password_matches(body.password, user.hashed_password):
+            user = None
+        if limited is not None:
+            raise limited
+        if user is None:
+            # Release the read before the failure row is written on its own session.
+            db.rollback()
+            record_auth_failure(request, action="login", email=email)
             raise _login_failed()
-        if not password_matches(body.password, user.hashed_password):
-            raise _login_failed()
+        clear_auth_failure_state(db, "login", email)
         return start_session(db, user, secret=jwt_secret)
 
     @fastapi_app.post("/api/v1/auth/refresh", response_model=AuthTokens)

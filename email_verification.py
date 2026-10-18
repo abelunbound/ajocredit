@@ -21,7 +21,12 @@ from sqlalchemy.orm import Session
 
 import audit_email
 import mail
-from auth import enforce_auth_attempt_policy, hash_token, normalise_email
+from auth import (
+    clear_auth_failure_state,
+    enforce_auth_attempt_policy,
+    hash_token,
+    normalise_email,
+)
 from clock import now as clock_now
 from database import AuthAuditEvent, EmailVerificationToken, User, get_db
 
@@ -192,5 +197,6 @@ def register_email_verification_routes(fastapi_app: FastAPI) -> None:
         if user.email_verified_at is None:
             user.email_verified_at = when
         _audit(db, action="email_verified", user_id=user.id, email=user.email, request=request)
+        clear_auth_failure_state(db, "resend_verification", user.email)
         db.commit()
         return MessageResponse(detail=VERIFIED_DETAIL)

@@ -6,8 +6,8 @@ update. A successful reset re-hashes the password, ends every session and
 refresh token, and uses up any other open reset links. Audit rows store
 HMAC-SHA256 of the email, never the address itself.
 
-Requests call ``enforce_auth_attempt_policy`` so #40 can rate-limit by email
-and IP. Nothing is rate-limited yet. Audit rows record the request and the
+Requests call ``enforce_auth_attempt_policy``, which rate-limits by email
+HMAC and IP and can lock the account. Audit rows record the request and the
 completed reset, and never store the token, the link, or the password.
 """
 
@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 import audit_email
 import mail
 from auth import (
+    clear_auth_failure_state,
     enforce_auth_attempt_policy,
     hash_password,
     hash_token,
@@ -148,10 +149,30 @@ def register_password_reset_routes(fastapi_app: FastAPI) -> None:
         _require_audit_key()
         hashed = hash_password(body.password)
         when = clock_now()
+        token_hash = hash_token(body.token)
+        matched = (
+            db.query(PasswordResetToken)
+            .filter(
+                PasswordResetToken.token_hash == token_hash,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > when,
+            )
+            .one_or_none()
+        )
+        if matched is None:
+            raise HTTPException(status_code=400, detail=RESET_INVALID)
+        user = db.get(User, int(matched.user_id))
+        if user is None:
+            raise HTTPException(status_code=400, detail=RESET_INVALID)
+        email = user.email
+        # End the read transaction before the limiter opens its own session.
+        db.rollback()
+        enforce_auth_attempt_policy(request, action="password_reset", email=email)
+        when = clock_now()
         consumed = db.execute(
             update(PasswordResetToken)
             .where(
-                PasswordResetToken.token_hash == hash_token(body.token),
+                PasswordResetToken.token_hash == token_hash,
                 PasswordResetToken.used_at.is_(None),
                 PasswordResetToken.expires_at > when,
             )
@@ -165,7 +186,6 @@ def register_password_reset_routes(fastapi_app: FastAPI) -> None:
         if user is None:
             db.rollback()
             raise HTTPException(status_code=400, detail=RESET_INVALID)
-        enforce_auth_attempt_policy(request, action="password_reset", email=user.email)
         user.hashed_password = hashed
         revoke_all_sessions(db, user.id, when)
         db.execute(
@@ -183,5 +203,6 @@ def register_password_reset_routes(fastapi_app: FastAPI) -> None:
             email=user.email,
             request=request,
         )
+        clear_auth_failure_state(db, "password_reset", user.email)
         db.commit()
         return ResetPasswordResponse(detail=RESET_OK)
