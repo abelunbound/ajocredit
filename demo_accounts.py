@@ -6,8 +6,10 @@ when ``AJO_ENV`` is unset, the process refuses to start. There is no pytest
 exception.
 
 The seeded accounts are ``admintest`` and ``membertest``. Their passwords come
-from the git-ignored stub credentials file. The ten demo personas stay display
-data: this module never reads them and never inserts a user row for them.
+from the git-ignored stub credentials file. On the local demo circle,
+``admintest`` is the admin and ``membertest`` is the member. The ten demo
+personas stay display data: this module never reads them and never inserts a
+user row for them.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ DEMO_ACCOUNTS = (
     ("admintest", "admintest@example.test", "Admin Test"),
     ("membertest", "membertest@example.test", "Member Test"),
 )
+DEMO_CIRCLE_NAME = "Local Demo Circle"
 
 
 def _source(source: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -151,9 +154,51 @@ def seed_demo_accounts(source: Mapping[str, str] | None = None) -> None:
                 user.hashed_password = hashed
             if user.email_verified_at is None:
                 user.email_verified_at = verified_at
+        db.flush()
+        _seed_demo_circle(db, verified_at)
         db.commit()
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
+
+
+def _seed_demo_circle(db, verified_at) -> None:
+    """Give admintest the admin role and membertest the member role.
+
+    Called only from ``seed_demo_accounts``, which already refused to run
+    unless ``AJO_ENV`` is local or dev. Re-seeding does not record a role
+    change when the stored roles are already correct.
+    """
+    from database import Circle, User
+    from roles import ROLE_ADMIN, ROLE_MEMBER, grant_circle_role
+
+    emails = {username: email for username, email, _name in DEMO_ACCOUNTS}
+    admin = db.query(User).filter(User.email == emails["admintest"]).one()
+    member = db.query(User).filter(User.email == emails["membertest"]).one()
+    circle = (
+        db.query(Circle)
+        .filter(Circle.name == DEMO_CIRCLE_NAME, Circle.created_by_user_id == admin.id)
+        .one_or_none()
+    )
+    if circle is None:
+        circle = Circle(name=DEMO_CIRCLE_NAME, created_by_user_id=admin.id, created_at=verified_at)
+        db.add(circle)
+        db.flush()
+    grant_circle_role(
+        db,
+        circle_id=circle.id,
+        user_id=admin.id,
+        role=ROLE_ADMIN,
+        actor_user_id=admin.id,
+        joined_at=verified_at,
+    )
+    grant_circle_role(
+        db,
+        circle_id=circle.id,
+        user_id=member.id,
+        role=ROLE_MEMBER,
+        actor_user_id=admin.id,
+        joined_at=verified_at,
+    )

@@ -15,7 +15,17 @@ from collections.abc import Generator
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, create_engine, event
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    create_engine,
+    event,
+    text,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -187,13 +197,24 @@ class Circle(Base):
 
 
 class CircleMember(Base):
-    """Membership in a circle. Joining requires a verified email."""
+    """Membership in a circle. Joining requires a verified email.
+
+    ``role`` is ``admin`` or ``member`` for this circle only. The database
+    default is ``member``. Admin is granted by the server, never by the client.
+    """
 
     __tablename__ = "circle_members"
+    __table_args__ = (
+        UniqueConstraint("circle_id", "user_id", name="uq_circle_members_circle_user"),
+        CheckConstraint("role IN ('admin', 'member')", name="ck_circle_members_role"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     circle_id: Mapped[int] = mapped_column(ForeignKey("circles.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="member", server_default=text("'member'")
+    )
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
