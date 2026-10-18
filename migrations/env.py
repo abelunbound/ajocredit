@@ -19,6 +19,7 @@ from sqlalchemy import create_engine, pool
 from sqlalchemy.engine.url import make_url
 
 from database import Base, normalize_database_url
+import ledger  # noqa: F401  # registers ledger tables on Base.metadata
 
 config = context.config
 
