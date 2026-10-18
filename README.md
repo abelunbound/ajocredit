@@ -49,7 +49,8 @@ AjoFinance loads secrets and runtime settings from environment variables. Never 
    - **`JWT_SECRET_KEY`** (required by the API): a random string of at least 32 characters. Do not use the placeholder from `.env.example`.
      Generate one: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
    - **`DATABASE_URL`** (required by the API): local SQLite, `sqlite:///local/ajo.db`. That file is git-ignored and holds synthetic data only. The same setting is a PostgreSQL URL in CI and, later, on GCP Cloud SQL.
-   - **`JWT_EXPIRY_DAYS`** (optional): JWT lifetime in days (default `30`)
+   - **`ACCESS_TOKEN_MINUTES`** (optional): access-token lifetime in minutes, 1 to 60 (default `15`). There is no 30-day JWT.
+   - **`REFRESH_TOKEN_DAYS`** (optional): refresh-token lifetime in days, 1 to 30 (default `14`). Only a hash is stored.
    - **`DASH_DEBUG`** (optional): set to `true` only for local development (default `false`)
    - **`DASH_HOST`** (optional): Dash bind address (default `127.0.0.1`)
    - **`DASH_PORT`** (optional): Dash port (default `8055`)
@@ -144,6 +145,8 @@ uvicorn api:app --reload --no-proxy-headers
 
 `alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers.
 
+Sign-up, sign-in, refresh, logout, and sessions are under `/api/v1/auth/`. Sign-up always returns the same message, whether or not the email is already registered. Sign-in returns an access token (15 minutes) and a refresh token. Emails are stored trimmed and lowercased. Logout revokes that session on the server. Rate limiting is not in this build: signup and login call `enforce_auth_attempt_policy` in `auth.py`, which is the function a later rate-limit change should replace.
+
 CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
 ## Environment variables
@@ -152,7 +155,8 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 |----------|----------|---------|-------------|
 | `JWT_SECRET_KEY` | Yes (API) | — | Secret for signing JWT tokens (minimum 32 characters; not the example placeholder) |
 | `DATABASE_URL` | Yes (API) | — | `sqlite:///local/ajo.db` locally. A `postgresql://` URL in CI and on Cloud SQL |
-| `JWT_EXPIRY_DAYS` | No | `30` | JWT token expiration in days |
+| `ACCESS_TOKEN_MINUTES` | No | `15` | Access-token lifetime in minutes (capped at 60). `JWT_EXPIRY_DAYS` is ignored |
+| `REFRESH_TOKEN_DAYS` | No | `14` | Opaque refresh-token lifetime in days. Stored as a SHA-256 hash and rotated on use |
 | `DASH_DEBUG` | No | `false` | Enable Dash debug mode (local development only) |
 | `DASH_HOST` | No | `127.0.0.1` | Dash server host. Must be `127.0.0.1`, `localhost`, or `::1` when stub sign-in is enabled |
 | `DASH_PORT` | No | `8055` | Dash server port |
@@ -177,7 +181,7 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 pytest tests/
 ```
 
-API checks (health and auth) are in `tests/test_api.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. The test clock and dev-only control are in `tests/test_clock.py`. Seeded-circle checks are in `tests/test_clock_seeded_circles.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
+API checks (health and auth) are in `tests/test_api.py`. Session, refresh, and sign-in checks are in `tests/test_auth_sessions.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. The test clock and dev-only control are in `tests/test_clock.py`. Seeded-circle checks are in `tests/test_clock_seeded_circles.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
 
 ```bash
 pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
@@ -193,7 +197,7 @@ Sign in with a local stub account, then choose **FinHealth** in the sidebar. The
 
 ### Test clock
 
-`clock.now()` is the time provider. Signup tokens use it for expiry. Tests call `freeze`, `advance`, and `reset`. On a laptop you can also move the running API with `ALLOW_TEST_CLOCK=true`, `AJO_ENV=local` (or `dev`), and `DASH_HOST` set to `127.0.0.1`, `localhost`, or `::1`:
+`clock.now()` is the time provider. Access tokens use it for expiry (15 minutes by default). Tests call `freeze`, `advance`, and `reset`. On a laptop you can also move the running API with `ALLOW_TEST_CLOCK=true`, `AJO_ENV=local` (or `dev`), and `DASH_HOST` set to `127.0.0.1`, `localhost`, or `::1`:
 
 - `GET /api/v1/dev/clock` reads the current time.
 - `POST /api/v1/dev/clock` sends exactly one of `advance_seconds`, `freeze_at` (ISO-8601), or `reset`.

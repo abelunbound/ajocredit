@@ -57,26 +57,31 @@ def _signup(email: str | None = None, password: str = "correct-horse"):
     return payload["email"], client.post("/api/v1/auth/signup", json=payload)
 
 
-def test_signup_returns_token_and_stores_a_hash():
+def test_signup_stores_a_hash_and_login_returns_a_session():
     email, response = _signup()
     assert response.status_code == 201, response.text
-    body = response.json()
-    assert body["email"] == email
-    assert body["name"] == "Ada Test"
-    assert isinstance(body["user_id"], int)
-    assert body["token"]
+    assert response.json() == {"detail": "If this email can be registered, the account is ready. Sign in to continue."}
+    assert email not in response.text
+    assert "token" not in response.text
+
+    logged_in = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "correct-horse"},
+    )
+    assert logged_in.status_code == 200, logged_in.text
+    body = logged_in.json()
+    assert body["access_token"]
+    assert body["refresh_token"]
+    assert body["token_type"] == "bearer"
     assert "password" not in body
 
     me = client.get(
         "/api/v1/me",
-        headers={"Authorization": f"Bearer {body['token']}"},
+        headers={"Authorization": f"Bearer {body['access_token']}"},
     )
     assert me.status_code == 200
-    assert me.json() == {
-        "user_id": body["user_id"],
-        "name": "Ada Test",
-        "email": email,
-    }
+    assert me.json()["email"] == email
+    assert me.json()["name"] == "Ada Test"
 
     db = database.SessionLocal()
     try:
@@ -87,11 +92,17 @@ def test_signup_returns_token_and_stores_a_hash():
         db.close()
 
 
-def test_signup_rejects_a_duplicate_email():
+def test_signup_does_not_reveal_a_duplicate_email():
     email, first = _signup()
     assert first.status_code == 201, first.text
     _, second = _signup(email=email)
-    assert second.status_code == 409
+    assert second.status_code == first.status_code
+    assert second.json() == first.json()
+    db = database.SessionLocal()
+    try:
+        assert db.query(database.User).filter(database.User.email == email).count() == 1
+    finally:
+        db.close()
 
 
 def test_signup_rejects_a_short_password():
