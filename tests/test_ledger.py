@@ -491,6 +491,55 @@ def test_reversal_is_a_new_entry_and_leaves_the_original():
         db.close()
 
 
+def test_second_reversal_of_the_same_entry_is_rejected():
+    unique_names = {
+        item["name"]
+        for item in inspect(database.engine).get_unique_constraints("ledger_entries")
+    }
+    assert "uq_ledger_entries_reversal_of_id" in unique_names
+
+    db = _session()
+    try:
+        cash, member = _open_pair(db)
+        entry = post_entry(
+            db,
+            description="Contribution with one reversal",
+            reference=f"synthetic-once-{_suffix()}",
+            postings=[
+                Posting(cash.code, DEBIT, 1800),
+                Posting(member.code, CREDIT, 1800),
+            ],
+        )
+        db.commit()
+        original_id = entry.id
+        first = post_reversal(db, original_id, reference=f"synthetic-rev-{_suffix()}")
+        db.commit()
+        assert first.reversal_of_id == original_id
+
+        with pytest.raises(LedgerPostingError, match="already has a reversal"):
+            post_reversal(db, original_id)
+
+        with pytest.raises(LedgerPostingError, match="already has a reversal") as raced:
+            post_entry(
+                db,
+                description="Second reversal of the same entry",
+                reference=f"synthetic-rev-again-{_suffix()}",
+                reversal_of_id=original_id,
+                postings=[
+                    Posting(cash.code, CREDIT, 1800),
+                    Posting(member.code, DEBIT, 1800),
+                ],
+            )
+        assert raced.value.__cause__ is not None
+        db.rollback()
+        reversals = (
+            db.query(LedgerEntry).filter(LedgerEntry.reversal_of_id == original_id).count()
+        )
+        assert reversals == 1
+    finally:
+        db.close()
+
+
 def test_synthetic_circle_contribution_and_payout_balance():
     suffix = _suffix()
     circle = f"circle-synth-{suffix}"

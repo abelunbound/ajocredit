@@ -36,6 +36,7 @@ from database import Base
 DEBIT = "debit"
 CREDIT = "credit"
 DIRECTIONS = frozenset({DEBIT, CREDIT})
+REVERSAL_EXISTS = "entry already has a reversal; post a new entry instead"
 
 ASSET = "asset"
 LIABILITY = "liability"
@@ -87,7 +88,10 @@ class LedgerEntry(Base):
     """The header of one balanced journal entry."""
 
     __tablename__ = "ledger_entries"
-    __table_args__ = (UniqueConstraint("reference", name="uq_ledger_entries_reference"),)
+    __table_args__ = (
+        UniqueConstraint("reference", name="uq_ledger_entries_reference"),
+        UniqueConstraint("reversal_of_id", name="uq_ledger_entries_reversal_of_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -96,7 +100,6 @@ class LedgerEntry(Base):
     reversal_of_id: Mapped[int | None] = mapped_column(
         ForeignKey("ledger_entries.id", name="fk_ledger_entries_reversal_of_id"),
         nullable=True,
-        index=True,
     )
 
     lines: Mapped[list[LedgerLine]] = relationship(back_populates="entry")
@@ -267,6 +270,8 @@ def post_entry(
     try:
         session.flush()
     except IntegrityError as exc:
+        if reversal_of_id is not None and _is_reversal_conflict(exc):
+            raise LedgerPostingError(REVERSAL_EXISTS) from exc
         raise LedgerPostingError("ledger rejected the entry") from exc
 
     debit, credit = _stored_entry_totals(session, entry.id)
@@ -290,7 +295,7 @@ def post_reversal(
         select(LedgerEntry.id).where(LedgerEntry.reversal_of_id == original.id).limit(1)
     )
     if already is not None:
-        raise LedgerPostingError("entry already has a reversal; post a new entry instead")
+        raise LedgerPostingError(REVERSAL_EXISTS)
 
     lines = session.scalars(select(LedgerLine).where(LedgerLine.entry_id == original.id)).all()
     if len(lines) < 2:
@@ -388,6 +393,14 @@ def _stored_entry_totals(session: Session, entry_id: int) -> tuple[int, int]:
         elif direction == CREDIT:
             credit += pence
     return debit, credit
+
+
+def _is_reversal_conflict(exc: IntegrityError) -> bool:
+    message = str(getattr(exc, "orig", exc)).lower()
+    return (
+        "uq_ledger_entries_reversal_of_id" in message
+        or "ledger_entries.reversal_of_id" in message
+    )
 
 
 def _reject_mutation(_mapper, _connection, _target) -> None:

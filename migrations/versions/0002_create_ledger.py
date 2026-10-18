@@ -50,11 +50,7 @@ def upgrade() -> None:
             name="fk_ledger_entries_reversal_of_id",
         ),
         sa.UniqueConstraint("reference", name="uq_ledger_entries_reference"),
-    )
-    op.create_index(
-        "ix_ledger_entries_reversal_of_id",
-        "ledger_entries",
-        ["reversal_of_id"],
+        sa.UniqueConstraint("reversal_of_id", name="uq_ledger_entries_reversal_of_id"),
     )
     op.create_table(
         "ledger_lines",
@@ -90,7 +86,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("ledger_lines")
-    op.drop_index("ix_ledger_entries_reversal_of_id", table_name="ledger_entries")
     op.drop_table("ledger_entries")
     op.drop_table("ledger_accounts")
     if op.get_bind().dialect.name == "postgresql":

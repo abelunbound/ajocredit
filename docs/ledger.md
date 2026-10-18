@@ -35,7 +35,7 @@ One row is the header of a journal entry.
 | `posted_at` | timestamp with time zone | Set from `clock.now()` when the entry is posted |
 | `description` | string (500) | What the entry is for |
 | `reference` | string (128), nullable | Optional unique id so the same event is not posted twice |
-| `reversal_of_id` | integer, nullable | Set on a correction. Points at the original `ledger_entries.id` |
+| `reversal_of_id` | integer, nullable | Set on a correction. Points at the original `ledger_entries.id`. Unique, so an original entry has at most one reversal. Ordinary entries leave this null, and many nulls are allowed |
 
 ### `ledger_lines`
 
@@ -61,7 +61,9 @@ A contribution of 2575 pence from member Ada into the partner clearing account i
 
 Signed sum: `2575 + (−2575) = 0`.
 
-The ledger is append-only. Rows are inserted and then left as they were. Updates and deletes are rejected in the application and by database triggers on all three tables (SQLite and Postgres). A mistake is fixed by a new reversing entry, not by editing the original. The reversal swaps debit and credit on each line, sets `reversal_of_id` to the original entry, and gets its own `posted_at`. The original lines stay in the history. After a reversal, the two entries together bring the affected accounts back to where they were, and each entry still sums to zero.
+The ledger is append-only. Rows are inserted and then left as they were. Updates and deletes are rejected in the application and by database triggers on all three tables (SQLite and Postgres). A mistake is fixed by a new reversing entry, not by editing the original. The reversal swaps debit and credit on each line, sets `reversal_of_id` to the original entry, and gets its own `posted_at`. The original lines stay in the history. `reversal_of_id` is unique, so two reversals of the same entry cannot both commit. After a reversal, the two entries together bring the affected accounts back to where they were, and each entry still sums to zero.
+
+In production the application's database role should have only `INSERT` and `SELECT` on `ledger_accounts`, `ledger_entries`, and `ledger_lines`. Postgres triggers do not block `TRUNCATE`, so that role must not be able to truncate, update, or delete those tables.
 
 ## Posting time
 
