@@ -184,12 +184,17 @@ def test_postgres_migration_roundtrip_when_configured():
         database=scratch_name
     )
     admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-    admin.exec_driver_sql(
+
+    def _admin_sql(statement: str) -> None:
+        with admin.connect() as connection:
+            connection.exec_driver_sql(statement)
+
+    _admin_sql(
         "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
         "WHERE datname = 'ajocredit_ledger_mig' AND pid <> pg_backend_pid()"
     )
-    admin.exec_driver_sql("DROP DATABASE IF EXISTS ajocredit_ledger_mig")
-    admin.exec_driver_sql("CREATE DATABASE ajocredit_ledger_mig")
+    _admin_sql("DROP DATABASE IF EXISTS ajocredit_ledger_mig")
+    _admin_sql("CREATE DATABASE ajocredit_ledger_mig")
     try:
         os.environ["DATABASE_URL"] = scratch_url.render_as_string(hide_password=False)
         cfg = Config(str(_ALEMBIC_INI))
@@ -209,11 +214,11 @@ def test_postgres_migration_roundtrip_when_configured():
         assert function == 1
     finally:
         os.environ["DATABASE_URL"] = _configured_url
-        admin.exec_driver_sql(
+        _admin_sql(
             "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
             "WHERE datname = 'ajocredit_ledger_mig' AND pid <> pg_backend_pid()"
         )
-        admin.exec_driver_sql("DROP DATABASE IF EXISTS ajocredit_ledger_mig")
+        _admin_sql("DROP DATABASE IF EXISTS ajocredit_ledger_mig")
         admin.dispose()
 
 
