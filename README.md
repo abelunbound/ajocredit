@@ -139,10 +139,10 @@ The FastAPI service is a separate process for authentication and API endpoints. 
 
 ```bash
 alembic upgrade head
-uvicorn api:app --reload
+uvicorn api:app --reload --no-proxy-headers
 ```
 
-`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `GET /health` checks that the database answers.
+`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers.
 
 CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
@@ -159,12 +159,14 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 | `AJO_ENV` | No | unset | `local` (or unset) for a laptop. Any other value is a non-local environment |
 | `ALLOW_LOCAL_STUB_LOGIN` | No | `false` | Enable `admintest` / `membertest` sign-in. Local loopback only; otherwise the process exits |
 | `STUB_USERS_FILE` | No | `local/stub-users.json` | Git-ignored JSON file with stub passwords |
+| `ALLOW_TEST_CLOCK` | No | `false` | Let tests or a loopback dev process move the clock. Any other process exits on startup |
 
 ## Security notes
 
 - The API fails fast if a required secret is missing or the JWT secret is too short or still the example placeholder. There is no insecure fallback.
 - Debug mode is disabled by default. Enable it only with `DASH_DEBUG=true`.
 - Stub sign-in is off unless `ALLOW_LOCAL_STUB_LOGIN=true`, and that setting is refused unless the app is bound to loopback in a local environment. Passwords are not committed; use `local/stub-users.example.json` as the template.
+- The test clock stays on the wall clock unless `ALLOW_TEST_CLOCK=true`. That flag is refused outside the test suite and a loopback process with `AJO_ENV=local` or `AJO_ENV=dev`. Production and staging cannot move time.
 - Generate a new JWT secret for every environment. Never reuse the value in `.env.example`.
 
 ## Development
@@ -175,7 +177,7 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 pytest tests/
 ```
 
-API checks (health and auth) are in `tests/test_api.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
+API checks (health and auth) are in `tests/test_api.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. The test clock and dev-only control are in `tests/test_clock.py`. Seeded-circle checks are in `tests/test_clock_seeded_circles.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
 
 ```bash
 pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
@@ -188,6 +190,25 @@ Sign in with a local stub account, then choose **FinHealth** in the sidebar. The
 - The country-of-origin card is greyed out and locked. It cannot be clicked.
 - **Affordability Assessment** shows tuition £14000, bank balance £16258, threshold met, and cross-border debt £0. The chart switches between 12-month financial history and a 7-day volatility check.
 - **Affordability Forecast** shows tuition £14000.00, a 30th-day forecast of £17950.00, a buffer of £3950.00, and a 50-90% probability. The chart switches between the next 30 days and forecast versus validation data.
+
+### Test clock
+
+`clock.now()` is the time provider. Signup tokens use it for expiry. Tests call `freeze`, `advance`, and `reset`. On a laptop you can also move the running API with `ALLOW_TEST_CLOCK=true`, `AJO_ENV=local` (or `dev`), and `DASH_HOST` set to `127.0.0.1`, `localhost`, or `::1`:
+
+- `GET /api/v1/dev/clock` reads the current time.
+- `POST /api/v1/dev/clock` sends exactly one of `advance_seconds`, `freeze_at` (ISO-8601), or `reset`.
+
+Each of those requests returns 404 unless `request.client.host` is `127.0.0.1` or `::1`. `DASH_HOST`, the uvicorn `--host` setting, `X-Forwarded-For`, and `Forwarded` do not count. Start the API with `--no-proxy-headers`.
+
+The route is not registered otherwise. If the flag is on in production, staging, or any other deploy, the API and the Dash app exit at startup. Production always reads the wall clock.
+
+### Seeded test circles
+
+`data/seeded_circles.json` is the committed seed for tests. Names are obviously fake (`Testperson`, `Sampledata`, `Faketest`, and the same kind of marker). Emails are `@example.test`. The file has no passwords and no bank details. `seeded_circles.load_seeded_circles()` rejects a real-looking name, a non-example email, a sort code, an account number, an IBAN, or a card number.
+
+```bash
+pytest tests/test_clock.py tests/test_clock_seeded_circles.py -v
+```
 
 ### Dummy personas
 

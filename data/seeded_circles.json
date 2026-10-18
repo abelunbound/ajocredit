@@ -1,0 +1,109 @@
+{
+  "note": "Synthetic seeded circles for tests. These are not real people. Emails use example.test. This file has no phone numbers, addresses, passwords, or bank details.",
+  "circles": [
+    {
+      "id": "circle-brum-builders",
+      "name": "Brum Builders",
+      "contribution_pence": 5000,
+      "members": [
+        {
+          "id": "persona-01",
+          "name": "Amina Testperson",
+          "email": "amina.testperson@example.test",
+          "role": "admin"
+        },
+        {
+          "id": "persona-02",
+          "name": "Chidi Sampledata",
+          "email": "chidi.sampledata@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-03",
+          "name": "Ngozi Placeholder",
+          "email": "ngozi.placeholder@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-04",
+          "name": "Emeka Dummyuser",
+          "email": "emeka.dummyuser@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-05",
+          "name": "Funke Notaperson",
+          "email": "funke.notaperson@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-06",
+          "name": "Tunde Exampleonly",
+          "email": "tunde.exampleonly@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-07",
+          "name": "Yewande Faketest",
+          "email": "yewande.faketest@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-10",
+          "name": "Seyi Demoperson",
+          "email": "seyi.demoperson@example.test",
+          "role": "member"
+        }
+      ]
+    },
+    {
+      "id": "circle-sister-circle",
+      "name": "Sister Circle Ajo",
+      "contribution_pence": 5000,
+      "members": [
+        {
+          "id": "persona-01",
+          "name": "Amina Testperson",
+          "email": "amina.testperson@example.test",
+          "role": "admin"
+        },
+        {
+          "id": "persona-02",
+          "name": "Chidi Sampledata",
+          "email": "chidi.sampledata@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-03",
+          "name": "Ngozi Placeholder",
+          "email": "ngozi.placeholder@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-04",
+          "name": "Emeka Dummyuser",
+          "email": "emeka.dummyuser@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-05",
+          "name": "Funke Notaperson",
+          "email": "funke.notaperson@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-08",
+          "name": "Kelechi Mockmember",
+          "email": "kelechi.mockmember@example.test",
+          "role": "member"
+        },
+        {
+          "id": "persona-09",
+          "name": "Ifeoma Sandbox",
+          "email": "ifeoma.sandbox@example.test",
+          "role": "member"
+        }
+      ]
+    }
+  ]
+}

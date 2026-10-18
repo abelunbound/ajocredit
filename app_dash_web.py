@@ -13,9 +13,12 @@ from stub_auth import (  # noqa: E402
     gate_page,
     nav_entries,
 )
+from clock import enforce_test_clock_policy  # noqa: E402
 
 # Refuse a stub flag that is enabled off localhost before serving anything.
 enforce_local_stub_policy()
+# Refuse a test clock that is enabled outside tests or local loopback dev.
+enforce_test_clock_policy()
 
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update  # noqa: E402
 
