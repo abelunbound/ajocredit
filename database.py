@@ -4,8 +4,8 @@ Local development uses SQLite (``DATABASE_URL=sqlite:///local/ajo.db``). CI and,
 later, GCP Cloud SQL use a ``postgresql://`` URL. The models and migrations
 stay on portable SQLAlchemy types so the same code runs on both.
 
-Money amounts, when a table needs them, are integer pence. There is no money
-column on the models this module owns today.
+Money amounts are integer pence. Ledger tables live in ``ledger.py`` and
+share this ``Base`` so one metadata registry covers SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
