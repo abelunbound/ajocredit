@@ -22,6 +22,7 @@ import os
 import re
 import secrets
 import threading
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -174,8 +175,25 @@ AUTH_ATTEMPT_ACTIONS = frozenset({"signup", "login", "password_reset", "resend_v
 LOCKOUT_ACTIONS = frozenset({"login", "password_reset", "resend_verification"})
 ATTEMPT_WINDOW = timedelta(minutes=15)
 QUIET_PERIOD = timedelta(hours=24)
-# Per-IP and per-account caps inside one window. The full test suite shares
-# one client address, so the IP caps sit above that volume. Tests lower them.
+DEV_ENVS = frozenset({"local", "dev"})
+# Production caps for one 15-minute window. An unset AJO_ENV uses these.
+# Login's per-account cap sits above the first lockout step; the lockout is
+# what stops a password guess. Reset and resend stay at 5 so one address
+# cannot be mailed in a loop.
+STRICT_IP_LIMITS = {
+    "signup": 20,
+    "login": 50,
+    "password_reset": 20,
+    "resend_verification": 20,
+}
+STRICT_ACCOUNT_LIMITS = {
+    "signup": 5,
+    "login": 20,
+    "password_reset": 5,
+    "resend_verification": 5,
+}
+# Higher caps for a laptop or the test suite. Used only when AJO_ENV is
+# local or dev. Tests may lower these maps. They are not the production policy.
 IP_LIMITS = {
     "signup": 10000,
     "login": 10000,
@@ -221,6 +239,36 @@ def client_host(request: Request) -> str:
     if request.client is None or not request.client.host:
         return "unknown"
     return request.client.host[:64]
+
+
+def _app_env(source: Mapping[str, str] | None = None) -> str:
+    env = os.environ if source is None else source
+    return str(env.get("AJO_ENV") or "").strip().lower()
+
+
+def limits_relaxed(source: Mapping[str, str] | None = None) -> bool:
+    """True only for a local or dev process. Unset ``AJO_ENV`` is strict."""
+    return _app_env(source) in DEV_ENVS
+
+
+def attempt_limits(
+    source: Mapping[str, str] | None = None,
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Per-IP caps, then per-account caps, for the current environment."""
+    if limits_relaxed(source):
+        return IP_LIMITS, ACCOUNT_LIMITS
+    return STRICT_IP_LIMITS, STRICT_ACCOUNT_LIMITS
+
+
+def _bucket_scope(kind: str, source: Mapping[str, str] | None = None) -> str:
+    """Keep a laptop's counters off the production window.
+
+    ``kind`` is ``ip`` or ``account``. Local and dev add a ``-dev`` suffix.
+    The column is 16 characters; both names fit.
+    """
+    if limits_relaxed(source):
+        return f"{kind}-dev"
+    return kind
 
 
 def _email_subject(email: str) -> str:
@@ -373,11 +421,14 @@ def _apply_attempt_policy(db: Session, request: Request, *, action: str, email: 
     else:
         guard = None
 
-    ip_bucket = _bucket(db, action=action, scope="ip", subject=client_host(request), now=now)
-    account_bucket = _bucket(
-        db, action=action, scope="account", subject=email_hash, now=now
+    ip_caps, account_caps = attempt_limits()
+    ip_bucket = _bucket(
+        db, action=action, scope=_bucket_scope("ip"), subject=client_host(request), now=now
     )
-    if ip_bucket.attempts >= IP_LIMITS[action] or account_bucket.attempts >= ACCOUNT_LIMITS[action]:
+    account_bucket = _bucket(
+        db, action=action, scope=_bucket_scope("account"), subject=email_hash, now=now
+    )
+    if ip_bucket.attempts >= ip_caps[action] or account_bucket.attempts >= account_caps[action]:
         return True
 
     ip_bucket.attempts += 1
@@ -459,7 +510,11 @@ def clear_auth_failure_state(db: Session, action: str, email: str) -> None:
     except audit_email.AuditKeyError:
         return
     db.query(AuthAccountGuard).filter_by(action=action, subject=email_hash).delete()
-    db.query(AuthRateBucket).filter_by(action=action, scope="account", subject=email_hash).delete()
+    db.query(AuthRateBucket).filter(
+        AuthRateBucket.action == action,
+        AuthRateBucket.scope.in_(("account", "account-dev")),
+        AuthRateBucket.subject == email_hash,
+    ).delete(synchronize_session=False)
 
 
 def _password_problem(password: str) -> str | None:

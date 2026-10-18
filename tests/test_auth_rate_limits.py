@@ -348,6 +348,63 @@ def test_verification_resend_is_limited_per_account(monkeypatch):
     assert _resend(known).status_code == 200
 
 
+def test_production_default_limits_are_strict():
+    assert auth.STRICT_IP_LIMITS == {
+        "signup": 20,
+        "login": 50,
+        "password_reset": 20,
+        "resend_verification": 20,
+    }
+    assert auth.STRICT_ACCOUNT_LIMITS == {
+        "signup": 5,
+        "login": 20,
+        "password_reset": 5,
+        "resend_verification": 5,
+    }
+    for env_name in ("", "production", "staging", "live"):
+        ip_caps, account_caps = auth.attempt_limits({"AJO_ENV": env_name})
+        assert ip_caps == auth.STRICT_IP_LIMITS
+        assert account_caps == auth.STRICT_ACCOUNT_LIMITS
+    ip_caps, account_caps = auth.attempt_limits({})
+    assert ip_caps["password_reset"] == 20
+    assert ip_caps["resend_verification"] == 20
+    assert account_caps["password_reset"] == 5
+    assert account_caps["resend_verification"] == 5
+    assert account_caps["signup"] == 5
+    assert ip_caps["login"] == 50
+
+
+def test_relaxed_limits_apply_only_in_local_and_dev(monkeypatch):
+    monkeypatch.setattr(auth, "LOCKOUT_THRESHOLDS", (100, 200, 300))
+    def _burst(env_name: str, host: str) -> list[int]:
+        monkeypatch.setenv("AJO_ENV", env_name)
+        monkeypatch.setenv("EMAIL_SENDER", "dev")
+        http = _from(host)
+        email = _email()
+        return [
+            http.post("/api/v1/auth/password/forgot", json={"email": email}).status_code
+            for _ in range(6)
+        ]
+
+    assert auth.limits_relaxed({"AJO_ENV": "local"}) is True
+    assert auth.limits_relaxed({"AJO_ENV": "dev"}) is True
+    assert auth.limits_relaxed({"AJO_ENV": ""}) is False
+    assert auth.limits_relaxed({}) is False
+    assert auth.limits_relaxed({"AJO_ENV": "production"}) is False
+    local_ip, local_account = auth.attempt_limits({"AJO_ENV": "local"})
+    dev_ip, dev_account = auth.attempt_limits({"AJO_ENV": "dev"})
+    assert local_ip is auth.IP_LIMITS
+    assert dev_ip is auth.IP_LIMITS
+    assert local_account["password_reset"] > auth.STRICT_ACCOUNT_LIMITS["password_reset"]
+    assert dev_account["resend_verification"] > auth.STRICT_ACCOUNT_LIMITS["resend_verification"]
+
+    assert _burst("local", "203.0.113.70") == [200, 200, 200, 200, 200, 200]
+    assert _burst("dev", "203.0.113.71") == [200, 200, 200, 200, 200, 200]
+    assert _burst("production", "203.0.113.72") == [503, 503, 503, 503, 503, 429]
+    assert _burst("", "203.0.113.73") == [503, 503, 503, 503, 503, 429]
+    assert _burst("staging", "203.0.113.74") == [503, 503, 503, 503, 503, 429]
+
+
 def test_signup_limit_is_the_same_for_a_new_and_existing_email(monkeypatch):
     monkeypatch.setitem(auth.IP_LIMITS, "signup", 2)
     http = _from("203.0.113.40")

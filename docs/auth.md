@@ -32,14 +32,16 @@ Signup, login, password reset, and verification resend all call `enforce_auth_at
 
 Each of signup, login, password reset, and verification resend is counted twice: once for the client IP, and once for the account. The account key is the HMAC-SHA256 of the normalised email, the same hash as the audit log. The raw address is not stored in `auth_rate_buckets` or `auth_account_guards`.
 
-The window is 15 minutes of `clock.now()`. A window that has expired starts again at zero. Inside one window the caps are:
+The window is 15 minutes of `clock.now()`. A window that has expired starts again at zero. These are the caps whenever `AJO_ENV` is unset or is anything other than `local` or `dev`:
 
 | Action | Per IP | Per account |
 |---|---|---|
-| Signup | 10000 | 100 |
-| Login | 10000 | 100 |
-| Password reset | 10000 | 100 |
-| Verification resend | 10000 | 100 |
+| Signup | 20 | 5 |
+| Login | 50 | 20 |
+| Password reset | 20 | 5 |
+| Verification resend | 20 | 5 |
+
+`local` and `dev` use a higher cap, 10000 per IP and 100 per account, so a laptop and the test suite are not blocked. Those two environments keep their own counters (`ip-dev` and `account-dev`). Any other value, including an empty `AJO_ENV`, uses the table above. The higher caps cannot be turned on by another variable.
 
 A request over either cap returns 429 with `Too many attempts. Try again later.` The body is the same for a known address and an unknown one, and it does not contain the email. Login still runs a bcrypt check on that path, so a locked or limited known address takes the same time as an unknown one. Both return that same 429.
 

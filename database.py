@@ -176,7 +176,8 @@ class AuthRateBucket(Base):
     """Fixed window of auth attempts for one IP or one email HMAC.
 
     ``subject`` is the client host, or the HMAC of the email. It is never the
-    raw address. ``scope`` is ``ip`` or ``account``.
+    raw address. ``scope`` is ``ip`` or ``account`` in production. Local and
+    dev use ``ip-dev`` and ``account-dev`` so those counters stay separate.
     """
 
     __tablename__ = "auth_rate_buckets"
