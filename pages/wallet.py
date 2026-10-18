@@ -1,7 +1,7 @@
 from dash import html
 
 from .components import icon, pill
-from .data import CIRCLE, ME, TXNS
+from .data import CIRCLE, TXNS
 
 # Prototype figures for the local request preview. The cap is what this member
 # has already paid into the active circle (three months at the circle amount).
@@ -20,18 +20,13 @@ def _button(icon_name: str, label: str, **kwargs):
 
 
 def quote_body(requested: bool):
-    """Quote panel. Detail stays hidden until Request EarlyPayout is used."""
+    """Quote panel. Hidden until Request EarlyPayout is used."""
     if not requested:
-        children = [
-            html.Div("Quote", className="h2"),
-            html.Div(
-                "Use Request EarlyPayout to preview the amount, the £0 fee, and what you would receive.",
-                className="ep-note",
-            ),
-        ]
-    else:
-        amount = _pounds(PAID_IN_PENCE)
-        children = [
+        return html.Div()
+    amount = _pounds(PAID_IN_PENCE)
+    return html.Div(
+        className="card",
+        children=[
             html.Div(
                 className="between",
                 children=[html.Div("Quote", className="h2"), pill("Preview", "gold")],
@@ -50,8 +45,8 @@ def quote_body(requested: bool):
                 "Preview only. Nothing is paid. This quote is not stored and cannot be accepted yet.",
                 className="ep-note",
             ),
-        ]
-    return html.Div(children)
+        ],
+    )
 
 
 def layout():
@@ -112,35 +107,7 @@ def layout():
                     ),
                 ],
             ),
-            html.Div(
-                className="g2",
-                children=[
-                    html.Div(
-                        className="card",
-                        children=[
-                            html.Div("Request", className="h2"),
-                            html.Div(
-                                "Ask for the contributions you have already paid into this Ajo, before your rotation month.",
-                                className="ep-note",
-                            ),
-                            html.Div(
-                                className="ep-lines",
-                                children=[
-                                    html.Div(className="pmeta-row", children=[html.Span("Ajo", className="pmeta-k"), html.Span(CIRCLE["name"], className="pmeta-v")]),
-                                    html.Div(className="pmeta-row", children=[html.Span("Member", className="pmeta-k"), html.Span(f"@{ME['username']} · {ME['name']}", className="pmeta-v")]),
-                                    html.Div(className="pmeta-row", children=[html.Span("Paid in", className="pmeta-k"), html.Span(paid_in, className="pmeta-v")]),
-                                    html.Div(className="pmeta-row", children=[html.Span("Cap", className="pmeta-k"), html.Span(paid_in, className="pmeta-v")]),
-                                ],
-                            ),
-                            html.Div(
-                                "An early payout cannot be more than the amount already paid in. The fee stays £0.",
-                                className="ep-note",
-                            ),
-                        ],
-                    ),
-                    html.Div(className="card", id="early-payout-quote", children=[quote_body(False)]),
-                ],
-            ),
+            html.Div(id="early-payout-quote", children=[quote_body(False)]),
             html.Div(
                 className="card",
                 children=[

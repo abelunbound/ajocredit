@@ -291,7 +291,7 @@ class TestJoinScreen:
             page, _rev, error = next_state({"type": "nav-btn", "page": "join"}, "home", 1, "", "")
             assert page == "join"
             shell = str(render_shell("join", None))
-            assert shell.index("Create circle") < shell.index("Join Ajo")
+            assert shell.index("Create Ajo") < shell.index("Join Ajo")
             assert "PayoutsTracker" not in shell
             assert "Date range" in shell
             assert "Join Ajo" in shell

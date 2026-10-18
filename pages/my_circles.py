@@ -1,6 +1,6 @@
 """Sidebar "My circles" list, loaded from dummy data until a database exists.
 
-Circle names come from the persona groups document (#16). Create circle and
+Circle names come from the persona groups document (#16). Create Ajo and
 Join Ajo come from ``data/circle_actions.json``. Swap the loaders for a
 database query later; the sidebar should keep calling ``my_circles_rows``.
 """
@@ -18,7 +18,7 @@ from pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ACTIONS_PATH = REPO_ROOT / "data" / "circle_actions.json"
 
-# Join Ajo sits directly under Create circle. Ids are stable; labels live in the file.
+# Join Ajo sits directly under Create Ajo. Ids are stable; labels live in the file.
 ACTION_ORDER = ("create-circle", "join-ajo")
 
 
@@ -39,7 +39,7 @@ def load_circle_names(path: Path | str | None = None) -> list[str]:
 
 
 def load_circle_actions(path: Path | str | None = None) -> list[dict]:
-    """Return the Create circle and Join Ajo rows from the actions file."""
+    """Return the Create Ajo and Join Ajo rows from the actions file."""
     action_path = DEFAULT_ACTIONS_PATH if path is None else Path(path)
     if not action_path.is_file():
         raise FileNotFoundError(f"Circle actions file not found at {action_path}.")
@@ -77,7 +77,7 @@ def my_circles_rows(
     role=None,
     page=None,
 ):
-    """Dash rows for the sidebar: this person's circles, then Create circle, then Join Ajo."""
+    """Dash rows for the sidebar: this person's circles, then Create Ajo, then Join Ajo."""
     if username is None and role is None:
         names = load_circle_names(persona_path)
     else:
@@ -91,7 +91,7 @@ def my_circles_rows(
 
 
 def _action_row(action: dict, page: str | None):
-    """Create circle stays a label. Join Ajo opens the search flow."""
+    """Create Ajo stays a label. Join Ajo opens the search flow."""
     children = [icon(action["icon"]), action["label"]]
     if action["id"] == "join-ajo":
         selected = " on" if page == "join" else ""
@@ -120,7 +120,7 @@ def _validate_actions(document: dict) -> list[dict]:
         raise ValueError("Circle actions document must include an 'actions' list.")
     if [action.get("id") if isinstance(action, dict) else None for action in actions] != list(ACTION_ORDER):
         raise ValueError(
-            "Circle actions must be Create circle (create-circle) followed by Join Ajo (join-ajo)."
+            "Circle actions must be Create Ajo (create-circle) followed by Join Ajo (join-ajo)."
         )
     cleaned = []
     for action in actions:

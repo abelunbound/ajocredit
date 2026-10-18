@@ -22,7 +22,7 @@ from .personas import (
 ADMIN_PERSONA_ID = "persona-01"
 MEMBER_PERSONA_ID = "persona-02"
 TABS = ("members", "activity", "communication")
-FILTERS = ("all", "paid", "pending", "received")
+FILTERS = ("all", "paid", "pending", "received", "active", "suspended", "admins")
 TAB_LABELS = {"members": "Members", "activity": "Activity", "communication": "Communication"}
 JOINED = ("Sep 2024", "Sep 2024", "Oct 2024", "Oct 2024", "Nov 2024", "Nov 2024")
 STATUS_BY_INDEX = ("received", "paid", "receiving", "paid", "paid", "pending", "paid", "received")
@@ -167,7 +167,6 @@ def member_stats(rows):
         "suspended": 0,
         "admins": count(lambda row: row["role"] == "admin"),
         "total": len(rows),
-        "recent": count(lambda row: row["status"] in {"paid", "receiving"}),
     }
 
 
@@ -180,6 +179,12 @@ def sort_rows(rows, sort_key):
 def filter_rows(rows, status_filter):
     if status_filter in {"paid", "pending", "received"}:
         return [row for row in rows if row["status"] == status_filter]
+    if status_filter == "active":
+        return [row for row in rows if row["status"] in {"received", "receiving", "paid"}]
+    if status_filter == "suspended":
+        return []
+    if status_filter == "admins":
+        return [row for row in rows if row["role"] == "admin"]
     return list(rows)
 
 
@@ -208,13 +213,25 @@ def _subtitle(count):
 
 
 def _filter_label(status, rows):
+    stats = member_stats(rows)
     counts = {
-        "all": len(rows),
+        "all": stats["total"],
         "paid": sum(1 for row in rows if row["status"] == "paid"),
-        "pending": sum(1 for row in rows if row["status"] == "pending"),
+        "pending": stats["pending"],
         "received": sum(1 for row in rows if row["status"] == "received"),
+        "active": stats["active"],
+        "suspended": stats["suspended"],
+        "admins": stats["admins"],
     }
-    titles = {"all": "All", "paid": "Paid", "pending": "Pending", "received": "Received"}
+    titles = {
+        "all": "All",
+        "paid": "Paid",
+        "pending": "Pending",
+        "received": "Received",
+        "active": "Active",
+        "suspended": "Suspended",
+        "admins": "Admins",
+    }
     return f"{titles[status]} · {counts[status]}"
 
 
@@ -222,16 +239,8 @@ def _fact(label, value):
     return html.Div([html.Div(label, className="k"), html.Div(value, className="v")], className="ajo-fact")
 
 
-def _stat(value, label, tone):
-    return html.Div(
-        [html.Div(str(value), className=f"n {tone}"), html.Div(label, className="l")],
-        className="member-stat",
-    )
-
-
 def summary_panel(ajo_name, rows):
     facts = group_facts(ajo_name, len(rows))
-    stats = member_stats(rows)
     spots = html.Span(
         f"{facts['spots']} available" if facts["spots"] else "Full",
         className="pill good" if facts["spots"] else "pill",
@@ -255,23 +264,6 @@ def summary_panel(ajo_name, rows):
                             _fact("Start date", facts["start"]),
                             _fact("End date", facts["end"]),
                             _fact("Created by", facts["creator"]),
-                        ],
-                    ),
-                ],
-            ),
-            html.Div(
-                className="card",
-                children=[
-                    html.Div("Member statistics", className="h2"),
-                    html.Div(
-                        className="member-stats",
-                        children=[
-                            _stat(stats["active"], "Active", "good"),
-                            _stat(stats["pending"], "Pending", "gold"),
-                            _stat(stats["suspended"], "Suspended", "danger"),
-                            _stat(stats["admins"], "Admins", "brand"),
-                            _stat(stats["total"], "Total", ""),
-                            _stat(stats["recent"], "Recent activity", "good"),
                         ],
                     ),
                 ],

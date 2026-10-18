@@ -37,6 +37,8 @@ NAV = [
     ("wallet", "EarlyPayouts", "wallet"),
     ("support", "Support", "support"),
 ]
+# Temporarily hidden from the sidebar (#103). The page and /credit route stay.
+HIDDEN_NAV_PAGES = frozenset({"credit"})
 
 CRUMBS = {
     "home": ["AjoFinance", "Dashboard"],

@@ -2,8 +2,8 @@
 
 Issue #22 gave sign-in, home, and registration one shared width and control
 height. Issue #95 puts the home card and the Sign Up card back to 420px, and
-sets the Get started button and Sign Up fields to 40px. Sign-in stays on the
-shared 520px card and 56px controls.
+sets the Get started button and Sign Up fields to 40px. Issue #101 matches
+sign-in to that 420px card and 40px controls, with labels inside the fields.
 """
 
 import re
@@ -72,12 +72,12 @@ def test_home_and_signup_cards_are_420px():
     assert match.group(1).strip() == "520px"
     for snippet in (
         ".auth-screen{width:100%;max-width:var(--auth-card-width);",
-        ".signin-screen{max-width:var(--auth-card-width);}",
         ".gs-screen{max-width:var(--auth-card-width);",
-        ".home-screen,\n.signup-screen{max-width:420px;}",
+        ".home-screen,\n.signin-screen,\n.signup-screen{max-width:420px;}",
     ):
         assert snippet in css
     assert ".home-screen,\n.signup-screen{max-width:var(--auth-card-width);}" not in css
+    assert ".signin-screen{max-width:var(--auth-card-width);}" not in css
     assert ".signin-screen{max-width:560px" not in css
     assert ".auth-screen{width:100%;max-width:560px" not in css
 
@@ -93,14 +93,15 @@ def test_get_started_button_and_signup_fields_are_40px():
     assert ".auth-input,.gs-input{width:100%;height:var(--auth-control-height);" in css
     assert "button.gs-select{width:100%;height:var(--auth-control-height);" in css
     assert (
-        ".signin-screen .auth-primary-btn,\n"
-        ".signin-screen .auth-google-btn,\n"
         ".gs-screen .auth-primary-btn{\n"
         "  height:var(--auth-control-height);\n"
         "}"
     ) in css
     assert (
         ".home-screen .auth-primary-btn,\n"
+        ".signin-screen .auth-input,\n"
+        ".signin-screen .auth-primary-btn,\n"
+        ".signin-screen .auth-google-btn,\n"
         ".signup-screen .auth-input,\n"
         ".signup-screen .auth-primary-btn{\n"
         "  height:40px;\n"
@@ -123,6 +124,10 @@ def test_landing_and_signin_keep_stub_entry_points():
     assert any(name == "auth-primary-btn" for name in signin_classes)
     assert any(name == "auth-google-btn" for name in signin_classes)
     assert any("auth-input" in name for name in signin_classes)
+    assert not any(name == "auth-label" for name in signin_classes)
+    assert not any(name == "visually-hidden" for name in signin_classes)
+    assert "Username" in _prop_values(signin_layout(), "placeholder")
+    assert "Password" in _prop_values(signin_layout(), "placeholder")
     assert any("signup-screen" in name and "auth-screen" in name for name in started_classes)
     assert sum(name == "auth-input" for name in started_classes) == 6
     assert not any("gs-screen" in name for name in started_classes)

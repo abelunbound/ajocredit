@@ -1,4 +1,4 @@
-"""Dashboard home (#17): no rotation calendar, no hidden-bank note, compact recipient."""
+"""Dashboard home (#17, #102): no rotation calendar, dummy bank-card ad on the right."""
 
 import re
 from pathlib import Path
@@ -30,9 +30,9 @@ def test_calendar_and_hidden_bank_removed(role):
     assert "cal-grid" not in text
     assert "Bank details hidden" not in text
     assert "row-note" not in text
-    assert "Next recipient" in text
-    assert "@abel_o" in text
-    assert "Abel O. · Apr 28" in text
+    assert "Next recipient" not in text
+    assert "AjoCard" in text
+    assert "Payouts on your card" in text
     assert "£5,000" in text
     assert "No bank details shared" in text
     assert "Recent activity" in text
@@ -48,28 +48,18 @@ def test_role_actions_stay_on_dashboard():
     assert "Review & release" in admin
 
 
-def test_recipient_section_is_smaller_than_legacy_sizes():
+def test_right_card_is_dummy_bank_ad():
     text = _flat(dashboard_layout("member"))
-    assert "dash-who" in text
-    assert "dash-amt" in text
+    assert "dash-ad" in text
+    assert "dash-bank-card" in text
+    assert "Sponsored" in text
+    assert "Payouts on your card" in text
+    assert "dummy prepaid debit" not in text
+    assert "dash-who" not in text
     assert "nr-amt" not in text
     assert "nr-av" not in text
-
-    amt = _css_block(".dash-amt")
-    av = _css_block(".dash-av")
-    handle = _css_block(".dash-handle")
-    row = _css_block(".dash-who-row")
-
-    amt_size = int(re.search(r"font-size:(\d+)px", amt).group(1))
-    av_size = int(re.search(r"width:(\d+)px", av).group(1))
-    handle_size = int(re.search(r"font-size:(\d+)px", handle).group(1))
-    gap = int(re.search(r"gap:(\d+)px", row).group(1))
-
-    # Legacy next-recipient amount was 40px and the avatar was 44px.
-    assert amt_size <= 22
-    assert av_size <= 28
-    assert handle_size <= 13
-    assert gap >= 24
+    card = _css_block(".dash-bank-card")
+    assert "linear-gradient" in card
 
 
 def test_second_row_cards_share_height():

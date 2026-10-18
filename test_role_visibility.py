@@ -33,7 +33,6 @@ SHARED_NAV = (
     "Dashboard",
     "My Ajo",
     "Members",
-    "FinHealth",
     "Delay Cover",
     "EarlyPayouts",
 )
@@ -167,16 +166,19 @@ class TestPersonaCreatorRule:
 
 
 class TestShellVisibility:
-    @pytest.mark.parametrize("username,password,role_label", [
-        ("admintest", ADMIN_PW, "Admin"),
-        ("membertest", MEMBER_PW, "Member"),
+    @pytest.mark.parametrize("username,password", [
+        ("admintest", ADMIN_PW),
+        ("membertest", MEMBER_PW),
     ])
-    def test_shared_navigation_is_visible_to_both_roles(self, local_env, username, password, role_label):
+    def test_shared_navigation_is_visible_to_both_roles(self, local_env, username, password):
         with app.server.test_request_context():
             text = _shell_after_signin(username, password, "home")
             for label in SHARED_NAV:
                 assert label in text
-            assert role_label in text
+            assert "FinHealth" not in text
+            assert f"@{username}" in text
+            assert "Settings" in text
+            assert "role-fixed" not in text
             assert "role-btn" not in text
             assert "Brum Builders" in text
             assert 'href="/settings"' in text.replace("'", '"')

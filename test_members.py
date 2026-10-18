@@ -113,7 +113,6 @@ def test_admin_panel_is_visible_only_for_the_admin_role():
         "Export member list",
         "Refresh data",
         "Invite member",
-        "Member statistics",
         "Created by",
         "Amina Testperson",
         "Contribution amount",
@@ -125,6 +124,8 @@ def test_admin_panel_is_visible_only_for_the_admin_role():
     member_text = _text(member)
     for label in ("Quick actions", "Manage positions", "Invite member", "Member statistics", "Created by"):
         assert label not in member_text
+    assert "Member statistics" not in admin_text
+    assert "Recent activity" not in admin_text
     summary = _find(member, "members-summary")
     assert summary is not None
     assert _hidden(summary)
@@ -158,6 +159,18 @@ def test_status_filter_and_name_sort():
     assert paid_names
     assert paid_names[0] not in text
     assert filtered["filter_classes"][FILTER_INDEX["pending"]] == "on"
+    labels = " ".join(filtered["filter_labels"])
+    assert "Active ·" in labels
+    assert "Suspended ·" in labels
+    assert "Admins ·" in labels
+    assert "Recent activity" not in labels
+
+    admins = compose_view("admin", "admintest", BRUM_BUILDERS, "members", "admins", "pos")
+    admin_rows = [row for row in rows if row["role"] == "admin"]
+    admin_text = _text(admins["panel"])
+    assert admin_rows
+    assert admin_rows[0]["name"] in admin_text
+    assert admins["filter_classes"][FILTER_INDEX["admins"]] == "on"
 
 
 def test_csv_is_names_and_status_only():
@@ -206,7 +219,15 @@ def test_render_page_covers_members_for_both_roles():
         assert "Members" in _text(page)
 
 
-FILTER_INDEX = {"all": 0, "paid": 1, "pending": 2, "received": 3}
+FILTER_INDEX = {
+    "all": 0,
+    "paid": 1,
+    "pending": 2,
+    "received": 3,
+    "active": 4,
+    "suspended": 5,
+    "admins": 6,
+}
 
 
 def _find(node, component_id):

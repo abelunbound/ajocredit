@@ -3,7 +3,7 @@
   "actions": [
     {
       "id": "create-circle",
-      "label": "Create circle",
+      "label": "Create Ajo",
       "icon": "plus"
     },
     {

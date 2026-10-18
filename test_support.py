@@ -116,10 +116,14 @@ class TestSupportContent:
         assert "mailto:" not in text
 
     def test_nav_and_address(self):
+        from pages.components import ICONS
+
         labels = [label for _key, label, _icon in NAV]
         assert "Support" in labels
         assert PAGE_PATHS["support"] == "/support"
         assert CRUMBS["support"] == ["AjoFinance", "Support"]
+        assert ICONS["support"] == "bi bi-headset"
+        assert ICONS["support"].startswith("bi bi-")
 
 
 class TestContactValidation:

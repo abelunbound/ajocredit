@@ -278,7 +278,7 @@ class TestSettingsPage:
         text = str(render_shell("home", "admin")).replace("'", '"')
         assert 'href="/settings"' in text
         assert "Settings" in text
-        assert "Member" in text
+        assert "role-fixed" not in text
         assert "role-btn" not in text
         assert "Birmingham" not in text
         assert "PayoutsTracker" not in text

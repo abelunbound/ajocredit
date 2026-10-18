@@ -271,6 +271,10 @@ def gate_page(page: str | None, role: str | None) -> str:
 
 
 def nav_entries(nav: list, role: str | None) -> list:
+    from pages.data import HIDDEN_NAV_PAGES
+
     if role != "admin":
-        return [item for item in nav if item[0] not in ADMIN_ONLY_PAGES]
-    return list(nav)
+        entries = [item for item in nav if item[0] not in ADMIN_ONLY_PAGES]
+    else:
+        entries = list(nav)
+    return [item for item in entries if item[0] not in HIDDEN_NAV_PAGES]

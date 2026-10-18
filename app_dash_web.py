@@ -223,7 +223,6 @@ def sidebar(page, role, username):
 
 
 def profile_button(page, role, username):
-    label = "Admin" if role == "admin" else "Member"
     handle = username or "signed-in"
     initials = handle[:2].upper()
     return html.A(
@@ -233,7 +232,6 @@ def profile_button(page, role, username):
                 [
                     html.Div(f"@{handle}", className="meta-main"),
                     html.Div("Settings", className="settings-link"),
-                    html.Div(label, className="role-fixed"),
                 ]
             ),
         ],

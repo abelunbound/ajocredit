@@ -52,35 +52,30 @@ def layout(role):
                                 ],
                             ),
                             html.Div(
-                                className="card dash-next",
+                                className="card dash-ad",
                                 children=[
-                                    html.Div(className="card-hd", children=[html.Div("Next recipient", className="h2"), html.Span([html.Span(className="pd"), "scheduled"], className="pill gold")]),
+                                    html.Div("Sponsored Ad", className="dash-ad-kicker"),
                                     html.Div(
-                                        className="dash-who-row",
+                                        className="dash-bank-card",
                                         children=[
-                                            html.Div(
-                                                className="dash-who",
-                                                children=[
-                                                    html.Div("AO", className="mav dash-av", style={"background": "#B88A2A"}),
-                                                    html.Div(
-                                                        [
-                                                            html.Div("@abel_o", className="dash-handle"),
-                                                            html.Div("Abel O. · Apr 28", className="dash-meta muted"),
-                                                        ]
-                                                    ),
-                                                ],
-                                            ),
-                                            html.Div(
-                                                className="dash-amt-wrap",
-                                                children=[
-                                                    html.Div("£5,000", className="mono dash-amt"),
-                                                    html.Div("virtual acct", className="muted dash-amt-sub"),
-                                                ],
-                                            ),
+                                            html.Div(className="dash-bank-card-top", children=[
+                                                html.Div("AjoCard", className="dash-bank-brand"),
+                                                html.Div("Virtual debit", className="dash-bank-chip"),
+                                            ]),
+                                            html.Div("••••  ••••  ••••  4281", className="dash-bank-pan mono"),
+                                            html.Div(className="dash-bank-card-foot", children=[
+                                                html.Div([html.Div("Cardholder", className="dash-bank-mini"), html.Div("Kemi A.", className="dash-bank-name")]),
+                                                html.Div([html.Div("Exp", className="dash-bank-mini"), html.Div("08/29", className="dash-bank-name")]),
+                                            ]),
                                         ],
                                     ),
-                                    html.Div(className="hr"),
-                                    html.Div(className="meta-grid", children=[html.Div([html.Div("Method", className="label-xs"), html.Div("Virtual account")]), html.Div([html.Div("Settlement", className="label-xs"), html.Div("Instant FPS")]), html.Div([html.Div("Contributions in", className="label-xs"), html.Div("9 / 10")]), html.Div([html.Div("Delay Cover used", className="label-xs"), html.Div("£500")])]),
+                                    html.Div(
+                                        className="dash-ad-row",
+                                        children=[
+                                            html.Div("Payouts on your card", className="h2 dash-ad-title"),
+                                            html.Button("See product →", className="btn btn-sm btn-ghost dash-ad-cta"),
+                                        ],
+                                    ),
                                 ],
                             ),
                         ],

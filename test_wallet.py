@@ -44,6 +44,8 @@ def test_available_early_payout_replaces_balance_label():
     assert "Available balance" not in text
     assert "£1,500" in text
     assert "Paid into Brum Builders" in text
+    assert "Ask for the contributions" not in text
+    assert "Use Request EarlyPayout to preview" not in text
 
 
 def test_breadcrumb_matches_page_title():
@@ -52,7 +54,7 @@ def test_breadcrumb_matches_page_title():
 
 def test_quote_stays_hidden_until_requested():
     waiting = _text(quote_body(False))
-    assert "Quote" in waiting
+    assert "Quote" not in waiting
     assert "£0 · waived" not in waiting
     shown = _text(quote_body(True))
     assert "£1,500" in shown

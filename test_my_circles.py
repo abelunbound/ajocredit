@@ -35,15 +35,15 @@ def test_sidebar_lists_persona_groups_and_actions_in_order():
 
     assert names == ["Brum Builders", "Sister Circle Ajo"]
     assert [action["id"] for action in actions] == ["create-circle", "join-ajo"]
-    assert [action["label"] for action in actions] == ["Create circle", "Join Ajo"]
+    assert [action["label"] for action in actions] == ["Create Ajo", "Join Ajo"]
     assert all(action["icon"] == "plus" for action in actions)
 
     text = str(sidebar("home", "admin", "admintest"))
     assert "Brum Builders" in text
     assert "Sister Circle Ajo" in text
     assert text.index("Brum Builders") < text.index("Sister Circle Ajo")
-    assert text.index("Sister Circle Ajo") < text.index("Create circle")
-    assert text.index("Create circle") < text.index("Join Ajo")
+    assert text.index("Sister Circle Ajo") < text.index("Create Ajo")
+    assert text.index("Create Ajo") < text.index("Join Ajo")
     assert "My circles" in text
 
 
@@ -88,7 +88,7 @@ def test_sidebar_rows_come_from_loaders(monkeypatch):
     assert "Sister Circle" not in text
     assert "Start a circle" in text
     assert "Find an Ajo" in text
-    assert "Create circle" not in text
+    assert "Create Ajo" not in text
     assert text.index("Start a circle") < text.index("Find an Ajo")
 
 
@@ -99,7 +99,7 @@ def test_actions_file_rejects_join_before_create(tmp_path):
             {
                 "actions": [
                     {"id": "join-ajo", "label": "Join Ajo", "icon": "plus"},
-                    {"id": "create-circle", "label": "Create circle", "icon": "plus"},
+                    {"id": "create-circle", "label": "Create Ajo", "icon": "plus"},
                 ]
             }
         ),
@@ -121,7 +121,7 @@ def test_member_sidebar_hides_payouts_and_still_lists_circles():
     assert "PayoutsTracker" not in text
     assert "Brum Builders" in text
     assert "Sister Circle Ajo" not in text
-    assert "Create circle" in text
+    assert "Create Ajo" in text
     assert "Join Ajo" in text
     assert "role-btn" not in text
     assert "@membertest" in text
@@ -135,5 +135,5 @@ def test_admin_sidebar_keeps_payouts_tracker():
     assert "Sister Circle Ajo" in text
     assert text.index("Brum Builders") < text.index("Sister Circle Ajo")
     assert "Join Ajo" in text
-    assert text.index("Create circle") < text.index("Join Ajo")
+    assert text.index("Create Ajo") < text.index("Join Ajo")
     assert "role-btn" not in text

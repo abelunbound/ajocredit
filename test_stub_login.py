@@ -111,7 +111,8 @@ class TestLocalLogin:
             assert session["username"] == "admintest"
             text = _shell_text("home", "member")
             assert "PayoutsTracker" in text
-            assert "Admin" in text
+            assert "Settings" in text
+            assert "role-fixed" not in text
             assert "role-btn" not in text
             assert "@admintest" in text
 
@@ -128,7 +129,8 @@ class TestLocalLogin:
             assert session["role"] == "member"
             text = _shell_text("home", "admin")
             assert "PayoutsTracker" not in text
-            assert "Member" in text
+            assert "Settings" in text
+            assert "role-fixed" not in text
             assert "role-btn" not in text
             assert "@membertest" in text
 
@@ -329,7 +331,7 @@ class TestMemberCannotReachAdminPages:
         assert response.status_code == 200
         assert "PayoutsTracker" not in body
         assert "Hold to release" not in body
-        assert "Member" in body
+        assert "Settings" in body
 
     def test_forged_session_cookie_does_not_grant_admin(self):
         client = app.server.test_client()
@@ -364,6 +366,8 @@ class TestMemberCannotReachAdminPages:
         admin_labels = [label for _key, label, _icon in nav_entries(NAV, "admin")]
         assert "PayoutsTracker" not in member_labels
         assert "PayoutsTracker" in admin_labels
+        assert "FinHealth" not in member_labels
+        assert "FinHealth" not in admin_labels
 
 
 class TestRoleToggleRemoved:

@@ -10,8 +10,8 @@
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
   --sidebar:224px;
-  /* Sign-in keeps this card width and control height.
-     Home and Sign Up are 420px; the Get started button and Sign Up fields are 40px. */
+  /* Home, Sign in, and Sign Up share the 420px card.
+     Get started, Sign in fields/buttons, and Sign Up fields are 40px. */
   --auth-card-width:520px;
   --auth-control-height:56px;
 }
@@ -107,7 +107,8 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;}
 .tabs button{padding:5px 11px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--ink-3);border:0;background:transparent;}
 .tabs button.on{background:var(--brand-soft);color:var(--brand);}
-.members-controls{margin-top:-4px;}
+.members-controls{margin-top:-4px;flex-wrap:wrap;gap:8px;}
+.members-controls .tabs{flex-wrap:wrap;}
 .members-tools{margin-top:0;gap:8px;}
 .inp{height:38px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;outline:none;}
 .inp-sm{height:32px;min-width:210px;font-size:12.5px;}
@@ -356,8 +357,7 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .auth-primary-btn{height:var(--auth-control-height);border:0;border-radius:14px;background:var(--brand);color:#fff;font-size:16px;font-weight:650;letter-spacing:-.01em;width:100%;margin-top:22px;display:flex;align-items:center;justify-content:center;gap:8px;}
 .auth-link-btn{margin:20px auto 0;border:0;background:transparent;color:#2c3f54;font-size:15px;font-weight:560;display:block;}
 
-.signin-screen{max-width:var(--auth-card-width);}
-.signin-screen .auth-title{font-size:40px;max-width:none;}
+.signin-screen .auth-title{font-size:32px;max-width:none;}
 .signin-top-row{display:flex;align-items:center;gap:10px;}
 .signin-back-btn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:18px;color:var(--ink-2);}
 .signin-screen .auth-brand-name{font-size:22px;}
@@ -449,6 +449,18 @@ button.gs-select{width:100%;height:var(--auth-control-height);margin-top:8px;bor
 .dash-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:stretch;}
 .dash-row>.card{height:100%;}
 .dash-next{display:flex;flex-direction:column;}
+.dash-ad{display:flex;flex-direction:column;gap:10px;}
+.dash-ad-kicker{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--ink-4);}
+.dash-bank-card{background:linear-gradient(145deg,#3d4650 0%,#6b7380 42%,#9aa3ad 78%,color-mix(in srgb,var(--brand) 28%,#c5cdc8) 100%);color:#f4f6f7;border-radius:16px;padding:16px 16px 14px;min-height:132px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 22px rgba(11,22,32,.12);}
+.dash-bank-card-top,.dash-bank-card-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.dash-bank-brand{font-size:15px;font-weight:650;letter-spacing:-.02em;}
+.dash-bank-chip{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.8;}
+.dash-bank-pan{font-size:15px;letter-spacing:.12em;margin:14px 0 12px;}
+.dash-bank-mini{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;}
+.dash-bank-name{font-size:12px;font-weight:600;margin-top:2px;}
+.dash-ad-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;}
+.dash-ad-title{margin:0;font-size:16px;}
+.dash-ad-cta{flex-shrink:0;}
 .dash-who-row{display:flex;align-items:center;justify-content:space-between;gap:32px;}
 .dash-who{display:flex;align-items:center;gap:8px;min-width:0;}
 .dash-av{width:26px;height:26px;font-size:9px;}
@@ -495,6 +507,7 @@ button.gs-select{width:100%;height:var(--auth-control-height);margin-top:8px;bor
   .gs-aff-total{font-size:32px;}
 }
 .home-screen,
+.signin-screen,
 .signup-screen{max-width:420px;}
 .dd-steps{display:flex;flex-direction:column;gap:12px;margin-top:16px;}
 .dd-step{border:1px solid #e4e9ee;border-radius:16px;padding:14px 16px;background:#fff;}
@@ -508,7 +521,8 @@ button.gs-select{width:100%;height:var(--auth-control-height);margin-top:8px;bor
 .dd-lock{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;}
 .dd-nigeria-parked{filter:grayscale(1);}
 .dd-parked-title{color:#8b98a7;}
-.me-btn{display:flex;align-items:center;gap:10px;width:100%;padding:8px 6px;border:0;background:transparent;text-align:left;cursor:pointer;border-radius:9px;}
+.me-btn{display:flex;align-items:center;gap:10px;width:100%;padding:8px 6px;border:0;background:transparent;text-align:left;cursor:pointer;border-radius:9px;text-decoration:none;color:inherit;}
+.me-btn .meta-main,.me-btn .settings-link{text-decoration:none;}
 .me-btn:hover{background:var(--surface-2);}
 .me-btn.on{background:var(--brand-soft);}
 .settings-link{font-size:12px;font-weight:600;color:var(--brand);padding-top:2px;}
@@ -527,15 +541,30 @@ button.gs-select{width:100%;height:var(--auth-control-height);margin-top:8px;bor
 .home-screen .auth-title{font-size:32px;max-width:none;}
 .home-screen .auth-copy{font-size:15px;max-width:none;}
 .home-screen .auth-benefit-sub{font-size:14px;}
-.signin-screen .auth-primary-btn,
-.signin-screen .auth-google-btn,
 .gs-screen .auth-primary-btn{
   height:var(--auth-control-height);
 }
 .home-screen .auth-primary-btn,
+.signin-screen .auth-input,
+.signin-screen .auth-primary-btn,
+.signin-screen .auth-google-btn,
 .signup-screen .auth-input,
 .signup-screen .auth-primary-btn{
   height:40px;
+}
+.signin-screen .auth-label,
+.signin-screen label{display:none;}
+.signin-screen .signin-field{margin-top:12px;}
+.signin-screen .auth-title + .signin-field{margin-top:20px;}
+.signin-screen .signin-field + .signin-field{margin-top:18px;}
+.signin-screen .auth-input{margin-top:0;}
+.signin-screen .auth-error:empty,
+.signin-screen .auth-hint:empty{display:none;min-height:0;margin:0;}
+.signin-screen .auth-input::placeholder,
+.signin-screen .auth-input input::placeholder,
+.signin-screen .auth-input .dash-input-element::placeholder{
+  color:var(--ink-4);
+  opacity:1;
 }
 .signup-screen{padding:16px 22px 18px;}
 .signup-screen .gs-icon-wrap{width:40px;height:40px;margin-top:8px;}
