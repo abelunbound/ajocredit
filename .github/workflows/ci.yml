@@ -2,9 +2,9 @@ name: CI - Smoke Tests
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, dev, "cursor/**" ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main, dev, "cursor/**" ]
 
 jobs:
   test:

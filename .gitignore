@@ -66,3 +66,5 @@ data/personas.json
 personas.md
 test-credentials.md
 local/stub-users.json
+local/email-inbox/
+local/audit-email-hmac.key
