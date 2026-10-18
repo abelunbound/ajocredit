@@ -38,6 +38,9 @@ from database import AuthSession, RefreshToken, User, get_db
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_MINUTES = 15
 REFRESH_TOKEN_DAYS = 14
+# PyJWT would compare iat and nbf with the wall clock. We compare them with
+# clock.now() instead, and allow this much skew.
+ACCESS_CLOCK_LEEWAY = timedelta(seconds=10)
 BCRYPT_MAX_BYTES = 72
 MIN_PASSWORD_CHARS = 8
 
@@ -246,23 +249,45 @@ def create_access_token(user_id: int, session_id: int, *, secret: str) -> str:
     return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 
+def _claim_time(payload: dict, name: str) -> datetime:
+    return datetime.fromtimestamp(int(payload[name]), tz=timezone.utc)
+
+
 def _decode_access_token(token: str, *, secret: str, allow_expired: bool = False) -> dict:
+    """Check the signature, then exp, iat, and nbf against ``clock.now()``.
+
+    PyJWT's own time checks stay off. They use the wall clock, so a test clock
+    that has moved forward would reject every newly issued token.
+    """
     try:
         payload = jwt.decode(
             token,
             secret,
             algorithms=[JWT_ALGORITHM],
-            options={"verify_exp": False, "require": ["exp", "sub", "sid", "typ"]},
+            options={
+                "verify_exp": False,
+                "verify_iat": False,
+                "verify_nbf": False,
+                "require": ["exp", "iat", "sub", "sid", "typ"],
+            },
         )
     except jwt.InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail=TOKEN_FAILED) from exc
     if payload.get("typ") != "access":
         raise HTTPException(status_code=401, detail=TOKEN_FAILED)
     try:
-        expires = datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
-    except (TypeError, ValueError, OverflowError, OSError) as exc:
+        expires = _claim_time(payload, "exp")
+        issued = _claim_time(payload, "iat")
+        not_before = _claim_time(payload, "nbf") if payload.get("nbf") is not None else None
+    except (TypeError, ValueError, OverflowError, OSError, KeyError) as exc:
         raise HTTPException(status_code=401, detail=TOKEN_FAILED) from exc
-    if not allow_expired and clock_now() >= expires:
+    now = clock_now()
+    leeway = ACCESS_CLOCK_LEEWAY
+    if issued > now + leeway:
+        raise HTTPException(status_code=401, detail=TOKEN_FAILED)
+    if not_before is not None and not_before > now + leeway:
+        raise HTTPException(status_code=401, detail=TOKEN_FAILED)
+    if not allow_expired and now >= expires + leeway:
         raise HTTPException(status_code=401, detail=TOKEN_FAILED)
     return payload
 

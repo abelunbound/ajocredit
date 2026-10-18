@@ -196,7 +196,7 @@ def test_access_token_follows_the_clock_and_refresh_is_stored_hashed():
     finally:
         db.close()
 
-    advance(timedelta(minutes=auth.access_token_minutes(), seconds=1))
+    advance(timedelta(minutes=auth.access_token_minutes()) + auth.ACCESS_CLOCK_LEEWAY + timedelta(seconds=1))
     expired = client.get("/api/v1/me", headers={"Authorization": f"Bearer {access}"})
     assert expired.status_code == 401
 
@@ -264,12 +264,59 @@ def test_logout_accepts_an_expired_access_token():
     assert _signup(email).status_code == 201
     logged_in = _login(email).json()
     headers = {"Authorization": f"Bearer {logged_in['access_token']}"}
-    advance(timedelta(minutes=auth.access_token_minutes(), seconds=1))
+    advance(timedelta(minutes=auth.access_token_minutes()) + auth.ACCESS_CLOCK_LEEWAY + timedelta(seconds=1))
     assert client.get("/api/v1/me", headers=headers).status_code == 401
     assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
     assert client.post(
         "/api/v1/auth/refresh", json={"refresh_token": logged_in["refresh_token"]}
     ).status_code == 401
+
+
+def test_moved_clock_accepts_a_new_access_token_and_expires_the_old_one():
+    """iat and exp follow clock.now(), not the wall clock PyJWT would use."""
+    freeze(FROZEN)
+    email = _email()
+    assert _signup(email).status_code == 201
+    old = _login(email).json()["access_token"]
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {old}"}).status_code == 200
+
+    advance(timedelta(seconds=60))
+    after_minute = _login(email).json()["access_token"]
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {after_minute}"}).status_code == 200
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {old}"}).status_code == 200
+
+    advance(timedelta(days=3))
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {old}"}).status_code == 401
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {after_minute}"}).status_code == 401
+    fresh = _login(email).json()["access_token"]
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200
+
+    moment = __import__("clock").now()
+    future = jwt.encode(
+        {
+            "sub": "1",
+            "sid": "1",
+            "typ": "access",
+            "iat": int((moment + timedelta(hours=1)).timestamp()),
+            "exp": int((moment + timedelta(hours=2)).timestamp()),
+        },
+        api.JWT_SECRET_KEY,
+        algorithm="HS256",
+    )
+    not_yet = jwt.encode(
+        {
+            "sub": "1",
+            "sid": "1",
+            "typ": "access",
+            "iat": int(moment.timestamp()),
+            "nbf": int((moment + timedelta(hours=1)).timestamp()),
+            "exp": int((moment + timedelta(hours=2)).timestamp()),
+        },
+        api.JWT_SECRET_KEY,
+        algorithm="HS256",
+    )
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {future}"}).status_code == 401
+    assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {not_yet}"}).status_code == 401
 
 
 def test_refresh_token_second_use_fails():
