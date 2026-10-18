@@ -135,16 +135,22 @@ def seed_demo_accounts(source: Mapping[str, str] | None = None) -> None:
             ]
         )
 
+    from clock import now as clock_now
+
+    verified_at = clock_now()
     db = SessionLocal()
     try:
         for username, email, name in DEMO_ACCOUNTS:
             hashed = hash_password(usable[username])
             user = db.query(User).filter(User.email == email).one_or_none()
             if user is None:
-                db.add(User(name=name, email=email, hashed_password=hashed))
+                user = User(name=name, email=email, hashed_password=hashed)
+                db.add(user)
             else:
                 user.name = name
                 user.hashed_password = hashed
+            if user.email_verified_at is None:
+                user.email_verified_at = verified_at
         db.commit()
     except Exception:
         db.rollback()

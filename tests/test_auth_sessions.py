@@ -18,6 +18,9 @@ from pathlib import Path
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
 os.environ["SEED_DEMO_ACCOUNTS"] = "false"
+os.environ.setdefault("AJO_ENV", "local")
+os.environ.setdefault("EMAIL_SENDER", "dev")
+os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
 if "api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
@@ -73,7 +76,7 @@ def _login(email: str, password: str = PASSWORD):
 
 def test_migration_head_is_auth_sessions_only():
     script = ScriptDirectory.from_config(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")))
-    assert script.get_heads() == ["0004_password_reset"]
+    assert script.get_heads() == ["0005_email_verification"]
 
 
 def test_email_is_trimmed_and_lowercased_before_uniqueness_and_login():

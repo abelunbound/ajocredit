@@ -75,6 +75,27 @@ _ACCOUNT = re.compile(r"\d{8}")
 _CARD = re.compile(r"\d{13,19}")
 
 
+def member_is_preverified(member: dict) -> bool:
+    """Seeded test users are verified unless the seed sets ``email_verified`` false.
+
+    Missing the field means pre-verified, so existing fixtures can sign in and
+    join without a mail provider. An explicit false leaves the account unverified.
+    """
+    if "email_verified" not in member:
+        return True
+    value = member["email_verified"]
+    if not isinstance(value, bool):
+        raise ValueError("Seeded member email_verified must be true or false.")
+    return value
+
+
+def seeded_verified_at(member: dict, when):
+    """Timestamp to store for a seeded member, or None when they must verify."""
+    if member_is_preverified(member):
+        return when
+    return None
+
+
 def load_seeded_circles(path: Path | str | None = None) -> dict:
     """Load and check the seeded-circle document."""
     seed_path = SEEDED_CIRCLES_PATH if path is None else Path(path)
@@ -126,6 +147,7 @@ def validate_seeded_circles(document: dict) -> None:
             if not isinstance(member, dict):
                 raise ValueError(f"Seeded circle {circle_id} has a member that is not an object.")
             _require_fake_member(circle_id, member)
+            member_is_preverified(member)
             member_id = member["id"]
             if member_id in seen_members:
                 raise ValueError(f"Seeded circle {circle_id} repeats member {member_id!r}.")

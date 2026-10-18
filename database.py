@@ -103,6 +103,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AuthSession(Base):
@@ -159,6 +160,41 @@ class AuthAuditEvent(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     email_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class EmailVerificationToken(Base):
+    """Single-use email verification. Only the SHA-256 hash of the token is stored."""
+
+    __tablename__ = "email_verification_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Circle(Base):
+    """Ajo circle. Creating one requires a verified email."""
+
+    __tablename__ = "circles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CircleMember(Base):
+    """Membership in a circle. Joining requires a verified email."""
+
+    __tablename__ = "circle_members"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    circle_id: Mapped[int] = mapped_column(ForeignKey("circles.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 def get_db() -> Generator[Session, None, None]:

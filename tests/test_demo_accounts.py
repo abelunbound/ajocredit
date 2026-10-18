@@ -167,6 +167,13 @@ def test_demo_personas_have_no_user_rows_and_cannot_sign_in(tmp_path, monkeypatc
     assert ADMIN_EMAIL in stored
     assert MEMBER_EMAIL in stored
     assert persona_emails.isdisjoint(stored)
+    db = database.SessionLocal()
+    try:
+        seeded = db.query(database.User).filter(database.User.email.in_([ADMIN_EMAIL, MEMBER_EMAIL])).all()
+        assert len(seeded) == 2
+        assert all(row.email_verified_at is not None for row in seeded)
+    finally:
+        db.close()
 
     admin = client.post(
         "/api/v1/auth/login",
