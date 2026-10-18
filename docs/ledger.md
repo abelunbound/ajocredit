@@ -67,7 +67,7 @@ The ledger is append-only. Rows are inserted and then left as they were. Updates
 
 `ledger_accounts.created_at` and `ledger_entries.posted_at` are set from `clock.now()`.
 
-`clock.now()` returns a timezone-aware UTC datetime from the current provider. The default provider is the system clock. A test can replace it with `clock.set_now_provider` and restore it with `clock.reset_now_provider`. That is the hook a later test clock can use. Enabling a test clock in production is a separate change.
+`clock.now()` returns a timezone-aware UTC datetime. The default is the wall clock. Tests move it with `clock.freeze`, `clock.advance`, and `clock.reset`, then call `clock.restore_for_tests()` to put the wall clock back. Production always uses the wall clock. A loopback dev process can move time only when `ALLOW_TEST_CLOCK` is set and `AJO_ENV` is `local` or `dev`.
 
 ## View the ledger locally
 

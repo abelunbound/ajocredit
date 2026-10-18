@@ -4,8 +4,8 @@ Amounts are integer pence. Each entry has two or more lines, and the debit
 pence equal the credit pence. Rows are inserted only. A correction is a new
 reversing entry, never an update or a delete.
 
-Timestamps come from :func:`clock.now`, so a later test clock can replace the
-provider without this module reading the wall clock itself.
+Timestamps come from :func:`clock.now`. Tests move that clock with
+``freeze`` and ``advance``. This module does not read the wall clock itself.
 
 The database tables are created by Alembic (``0002_create_ledger``), including
 triggers that reject UPDATE and DELETE on SQLite and PostgreSQL.

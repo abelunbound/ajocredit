@@ -52,11 +52,11 @@ command.upgrade(_config, "head")
 
 
 def setup_function() -> None:
-    clock.reset_now_provider()
+    clock.restore_for_tests()
 
 
 def teardown_function() -> None:
-    clock.reset_now_provider()
+    clock.restore_for_tests()
 
 
 def _suffix() -> str:
@@ -224,7 +224,7 @@ def test_postgres_migration_roundtrip_when_configured():
 
 def test_balanced_posting_stores_integer_pence_and_uses_now():
     fixed = datetime(2026, 10, 18, 12, 30, tzinfo=timezone.utc)
-    clock.set_now_provider(lambda: fixed)
+    clock.freeze(fixed)
     db = _session()
     try:
         cash, member = _open_pair(db)
@@ -267,13 +267,12 @@ def test_system_now_is_timezone_aware():
         db.close()
 
 
-def test_naive_now_provider_is_rejected():
-    clock.set_now_provider(lambda: datetime(2026, 1, 1))
-    try:
-        with pytest.raises(RuntimeError):
-            clock.now()
-    finally:
-        clock.reset_now_provider()
+def test_naive_freeze_is_rejected():
+    with pytest.raises(ValueError):
+        clock.freeze(datetime(2026, 1, 1))
+    moment = clock.now()
+    assert moment.tzinfo is not None
+    assert moment.utcoffset() == timedelta(0)
 
 
 def test_unbalanced_entry_is_rejected_and_not_stored():
