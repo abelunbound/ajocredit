@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from clock import now as clock_now
 from database import Circle, CircleMember, User, get_db
 from email_verification import require_verified_email
+from roles import ROLE_ADMIN, ROLE_MEMBER, grant_circle_role
 
 
 class CircleRequest(BaseModel):
@@ -36,7 +37,15 @@ def register_circle_routes(fastapi_app: FastAPI, get_current_user) -> None:
         circle = Circle(name=name, created_by_user_id=user.id, created_at=when)
         db.add(circle)
         db.flush()
-        db.add(CircleMember(circle_id=circle.id, user_id=user.id, joined_at=when))
+        # The creator is the admin. A role on the request is ignored.
+        grant_circle_role(
+            db,
+            circle_id=circle.id,
+            user_id=user.id,
+            role=ROLE_ADMIN,
+            actor_user_id=user.id,
+            joined_at=when,
+        )
         db.commit()
         return CircleResponse(circle_id=circle.id, name=circle.name)
 
@@ -56,7 +65,15 @@ def register_circle_routes(fastapi_app: FastAPI, get_current_user) -> None:
             .one_or_none()
         )
         if existing is None:
-            db.add(CircleMember(circle_id=circle.id, user_id=user.id, joined_at=clock_now()))
+            # Joining grants member. A role on the request is ignored.
+            grant_circle_role(
+                db,
+                circle_id=circle.id,
+                user_id=user.id,
+                role=ROLE_MEMBER,
+                actor_user_id=user.id,
+                joined_at=clock_now(),
+            )
             try:
                 db.commit()
             except IntegrityError:

@@ -139,7 +139,24 @@ def test_demo_seeding_starts_only_for_local_or_dev(tmp_path):
     engine = create_engine(f"sqlite:///{database_file}")
     with engine.connect() as connection:
         rows = connection.execute(text("SELECT email FROM users ORDER BY email")).all()
+        roles = connection.execute(
+            text(
+                """
+                SELECT users.email, circle_members.role
+                FROM circle_members
+                JOIN users ON users.id = circle_members.user_id
+                JOIN circles ON circles.id = circle_members.circle_id
+                WHERE circles.name = :name
+                ORDER BY users.email
+                """
+            ),
+            {"name": demo_accounts.DEMO_CIRCLE_NAME},
+        ).all()
     assert [row[0] for row in rows] == [ADMIN_EMAIL, MEMBER_EMAIL]
+    assert [(row[0], row[1]) for row in roles] == [
+        (ADMIN_EMAIL, "admin"),
+        (MEMBER_EMAIL, "member"),
+    ]
 
 
 def test_demo_personas_have_no_user_rows_and_cannot_sign_in(tmp_path, monkeypatch):
@@ -172,6 +189,21 @@ def test_demo_personas_have_no_user_rows_and_cannot_sign_in(tmp_path, monkeypatc
         seeded = db.query(database.User).filter(database.User.email.in_([ADMIN_EMAIL, MEMBER_EMAIL])).all()
         assert len(seeded) == 2
         assert all(row.email_verified_at is not None for row in seeded)
+        circle = (
+            db.query(database.Circle)
+            .filter(database.Circle.name == demo_accounts.DEMO_CIRCLE_NAME)
+            .one()
+        )
+        memberships = (
+            db.query(database.CircleMember)
+            .filter(database.CircleMember.circle_id == circle.id)
+            .all()
+        )
+        by_email = {row.email: row.id for row in seeded}
+        stored_roles = {row.user_id: row.role for row in memberships}
+        assert stored_roles[by_email[ADMIN_EMAIL]] == "admin"
+        assert stored_roles[by_email[MEMBER_EMAIL]] == "member"
+        assert len(stored_roles) == 2
     finally:
         db.close()
 

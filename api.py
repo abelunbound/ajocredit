@@ -90,6 +90,7 @@ from circles import register_circle_routes
 from database import User, get_db
 from email_verification import register_email_verification_routes
 from password_reset import register_password_reset_routes
+from roles import register_role_routes
 
 JWT_ALGORITHM = "HS256"
 
@@ -99,6 +100,7 @@ seed_demo_accounts()
 register_password_reset_routes(app)
 register_email_verification_routes(app)
 register_circle_routes(app, get_current_user)
+register_role_routes(app, get_current_user)
 
 
 def create_access_token(user_id: int, session_id: int) -> str:

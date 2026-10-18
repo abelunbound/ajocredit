@@ -76,7 +76,7 @@ def _login(email: str, password: str = PASSWORD):
 
 def test_migration_head_is_auth_sessions_only():
     script = ScriptDirectory.from_config(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")))
-    assert script.get_heads() == ["0005_email_verification"]
+    assert script.get_heads() == ["0006_circle_roles"]
 
 
 def test_email_is_trimmed_and_lowercased_before_uniqueness_and_login():

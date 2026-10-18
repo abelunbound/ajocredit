@@ -176,8 +176,8 @@ Each requirement is testable. "Must" means the milestone is not done without it.
 - **SR-11** Sign-in must be rate limited per IP and per account, with progressive lockout and member notification. (T-17; #40)
 - **SR-12** Sessions must be short-lived (access token minutes, not days), revocable on the server (sign-out, password change, suspected takeover) and signed with PyJWT using a fixed algorithm. (T-04, T-15; #33)
 - **SR-13** Sign-up, sign-in and password reset must not reveal whether an email is registered. (T-16; #33)
-- **SR-14** Every API request must check, on the server, that the caller is signed in and has the right role in that specific circle. Default is deny. The client never sends its own role. (T-10; #38, #41)
-- **SR-15** Automated tests must prove a member of one circle cannot read or change another circle's data by changing IDs. (T-10; #38)
+- **SR-14** Every API request must check, on the server, that the caller is signed in and has the right role in that specific circle. Default is deny. The client never sends its own role. (T-10; #38, #41) Circle routes read `circle_members.role` in a FastAPI dependency. A permission that is not listed is denied. `GET /api/v1/circles/{id}/payouts` allows only the admin of that circle. A member who opens that address receives 403.
+- **SR-15** Automated tests must prove a member of one circle cannot read or change another circle's data by changing IDs. (T-10; #38) Tests cover reading another circle, opening its payouts, and changing a role in it by substituting the circle id. The same member cannot open payouts for their own circle.
 - **SR-16** An append-only audit log must record role changes, position changes, settings changes, payout destination changes, quote acceptances and fee config changes: who, what, when, before and after. Normal users and admins cannot edit or delete it. (T-06, T-25; #32)
 - **SR-17** The ledger must be append-only and double-entry; corrections are new entries, never edits or deletes. (T-09; #37)
 - **SR-18** CI must check that the ledger balances for seeded test circles; production must run a scheduled balance and partner reconciliation check that alerts on mismatch. (T-09; #39)
@@ -261,6 +261,7 @@ New Security tickets must name the threat they address. If none fits, add a thre
 | #13 Screenshots in `uploads/` | T-24 | SR-02, SR-09 |
 | #15 Secret scanning, Dependabot, CI scan | T-13, T-23 | SR-03, SR-34 |
 | #32 Audit log | T-06, T-25 | SR-16 |
+| #38 Per-circle roles | T-10 | SR-14, SR-15 |
 | #40 Rate limits and lockout | T-04, T-17 | SR-11 |
 | #42 Lock circle settings | T-06, T-26 | SR-24 |
 | #53 Payout destination verification and waiting period | T-05 | SR-26 |
