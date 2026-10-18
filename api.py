@@ -8,7 +8,11 @@ Run it alongside Dash:
   Terminal 2:  uvicorn api:app        (FastAPI, port 8000)
 
 Install dependencies:
-  pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] PyJWT
+  pip install -r requirements.txt
+
+Local database (synthetic data only):
+  DATABASE_URL=sqlite:///local/ajo.db alembic upgrade head
+  uvicorn api:app
 """
 
 import os
@@ -16,8 +20,8 @@ import sys
 
 # ─── Configuration: Load from environment ─────────────────────────────────────
 #
-#  Validate secrets before importing the rest of the app. database.py is not
-#  part of this milestone, and a missing module must not hide a bad secret.
+#  Validate secrets before importing the rest of the app. A bad secret must
+#  fail before database.py is imported.
 #
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-random-and-secure"
@@ -54,20 +58,28 @@ enforce_local_stub_policy()
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
+import bcrypt
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
-from passlib.context import CryptContext  # for hashing passwords
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from database import get_db, User         # we'll create database.py next
+from database import get_db, User
 
 app = FastAPI(title="Ajo API", version="1.0.0")
 
-# ─── Password hashing ─────────────────────────────────────────────────────────
-#
-#  NEVER store plain-text passwords.
-#  passlib hashes them with bcrypt — a slow, secure algorithm.
-#
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt (the maintained PyCA library) hashes passwords. passlib is not used.
+BCRYPT_MAX_BYTES = 72
+
+
+def hash_password(password: str) -> str:
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+    return hashed.decode("utf-8")
+
+
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 # ─── Request / Response models ────────────────────────────────────────────────
@@ -91,12 +103,12 @@ class SignupResponse(BaseModel):
 # ─── Helper: generate JWT token ───────────────────────────────────────────────
 
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def create_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
+        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
@@ -134,9 +146,14 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
             status_code=422,
             detail="Password must be at least 8 characters."
         )
+    if len(body.password.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        raise HTTPException(
+            status_code=422,
+            detail="Password must be at most 72 bytes."
+        )
 
     # ── Step 3: Hash the password
-    hashed_password = pwd_context.hash(body.password)
+    hashed_password = hash_password(body.password)
     # hashed_password looks like: "$2b$12$KIXmFgp3..." — safe to store
 
     # ── Step 4: Save user to database

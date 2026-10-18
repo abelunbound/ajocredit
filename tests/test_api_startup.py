@@ -81,17 +81,15 @@ def test_jwt_secret_is_placeholder():
 
 def test_valid_jwt_secret():
     """Test that startup succeeds with a valid JWT_SECRET_KEY (at module import level)."""
-    # This test verifies the validation passes with a valid key
-    # Note: Full app startup will still fail without database.py, but validation should pass
     env = {
         "JWT_SECRET_KEY": "a" * 32,  # Exactly 32 characters (minimum valid)
-        "DATABASE_URL": "postgresql://test:test@localhost/test"
+        "DATABASE_URL": "postgresql://test:test@localhost/test",
+        "ALLOW_LOCAL_STUB_LOGIN": "false",
     }
     
     exit_code, stderr = run_api_startup(env)
     
-    # The import will fail due to missing database.py, but not due to JWT validation
-    # Check that our specific JWT validation errors are NOT present
+    assert exit_code == 0, stderr
     assert "JWT_SECRET_KEY environment variable is required but not set" not in stderr
     assert "must be at least 32 characters long" not in stderr
     assert "insecure placeholder value" not in stderr
