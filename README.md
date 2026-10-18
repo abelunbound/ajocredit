@@ -5,7 +5,8 @@ A community finance platform built with Plotly Dash and FastAPI.
 ## Prerequisites
 
 - Python 3.12+
-- PostgreSQL (for the FastAPI backend)
+- SQLite, which ships with Python, for the local FastAPI database
+- PostgreSQL 16 when you run the API the way CI does, and later on GCP Cloud SQL
 
 ## Installation
 
@@ -47,7 +48,7 @@ AjoFinance loads secrets and runtime settings from environment variables. Never 
 2. Edit `.env` and fill in real values:
    - **`JWT_SECRET_KEY`** (required by the API): a random string of at least 32 characters. Do not use the placeholder from `.env.example`.
      Generate one: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-   - **`DATABASE_URL`** (required by the API): PostgreSQL connection string, `postgresql://username:password@host:port/database`
+   - **`DATABASE_URL`** (required by the API): local SQLite, `sqlite:///local/ajo.db`. That file is git-ignored and holds synthetic data only. The same setting is a PostgreSQL URL in CI and, later, on GCP Cloud SQL.
    - **`JWT_EXPIRY_DAYS`** (optional): JWT lifetime in days (default `30`)
    - **`DASH_DEBUG`** (optional): set to `true` only for local development (default `false`)
    - **`DASH_HOST`** (optional): Dash bind address (default `127.0.0.1`)
@@ -134,20 +135,23 @@ pytest tests/test_join.py -v
 
 ### FastAPI Backend
 
-The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). `database.py` is not in this milestone; the process still requires those environment variables before it imports the database module.
+The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). Local development uses SQLite. The database file holds synthetic data only.
 
 ```bash
+alembic upgrade head
 uvicorn api:app --reload
 ```
 
-This runs on http://localhost:8000 by default.
+`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `GET /health` checks that the database answers.
+
+CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
 ## Environment variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `JWT_SECRET_KEY` | Yes (API) | — | Secret for signing JWT tokens (minimum 32 characters; not the example placeholder) |
-| `DATABASE_URL` | Yes (API) | — | PostgreSQL connection string |
+| `DATABASE_URL` | Yes (API) | — | `sqlite:///local/ajo.db` locally. A `postgresql://` URL in CI and on Cloud SQL |
 | `JWT_EXPIRY_DAYS` | No | `30` | JWT token expiration in days |
 | `DASH_DEBUG` | No | `false` | Enable Dash debug mode (local development only) |
 | `DASH_HOST` | No | `127.0.0.1` | Dash server host. Must be `127.0.0.1`, `localhost`, or `::1` when stub sign-in is enabled |
@@ -171,7 +175,7 @@ This runs on http://localhost:8000 by default.
 pytest tests/
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`. Wallet checks are in `test_wallet.py`. FinHealth checks are in `test_finhealth.py`.
+API checks (health and auth) are in `tests/test_api.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
 
 ```bash
 pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
@@ -230,6 +234,9 @@ pytest tests/test_my_circles.py -v
 
 - `app_dash_web.py` - Main Dash web application
 - `api.py` - FastAPI backend service (authentication, API endpoints)
+- `database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
+- `alembic.ini`, `migrations/` - schema migrations (`alembic upgrade head`)
+- `tests/` - Test suite, including the FastAPI health and auth checks
 - `pages/` - Dash page components and layouts
 - `.env.example` - Placeholder environment variables (no real secrets)
 - `requirements.txt` - Production dependencies (pinned versions)
