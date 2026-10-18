@@ -139,10 +139,10 @@ The FastAPI service is a separate process for authentication and API endpoints. 
 
 ```bash
 alembic upgrade head
-uvicorn api:app --reload
+uvicorn api:app --reload --no-proxy-headers
 ```
 
-`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `GET /health` checks that the database answers.
+`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers.
 
 CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
@@ -197,6 +197,8 @@ Sign in with a local stub account, then choose **FinHealth** in the sidebar. The
 
 - `GET /api/v1/dev/clock` reads the current time.
 - `POST /api/v1/dev/clock` sends exactly one of `advance_seconds`, `freeze_at` (ISO-8601), or `reset`.
+
+Each of those requests returns 404 unless `request.client.host` is `127.0.0.1` or `::1`. `DASH_HOST`, the uvicorn `--host` setting, `X-Forwarded-For`, and `Forwarded` do not count. Start the API with `--no-proxy-headers`.
 
 The route is not registered otherwise. If the flag is on in production, staging, or any other deploy, the API and the Dash app exit at startup. Production always reads the wall clock.
 

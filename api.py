@@ -5,14 +5,14 @@ This is a SEPARATE Python process from your Dash app.
 Run it alongside Dash:
 
   Terminal 1:  python app.py          (Dash, port 8050)
-  Terminal 2:  uvicorn api:app        (FastAPI, port 8000)
+  Terminal 2:  uvicorn api:app --no-proxy-headers        (FastAPI, port 8000)
 
 Install dependencies:
   pip install -r requirements.txt
 
 Local database (synthetic data only):
   DATABASE_URL=sqlite:///local/ajo.db alembic upgrade head
-  uvicorn api:app
+  uvicorn api:app --no-proxy-headers
 """
 
 import os
@@ -71,7 +71,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
 import bcrypt
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -231,6 +231,19 @@ class DevClockRequest(BaseModel):
     reset: bool = False
 
 
+# Only the TCP peer counts. X-Forwarded-For and Forwarded are never read.
+# Uvicorn must be started with --no-proxy-headers so those headers cannot
+# rewrite request.client.host before this check runs.
+DEV_CLOCK_CLIENT_HOSTS = frozenset({"127.0.0.1", "::1"})
+
+
+def require_dev_clock_client(request: Request) -> None:
+    """404 unless this request's client address is loopback."""
+    host = request.client.host if request.client is not None else ""
+    if host not in DEV_CLOCK_CLIENT_HOSTS:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
 def register_dev_clock_routes(fastapi_app: FastAPI) -> None:
     """Mount the dev-only clock control. Refused unless local loopback allows it."""
     if not dev_control_allowed():
@@ -240,11 +253,11 @@ def register_dev_clock_routes(fastapi_app: FastAPI) -> None:
         )
 
     @fastapi_app.get("/api/v1/dev/clock")
-    def read_dev_clock():
+    def read_dev_clock(_client: None = Depends(require_dev_clock_client)):
         return {"now": clock_now().isoformat()}
 
     @fastapi_app.post("/api/v1/dev/clock")
-    def update_dev_clock(body: DevClockRequest):
+    def update_dev_clock(body: DevClockRequest, _client: None = Depends(require_dev_clock_client)):
         chosen = sum(
             (
                 body.advance_seconds is not None,

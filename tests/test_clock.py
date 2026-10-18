@@ -250,7 +250,7 @@ def test_dev_route_advances_freezes_and_resets(monkeypatch, api_module):
 
     app = FastAPI()
     api_module.register_dev_clock_routes(app)
-    client = TestClient(app)
+    client = TestClient(app, client=("127.0.0.1", 50000))
 
     frozen = client.post("/api/v1/dev/clock", json={"freeze_at": "2026-03-01T00:00:00Z"})
     assert frozen.status_code == 200, frozen.text
@@ -271,6 +271,47 @@ def test_dev_route_advances_freezes_and_resets(monkeypatch, api_module):
     monkeypatch.setenv("AJO_ENV", "production")
     with pytest.raises(ClockLocked):
         api_module.register_dev_clock_routes(FastAPI())
+
+
+def _dev_clock_app(monkeypatch, api_module):
+    monkeypatch.setenv("ALLOW_TEST_CLOCK", "true")
+    monkeypatch.setenv("AJO_ENV", "local")
+    monkeypatch.setenv("DASH_HOST", "127.0.0.1")
+    app = FastAPI()
+    api_module.register_dev_clock_routes(app)
+    return app
+
+
+def test_dev_clock_allows_a_loopback_caller(monkeypatch, api_module):
+    app = _dev_clock_app(monkeypatch, api_module)
+    for host in ("127.0.0.1", "::1"):
+        client = TestClient(app, client=(host, 50000))
+        response = client.get("/api/v1/dev/clock")
+        assert response.status_code == 200, response.text
+        assert "now" in response.json()
+
+
+def test_dev_clock_hides_from_a_non_loopback_caller(monkeypatch, api_module):
+    app = _dev_clock_app(monkeypatch, api_module)
+    freeze(FROZEN)
+    client = TestClient(app, client=("203.0.113.10", 50000))
+    assert client.get("/api/v1/dev/clock").status_code == 404
+    posted = client.post("/api/v1/dev/clock", json={"advance_seconds": 3600})
+    assert posted.status_code == 404
+    assert now() == FROZEN
+
+
+def test_dev_clock_ignores_a_spoofed_forwarded_for(monkeypatch, api_module):
+    app = _dev_clock_app(monkeypatch, api_module)
+    client = TestClient(app, client=("203.0.113.10", 50000))
+    response = client.get(
+        "/api/v1/dev/clock",
+        headers={
+            "X-Forwarded-For": "127.0.0.1",
+            "Forwarded": "for=127.0.0.1;proto=http",
+        },
+    )
+    assert response.status_code == 404
 
 
 def test_signup_token_expiry_follows_the_clock(api_module):
