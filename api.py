@@ -55,6 +55,18 @@ from stub_auth import enforce_local_stub_policy
 
 enforce_local_stub_policy()
 
+from clock import (  # noqa: E402
+    ClockLocked,
+    advance as clock_advance,
+    dev_control_allowed,
+    enforce_test_clock_policy,
+    freeze as clock_freeze,
+    now as clock_now,
+    reset as clock_reset,
+)
+
+enforce_test_clock_policy()
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
 
@@ -108,7 +120,7 @@ from datetime import datetime, timedelta, timezone
 def create_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
+        "exp": clock_now() + timedelta(days=JWT_EXPIRY_DAYS),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
@@ -211,3 +223,57 @@ def get_me(current_user: User = Depends(get_current_user)):
         "name": current_user.name,
         "email": current_user.email,
     }
+
+
+class DevClockRequest(BaseModel):
+    advance_seconds: int | None = None
+    freeze_at: str | None = None
+    reset: bool = False
+
+
+def register_dev_clock_routes(fastapi_app: FastAPI) -> None:
+    """Mount the dev-only clock control. Refused unless local loopback allows it."""
+    if not dev_control_allowed():
+        raise ClockLocked(
+            "The dev clock control is only available when ALLOW_TEST_CLOCK is set "
+            "on a loopback process with AJO_ENV=local or AJO_ENV=dev."
+        )
+
+    @fastapi_app.get("/api/v1/dev/clock")
+    def read_dev_clock():
+        return {"now": clock_now().isoformat()}
+
+    @fastapi_app.post("/api/v1/dev/clock")
+    def update_dev_clock(body: DevClockRequest):
+        chosen = sum(
+            (
+                body.advance_seconds is not None,
+                body.freeze_at is not None,
+                body.reset,
+            )
+        )
+        if chosen != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="Send exactly one of advance_seconds, freeze_at, or reset.",
+            )
+        if body.reset:
+            clock_reset()
+        elif body.advance_seconds is not None:
+            try:
+                clock_advance(timedelta(seconds=body.advance_seconds))
+            except OverflowError as exc:
+                raise HTTPException(status_code=422, detail="advance_seconds is out of range.") from exc
+        else:
+            try:
+                moment = datetime.fromisoformat(body.freeze_at.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail="freeze_at must be an ISO-8601 datetime.") from exc
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            clock_freeze(moment)
+        return {"now": clock_now().isoformat()}
+
+
+if dev_control_allowed():
+    register_dev_clock_routes(app)

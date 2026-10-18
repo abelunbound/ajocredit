@@ -169,7 +169,7 @@ Each requirement is testable. "Must" means the milestone is not done without it.
 
 ### M2 Foundations
 
-- **SR-07** The test-only clock must be impossible to enable in production; the app must refuse to start if it is. (T-12; #36)
+- **SR-07** The test-only clock must be impossible to enable in production; the app must refuse to start if it is. (T-12; #36) `clock.now()` is the time provider. `ALLOW_TEST_CLOCK` is refused at startup unless the process is the test suite or a loopback dev process (`AJO_ENV=local` or `dev`). Production and staging always use the wall clock, and the dev route is not registered there.
 - **SR-08** The ethnicity question must be optional, with explicit consent and a clear purpose; answers stored separately from other user data with separate access; never read by affordability, limits or pricing code (a test enforces this); used only in aggregate. (T-20; #34)
 - **SR-09** Logs, error reports and analytics must not contain passwords, tokens, full bank details, ID document data, Open Banking data or ethnicity. Real personal data must never be used outside production. (T-24, T-30)
 - **SR-10** Passwords must be hashed with bcrypt or Argon2 and a minimum strength policy, with a breached-password check. (T-04; #33)
