@@ -123,8 +123,12 @@ class TestRegistration:
 
     def test_signup_card_matches_get_started_card_width(self):
         css = Path("assets/dash_web.css").read_text(encoding="utf-8")
-        assert ".home-screen,\n.signup-screen{max-width:420px;}" in css
-        assert ".home-screen .auth-primary-btn,\n.signup-screen .auth-input,\n.signup-screen .auth-primary-btn{\n  height:40px;\n}" in css
+        assert ".home-screen,\n.signin-screen,\n.signup-screen{max-width:420px;}" in css
+        assert (
+            ".home-screen .auth-primary-btn,\n.signin-screen .auth-input,\n"
+            ".signin-screen .auth-primary-btn,\n.signin-screen .auth-google-btn,\n"
+            ".signup-screen .auth-input,\n.signup-screen .auth-primary-btn{\n  height:40px;\n}"
+        ) in css
 
     def test_incomplete_form_stays_on_registration(self, request_ctx):
         page, _rev, error = _signup({"first": "Ada"})
