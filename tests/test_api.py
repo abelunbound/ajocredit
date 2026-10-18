@@ -13,6 +13,7 @@ from pathlib import Path
 
 os.environ["JWT_SECRET_KEY"] = "test-only-jwt-secret-key-32chars!!"
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+os.environ["SEED_DEMO_ACCOUNTS"] = "false"
 
 _configured_url = os.environ.get("DATABASE_URL", "")
 USING_POSTGRES = _configured_url.startswith("postgres")

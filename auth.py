@@ -28,6 +28,7 @@ import jwt
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field, TypeAdapter, ValidationError
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -284,6 +285,44 @@ def revoke_session(db: Session, row: AuthSession, when: datetime | None = None) 
     ).update({RefreshToken.revoked_at: moment}, synchronize_session=False)
 
 
+def _consume_refresh_token(db: Session, token_hash: str, when: datetime):
+    """Mark one live refresh token revoked. Returns the row only when exactly one matched.
+
+    The token is consumed by this UPDATE. Callers must not read the row and
+    then set ``revoked_at`` afterwards.
+    """
+    result = db.execute(
+        update(RefreshToken)
+        .where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > when,
+        )
+        .values(revoked_at=when)
+        .returning(RefreshToken.id, RefreshToken.session_id)
+    )
+    rows = result.all()
+    if len(rows) != 1:
+        return None
+    return rows[0]
+
+
+def _revoke_reused_refresh_family(db: Session, token_hash: str, when: datetime) -> None:
+    """A token that was already rotated ends the whole session."""
+    row = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.token_hash == token_hash, RefreshToken.revoked_at.is_not(None))
+        .one_or_none()
+    )
+    if row is None:
+        db.rollback()
+        return
+    session_row = db.get(AuthSession, row.session_id)
+    if session_row is not None:
+        revoke_session(db, session_row, when)
+    db.commit()
+
+
 def _issue_refresh(db: Session, session_row: AuthSession, *, when: datetime) -> str:
     raw = secrets.token_urlsafe(32)
     expires = when + timedelta(days=refresh_token_days())
@@ -377,30 +416,22 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
 
     @fastapi_app.post("/api/v1/auth/refresh", response_model=AuthTokens)
     def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
-        row = (
-            db.query(RefreshToken)
-            .filter(RefreshToken.token_hash == hash_token(body.refresh_token))
-            .one_or_none()
-        )
-        if row is None:
-            raise HTTPException(status_code=401, detail=REFRESH_FAILED)
-        session_row = db.get(AuthSession, row.session_id)
-        if session_row is None:
-            raise HTTPException(status_code=401, detail=REFRESH_FAILED)
         when = clock_now()
-        if row.replaced_by_id is not None:
-            revoke_session(db, session_row, when)
-            db.commit()
+        token_hash = hash_token(body.refresh_token)
+        consumed = _consume_refresh_token(db, token_hash, when)
+        if consumed is None:
+            _revoke_reused_refresh_family(db, token_hash, when)
             raise HTTPException(status_code=401, detail=REFRESH_FAILED)
+        token_id, session_id = int(consumed.id), int(consumed.session_id)
+        session_row = db.get(AuthSession, session_id)
+        user = db.get(User, session_row.user_id) if session_row is not None else None
         if (
-            row.revoked_at is not None
+            session_row is None
+            or user is None
             or session_row.revoked_at is not None
-            or as_utc(row.expires_at) <= when
             or as_utc(session_row.expires_at) <= when
         ):
-            raise HTTPException(status_code=401, detail=REFRESH_FAILED)
-        user = db.get(User, session_row.user_id)
-        if user is None:
+            db.commit()
             raise HTTPException(status_code=401, detail=REFRESH_FAILED)
         raw_refresh = _issue_refresh(db, session_row, when=when)
         db.flush()
@@ -409,8 +440,17 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
             .filter(RefreshToken.token_hash == hash_token(raw_refresh))
             .one()
         )
-        row.revoked_at = when
-        row.replaced_by_id = successor.id
+        linked = db.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.id == token_id,
+                RefreshToken.replaced_by_id.is_(None),
+            )
+            .values(replaced_by_id=successor.id)
+        )
+        if linked.rowcount != 1:
+            db.rollback()
+            raise HTTPException(status_code=401, detail=REFRESH_FAILED)
         db.commit()
         return AuthTokens(
             access_token=create_access_token(user.id, session_row.id, secret=jwt_secret),

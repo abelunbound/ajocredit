@@ -68,6 +68,10 @@ from clock import (  # noqa: E402
 
 enforce_test_clock_policy()
 
+from demo_accounts import enforce_demo_seed_policy, seed_demo_accounts  # noqa: E402
+
+enforce_demo_seed_policy()
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -86,6 +90,7 @@ JWT_ALGORITHM = "HS256"
 
 app = FastAPI(title="Ajo API", version="1.0.0")
 get_current_user = register_auth_routes(app, jwt_secret=JWT_SECRET_KEY)
+seed_demo_accounts()
 
 
 def create_access_token(user_id: int, session_id: int) -> str:

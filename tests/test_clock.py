@@ -144,6 +144,7 @@ def _run_import(module: str, env: dict):
     for name in (
         "ALLOW_TEST_CLOCK",
         "ALLOW_LOCAL_STUB_LOGIN",
+        "SEED_DEMO_ACCOUNTS",
         "DASH_HOST",
         "AJO_ENV",
         "PYTEST_CURRENT_TEST",
@@ -152,6 +153,7 @@ def _run_import(module: str, env: dict):
     ):
         child_env.pop(name, None)
     child_env["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+    child_env["SEED_DEMO_ACCOUNTS"] = "false"
     child_env.update(env)
     return subprocess.run(
         [sys.executable, "-c", f"import {module}"],
@@ -221,6 +223,7 @@ def api_module():
     os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
     os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
     os.environ["ALLOW_TEST_CLOCK"] = "false"
+    os.environ["SEED_DEMO_ACCOUNTS"] = "false"
     if "api" not in sys.modules and not os.environ.get("DATABASE_URL", "").startswith("postgres"):
         os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     import api

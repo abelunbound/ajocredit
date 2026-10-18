@@ -17,6 +17,7 @@ from pathlib import Path
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+os.environ["SEED_DEMO_ACCOUNTS"] = "false"
 
 if "api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
@@ -268,6 +269,27 @@ def test_logout_accepts_an_expired_access_token():
     assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
     assert client.post(
         "/api/v1/auth/refresh", json={"refresh_token": logged_in["refresh_token"]}
+    ).status_code == 401
+
+
+def test_refresh_token_second_use_fails():
+    """The presented refresh token is consumed by one update, so reuse fails."""
+    email = _email()
+    assert _signup(email).status_code == 201
+    refresh = _login(email).json()["refresh_token"]
+    first = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
+    assert first.status_code == 200, first.text
+    second = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
+    assert second.status_code == 401
+    assert second.json()["detail"] == auth.REFRESH_FAILED
+    db = database.SessionLocal()
+    try:
+        stored = db.query(database.RefreshToken).filter_by(token_hash=auth.hash_token(refresh)).one()
+        assert stored.revoked_at is not None
+    finally:
+        db.close()
+    assert client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": first.json()["refresh_token"]}
     ).status_code == 401
 
 

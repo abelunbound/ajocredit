@@ -145,7 +145,9 @@ uvicorn api:app --reload --no-proxy-headers
 
 `alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers.
 
-Sign-up, sign-in, refresh, logout, and sessions are under `/api/v1/auth/`. Sign-up always returns the same message, whether or not the email is already registered. Sign-in returns an access token (15 minutes) and a refresh token. Emails are stored trimmed and lowercased. Logout revokes that session on the server. Rate limiting is not in this build: signup and login call `enforce_auth_attempt_policy` in `auth.py`, which is the function a later rate-limit change should replace.
+Sign-up, sign-in, refresh, logout, and sessions are under `/api/v1/auth/`. Sign-up always returns the same message, whether or not the email is already registered. Sign-in returns an access token (15 minutes) and a refresh token. Each refresh token is consumed by one conditional update, so a second use fails and ends that session. Emails are stored trimmed and lowercased. Logout revokes that session on the server. Rate limiting is not in this build: signup and login call `enforce_auth_attempt_policy` in `auth.py`, which is the function a later rate-limit change should replace.
+
+`SEED_DEMO_ACCOUNTS=true` creates only `admintest@example.test` and `membertest@example.test`, with passwords from the git-ignored stub credentials file. The process refuses to start if that flag is on while `AJO_ENV` is unset or is not `local` or `dev`. The ten demo personas stay display data and have no user rows.
 
 CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
@@ -164,6 +166,7 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 | `ALLOW_LOCAL_STUB_LOGIN` | No | `false` | Enable `admintest` / `membertest` sign-in. Local loopback only; otherwise the process exits |
 | `STUB_USERS_FILE` | No | `local/stub-users.json` | Git-ignored JSON file with stub passwords |
 | `ALLOW_TEST_CLOCK` | No | `false` | Let tests or a loopback dev process move the clock. Any other process exits on startup |
+| `SEED_DEMO_ACCOUNTS` | No | `false` | Seed `admintest` and `membertest` API users. Refused unless `AJO_ENV` is `local` or `dev` |
 
 ## Security notes
 
@@ -171,6 +174,7 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 - Debug mode is disabled by default. Enable it only with `DASH_DEBUG=true`.
 - Stub sign-in is off unless `ALLOW_LOCAL_STUB_LOGIN=true`, and that setting is refused unless the app is bound to loopback in a local environment. Passwords are not committed; use `local/stub-users.example.json` as the template.
 - The test clock stays on the wall clock unless `ALLOW_TEST_CLOCK=true`. That flag is refused outside the test suite and a loopback process with `AJO_ENV=local` or `AJO_ENV=dev`. Production and staging cannot move time.
+- Demo seeding stays off unless `SEED_DEMO_ACCOUNTS=true`. That flag is refused when `AJO_ENV` is unset or is not `local` or `dev`. It never creates the ten demo personas.
 - Generate a new JWT secret for every environment. Never reuse the value in `.env.example`.
 
 ## Development
