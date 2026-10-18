@@ -13,7 +13,9 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
-from sqlalchemy import Integer, String, create_engine, event
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -90,7 +92,10 @@ class Base(DeclarativeBase):
 
 
 class User(Base):
-    """Account created by POST /api/v1/auth/signup."""
+    """Account created by POST /api/v1/auth/signup.
+
+    ``email`` is stored trimmed and lowercased. Uniqueness is on that form.
+    """
 
     __tablename__ = "users"
 
@@ -98,6 +103,36 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class AuthSession(Base):
+    """Server-side sign-in session. Logout and password reset set ``revoked_at``."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RefreshToken(Base):
+    """Opaque refresh token. Only the SHA-256 hash is stored."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("auth_sessions.id"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    replaced_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("refresh_tokens.id"), nullable=True
+    )
 
 
 def get_db() -> Generator[Session, None, None]:

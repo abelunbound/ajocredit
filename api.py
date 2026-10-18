@@ -17,6 +17,7 @@ Local database (synthetic data only):
 
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 
 # ─── Configuration: Load from environment ─────────────────────────────────────
 #
@@ -67,25 +68,51 @@ from clock import (  # noqa: E402
 
 enforce_test_clock_policy()
 
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_DAYS = int(os.getenv("JWT_EXPIRY_DAYS", "30"))
+from demo_accounts import enforce_demo_seed_policy, seed_demo_accounts  # noqa: E402
 
-import bcrypt
-from fastapi import FastAPI, HTTPException, Depends, Request
-from pydantic import BaseModel, EmailStr
+enforce_demo_seed_policy()
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from database import get_db, User
+
+from auth import (
+    access_token_minutes,
+    create_access_token as _create_access_token,
+    register_auth_routes,
+)
+from database import User, get_db
+
+JWT_ALGORITHM = "HS256"
 
 app = FastAPI(title="Ajo API", version="1.0.0")
+get_current_user = register_auth_routes(app, jwt_secret=JWT_SECRET_KEY)
+seed_demo_accounts()
 
-# bcrypt (the maintained PyCA library) hashes passwords. passlib is not used.
-BCRYPT_MAX_BYTES = 72
+
+def create_access_token(user_id: int, session_id: int) -> str:
+    """Access token whose expiry is ``clock.now()`` plus ``access_token_minutes()``."""
+    return _create_access_token(user_id, session_id, secret=JWT_SECRET_KEY)
 
 
-def hash_password(password: str) -> str:
-    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-    return hashed.decode("utf-8")
+@app.exception_handler(RequestValidationError)
+async def hide_secrets_in_validation_errors(_request: Request, exc: RequestValidationError):
+    """Drop submitted values. A 422 must not echo a password."""
+    cleaned = []
+    for error in exc.errors():
+        item = {}
+        for key, value in error.items():
+            if key == "input":
+                continue
+            if key == "ctx":
+                item[key] = {name: str(ctx_value) for name, ctx_value in value.items()}
+                continue
+            item[key] = value
+        cleaned.append(item)
+    return JSONResponse(status_code=422, content={"detail": cleaned})
 
 
 @app.get("/health")
@@ -94,127 +121,11 @@ def health(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
-# ─── Request / Response models ────────────────────────────────────────────────
+# ─── GET /api/v1/me  (protected route) ────────────────────────────────────────
 #
-#  Pydantic models define exactly what shape of data this route accepts.
-#  FastAPI auto-validates incoming JSON against these — if the email is
-#  malformed or a field is missing, it returns a 422 automatically.
-#
-class SignupRequest(BaseModel):
-    name: str
-    email: EmailStr          # Pydantic validates email format for free
-    password: str
-
-class SignupResponse(BaseModel):
-    user_id: int
-    name: str
-    email: str
-    token: str               # JWT token the frontend stores for future requests
-
-
-# ─── Helper: generate JWT token ───────────────────────────────────────────────
-
-import jwt
-from datetime import datetime, timedelta, timezone
-
-def create_token(user_id: int) -> str:
-    payload = {
-        "sub": str(user_id),
-        "exp": clock_now() + timedelta(days=JWT_EXPIRY_DAYS),
-    }
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-
-
-# ─── POST /api/v1/auth/signup ─────────────────────────────────────────────────
-#
-#  This is the route your Dash app calls from the callback.
-#
-#  What it does, step by step:
-#    1. Receives the JSON body (name, email, password)
-#    2. Pydantic validates the shape automatically
-#    3. We check the database — is this email already registered?
-#    4. Hash the password (NEVER store it plain)
-#    5. Save the new user to the database
-#    6. Return a JWT token so the frontend can stay logged in
-#
-@app.post(
-    "/api/v1/auth/signup",
-    response_model=SignupResponse,
-    status_code=201,               # 201 = Created (not 200 = OK)
-)
-def signup(body: SignupRequest, db: Session = Depends(get_db)):
-
-    # ── Step 1: Check if email already exists
-    existing = db.query(User).filter(User.email == body.email).first()
-    if existing:
-        raise HTTPException(
-            status_code=409,                                # 409 Conflict
-            detail="An account with this email already exists."
-        )
-
-    # ── Step 2: Validate password length
-    if len(body.password) < 8:
-        raise HTTPException(
-            status_code=422,
-            detail="Password must be at least 8 characters."
-        )
-    if len(body.password.encode("utf-8")) > BCRYPT_MAX_BYTES:
-        raise HTTPException(
-            status_code=422,
-            detail="Password must be at most 72 bytes."
-        )
-
-    # ── Step 3: Hash the password
-    hashed_password = hash_password(body.password)
-    # hashed_password looks like: "$2b$12$KIXmFgp3..." — safe to store
-
-    # ── Step 4: Save user to database
-    new_user = User(
-        name=body.name,
-        email=body.email,
-        hashed_password=hashed_password,
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)          # get the auto-generated user_id back
-
-    # ── Step 5: Create a JWT token
-    token = create_token(new_user.id)
-
-    # ── Step 6: Return the response
-    #    Dash callback receives this as response.json()
-    return SignupResponse(
-        user_id=new_user.id,
-        name=new_user.name,
-        email=new_user.email,
-        token=token,
-    )
-
-
-# ─── GET /api/v1/me  (example of a protected route) ──────────────────────────
-#
-#  Once the user is logged in, Dash sends the token in the
-#  Authorization header on every future request:
-#
-#    headers={"Authorization": f"Bearer {token}"}
-#
-#  The backend verifies the token and returns the user's data.
-
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-bearer = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        user_id = int(payload["sub"])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    return user
+#  Authorization: Bearer <access token>
+#  The access token is a short-lived PyJWT. The server also checks that the
+#  session id inside it is still active, so logout works before the token expires.
 
 @app.get("/api/v1/me")
 def get_me(current_user: User = Depends(get_current_user)):

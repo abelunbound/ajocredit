@@ -20,6 +20,11 @@ enforce_local_stub_policy()
 # Refuse a test clock that is enabled outside tests or local loopback dev.
 enforce_test_clock_policy()
 
+from demo_accounts import enforce_demo_seed_policy  # noqa: E402
+
+# Refuse demo seeding unless AJO_ENV is local or dev. Unset is refused too.
+enforce_demo_seed_policy()
+
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update  # noqa: E402
 
 from pages import (  # noqa: E402

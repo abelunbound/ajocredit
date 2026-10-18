@@ -95,12 +95,19 @@ def _open_pair(db, suffix: str | None = None):
 
 
 def test_head_revision_is_the_ledger_migration():
+    """The ledger migration stays in the single chain behind whatever head is current."""
     script = ScriptDirectory.from_config(_config)
-    head = script.get_current_head()
-    revision = script.get_revision(head)
-    assert revision is not None
-    assert revision.revision == "0002_create_ledger"
-    assert revision.down_revision == "0001_create_users"
+    heads = script.get_heads()
+    assert len(heads) == 1
+    revision = script.get_revision(heads[0])
+    seen = []
+    while revision is not None:
+        seen.append((revision.revision, revision.down_revision))
+        down = revision.down_revision
+        if not isinstance(down, str):
+            break
+        revision = script.get_revision(down)
+    assert ("0002_create_ledger", "0001_create_users") in seen
 
 
 def test_money_columns_are_integers_not_floats():

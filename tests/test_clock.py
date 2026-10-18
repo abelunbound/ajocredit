@@ -144,6 +144,7 @@ def _run_import(module: str, env: dict):
     for name in (
         "ALLOW_TEST_CLOCK",
         "ALLOW_LOCAL_STUB_LOGIN",
+        "SEED_DEMO_ACCOUNTS",
         "DASH_HOST",
         "AJO_ENV",
         "PYTEST_CURRENT_TEST",
@@ -152,6 +153,7 @@ def _run_import(module: str, env: dict):
     ):
         child_env.pop(name, None)
     child_env["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+    child_env["SEED_DEMO_ACCOUNTS"] = "false"
     child_env.update(env)
     return subprocess.run(
         [sys.executable, "-c", f"import {module}"],
@@ -221,6 +223,7 @@ def api_module():
     os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
     os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
     os.environ["ALLOW_TEST_CLOCK"] = "false"
+    os.environ["SEED_DEMO_ACCOUNTS"] = "false"
     if "api" not in sys.modules and not os.environ.get("DATABASE_URL", "").startswith("postgres"):
         os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     import api
@@ -316,13 +319,16 @@ def test_dev_clock_ignores_a_spoofed_forwarded_for(monkeypatch, api_module):
 
 def test_signup_token_expiry_follows_the_clock(api_module):
     freeze(FROZEN)
-    token = api_module.create_token(7)
+    token = api_module.create_access_token(7, 3)
     payload = jwt.decode(
         token,
         api_module.JWT_SECRET_KEY,
         algorithms=[api_module.JWT_ALGORITHM],
         options={"verify_exp": False},
     )
-    expected = int((FROZEN + timedelta(days=api_module.JWT_EXPIRY_DAYS)).timestamp())
+    expected = int((FROZEN + timedelta(minutes=api_module.access_token_minutes())).timestamp())
     assert payload["sub"] == "7"
+    assert payload["sid"] == "3"
+    assert payload["typ"] == "access"
     assert payload["exp"] == expected
+    assert api_module.access_token_minutes() <= 60
