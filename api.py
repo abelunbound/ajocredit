@@ -96,70 +96,21 @@ from audit import register_audit_routes
 from ledger_admin import register_ledger_admin_routes
 
 JWT_ALGORITHM = "HS256"
-
-app = FastAPI(title="Ajo API", version="1.0.0")
-get_current_user = register_auth_routes(app, jwt_secret=JWT_SECRET_KEY)
-seed_demo_accounts()
-register_password_reset_routes(app)
-register_email_verification_routes(app)
-register_circle_routes(app, get_current_user)
-register_role_routes(app, get_current_user)
-register_audit_routes(app, get_current_user)
-register_ledger_admin_routes(app, get_current_user)
+# Swagger, ReDoc, and the OpenAPI document. Any other AJO_ENV, including unset, hides them.
+_OPENAPI_ENVS = frozenset({"local", "dev"})
 
 
-@app.middleware("http")
-async def bind_audit_request(request: Request, call_next):
-    """Expose the request to the audit log. The client IP is the TCP peer."""
-    token = audit.bind_request(request)
-    try:
-        return await call_next(request)
-    finally:
-        audit.reset_request(token)
+def openapi_docs_enabled() -> bool:
+    """True only when AJO_ENV is local or dev, ignoring case and surrounding space."""
+    raw = os.getenv("AJO_ENV")
+    if raw is None:
+        return False
+    return raw.strip().lower() in _OPENAPI_ENVS
 
 
 def create_access_token(user_id: int, session_id: int) -> str:
     """Access token whose expiry is ``clock.now()`` plus ``access_token_minutes()``."""
     return _create_access_token(user_id, session_id, secret=JWT_SECRET_KEY)
-
-
-@app.exception_handler(RequestValidationError)
-async def hide_secrets_in_validation_errors(_request: Request, exc: RequestValidationError):
-    """Drop submitted values. A 422 must not echo a password."""
-    cleaned = []
-    for error in exc.errors():
-        item = {}
-        for key, value in error.items():
-            if key == "input":
-                continue
-            if key == "ctx":
-                item[key] = {name: str(ctx_value) for name, ctx_value in value.items()}
-                continue
-            item[key] = value
-        cleaned.append(item)
-    return JSONResponse(status_code=422, content={"detail": cleaned})
-
-
-@app.get("/health")
-def health(db: Session = Depends(get_db)):
-    db.execute(text("SELECT 1"))
-    return {"status": "ok"}
-
-
-# ─── GET /api/v1/me  (protected route) ────────────────────────────────────────
-#
-#  Authorization: Bearer <access token>
-#  The access token is a short-lived PyJWT. The server also checks that the
-#  session id inside it is still active, so logout works before the token expires.
-
-@app.get("/api/v1/me")
-def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "user_id": current_user.id,
-        "name": current_user.name,
-        "email": current_user.email,
-        "email_verified": current_user.email_verified_at is not None,
-    }
 
 
 class DevClockRequest(BaseModel):
@@ -225,5 +176,80 @@ def register_dev_clock_routes(fastapi_app: FastAPI) -> None:
         return {"now": clock_now().isoformat()}
 
 
-if dev_control_allowed():
-    register_dev_clock_routes(app)
+def create_app() -> FastAPI:
+    """Build the API. Interactive docs exist only for local and dev."""
+    if openapi_docs_enabled():
+        docs_url: str | None = "/docs"
+        redoc_url: str | None = "/redoc"
+        openapi_url: str | None = "/openapi.json"
+    else:
+        docs_url = None
+        redoc_url = None
+        openapi_url = None
+    application = FastAPI(
+        title="Ajo API",
+        version="1.0.0",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
+    )
+    get_current_user = register_auth_routes(application, jwt_secret=JWT_SECRET_KEY)
+    seed_demo_accounts()
+    register_password_reset_routes(application)
+    register_email_verification_routes(application)
+    register_circle_routes(application, get_current_user)
+    register_role_routes(application, get_current_user)
+    register_audit_routes(application, get_current_user)
+    register_ledger_admin_routes(application, get_current_user)
+
+    @application.middleware("http")
+    async def bind_audit_request(request: Request, call_next):
+        """Expose the request to the audit log. The client IP is the TCP peer."""
+        token = audit.bind_request(request)
+        try:
+            return await call_next(request)
+        finally:
+            audit.reset_request(token)
+
+    @application.exception_handler(RequestValidationError)
+    async def hide_secrets_in_validation_errors(_request: Request, exc: RequestValidationError):
+        """Drop submitted values. A 422 must not echo a password."""
+        cleaned = []
+        for error in exc.errors():
+            item = {}
+            for key, value in error.items():
+                if key == "input":
+                    continue
+                if key == "ctx":
+                    item[key] = {name: str(ctx_value) for name, ctx_value in value.items()}
+                    continue
+                item[key] = value
+            cleaned.append(item)
+        return JSONResponse(status_code=422, content={"detail": cleaned})
+
+    @application.get("/health")
+    def health(db: Session = Depends(get_db)):
+        db.execute(text("SELECT 1"))
+        return {"status": "ok"}
+
+    # ─── GET /api/v1/me  (protected route) ────────────────────────────────────
+    #
+    #  Authorization: Bearer <access token>
+    #  The access token is a short-lived PyJWT. The server also checks that the
+    #  session id inside it is still active, so logout works before the token expires.
+
+    @application.get("/api/v1/me")
+    def get_me(current_user: User = Depends(get_current_user)):
+        return {
+            "user_id": current_user.id,
+            "name": current_user.name,
+            "email": current_user.email,
+            "email_verified": current_user.email_verified_at is not None,
+        }
+
+    if dev_control_allowed():
+        register_dev_clock_routes(application)
+    return application
+
+
+app = create_app()
