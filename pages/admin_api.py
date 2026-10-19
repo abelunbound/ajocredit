@@ -143,20 +143,81 @@ def layout():
                 ],
                 "entries",
             ),
-            _section(
-                "Ledger",
-                ledger_status,
-                ledger_payload,
-                LEDGER_UNAVAILABLE,
-                [
-                    ("posted_at", "When"),
-                    ("description", "Description"),
-                    ("reference", "Reference"),
-                ],
-                "transactions",
-            ),
+            *_ledger_sections(ledger_status, ledger_payload),
         ],
     )
+
+
+def _ledger_sections(status: int, payload: object):
+    """Balances and every line of each transaction. Amounts stay the API's display strings."""
+    sections = [
+        _section(
+            "Ledger balances",
+            status,
+            payload,
+            LEDGER_UNAVAILABLE,
+            [
+                ("code", "Account"),
+                ("account_type", "Type"),
+                ("balance_pence", "Balance (pence)"),
+                ("balance_display", "Balance"),
+            ],
+            "balances",
+        )
+    ]
+    if status != 200 or not isinstance(payload, dict):
+        return sections
+    sections.append(
+        _section(
+            "Ledger transactions",
+            status,
+            payload,
+            LEDGER_UNAVAILABLE,
+            [
+                ("posted_at", "When"),
+                ("description", "Description"),
+                ("reference", "Reference"),
+            ],
+            "transactions",
+        )
+    )
+    lines = []
+    for transaction in payload.get("transactions") or []:
+        if not isinstance(transaction, dict):
+            continue
+        for entry in transaction.get("entries") or []:
+            if not isinstance(entry, dict):
+                continue
+            lines.append(
+                {
+                    "posted_at": transaction.get("posted_at") or "",
+                    "description": transaction.get("description") or "",
+                    "account_code": entry.get("account_code") or "",
+                    "direction": entry.get("direction") or "",
+                    "amount_pence": entry.get("amount_pence") if entry.get("amount_pence") is not None else "",
+                    "amount_display": entry.get("amount_display") or "",
+                }
+            )
+    sections.append(
+        html.Div(
+            className="card",
+            children=[
+                html.H2("Ledger lines", className="h2"),
+                _rows(
+                    lines,
+                    [
+                        ("posted_at", "When"),
+                        ("description", "Description"),
+                        ("account_code", "Account"),
+                        ("direction", "Direction"),
+                        ("amount_pence", "Pence"),
+                        ("amount_display", "Amount"),
+                    ],
+                ),
+            ],
+        )
+    )
+    return sections
 
 
 def register_callbacks(app) -> None:

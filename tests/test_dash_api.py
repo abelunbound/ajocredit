@@ -194,20 +194,49 @@ def test_refresh_uses_the_test_clock_and_logout_drops_the_token(api_dash):
 
 
 def test_admin_page_calls_audit_and_ledger_without_printing_tokens(api_dash):
+    from ledger import CREDIT, DEBIT, Posting, open_account, post_entry
+
+    frozen = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
+    clock.freeze(frozen)
     with database.SessionLocal() as db:
+        open_account(
+            db,
+            code="asset:partner:circle-synth-dash",
+            name="Partner clearing",
+            kind="asset",
+            circle_ref="circle-synth-dash",
+        )
+        open_account(
+            db,
+            code="liability:member-ada:circle-synth-dash",
+            name="Member Ada contributions",
+            kind="liability",
+            circle_ref="circle-synth-dash",
+            member_ref="member-ada",
+        )
+        post_entry(
+            db,
+            description="Contribution",
+            reference="contrib-synth-dash",
+            postings=[
+                Posting("asset:partner:circle-synth-dash", DEBIT, 2575),
+                Posting("liability:member-ada:circle-synth-dash", CREDIT, 2575),
+            ],
+        )
         admin = db.query(database.User).filter(database.User.email == "admintest@example.test").one()
         admin.platform_role = PLATFORM_ADMIN
         db.commit()
-    frozen = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
-    clock.freeze(frozen)
     with app.server.test_request_context():
         apply_signin("admintest", ADMIN_PW)
         token = dash_api.VAULT.get(session["api_sid"])["access_token"]
         text = str(render_shell("admin", "member"))
         assert "Checked 2026-04-01 12:00:00 UTC" in text
         assert "Audit log" in text
+        assert "Ledger balances" in text
         assert "Not allowed." not in text
-        assert "The ledger view is not available from this API." in text
+        assert "The ledger view is not available from this API." not in text
+        assert "£25.75" in text
+        assert "2575" in text
         assert token not in text
         assert "admintest@example.test" not in text
         assert ADMIN_PW not in text
@@ -223,7 +252,8 @@ def test_circle_member_is_refused_the_audit_log(api_dash):
         apply_signin("membertest", MEMBER_PW)
         text = str(render_shell("admin", "admin"))
         assert "Not allowed." in text
-        assert "The ledger view is not available from this API." in text
+        assert "The ledger view is not available from this API." not in text
+        assert "£25.75" not in text
         token = dash_api.VAULT.get(session["api_sid"])["access_token"]
         assert token not in text
 
