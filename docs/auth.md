@@ -26,7 +26,32 @@ Each refresh is one conditional update: the row is marked revoked only while it 
 
 `exp`, `iat`, and `nbf` are checked against `clock.now()`, with a 10-second leeway. PyJWT's own clock checks are off, so moving the test clock does not reject a token that was just issued. A token whose `iat` or `nbf` is still in the future after that leeway is rejected.
 
-Signup, login, password reset, and verification resend all call `enforce_auth_attempt_policy` in `auth.py`. That function does not rate-limit or lock accounts yet. Full limiting stays in #40. It reads `request.client.host` only. `X-Forwarded-For` is not trusted.
+Signup, login, password reset, and verification resend all call `enforce_auth_attempt_policy` in `auth.py`. That is the only limiter on those routes. It reads `request.client.host` only. `X-Forwarded-For` is not trusted. The limits and the lockout are described below.
+
+## Rate limits and lockout (#40)
+
+Each of signup, login, password reset, and verification resend is counted twice: once for the client IP, and once for the account. The account key is the HMAC-SHA256 of the normalised email, the same hash as the audit log. The raw address is not stored in `auth_rate_buckets` or `auth_account_guards`.
+
+The window is 15 minutes of `clock.now()`. A window that has expired starts again at zero. These are the caps whenever `AJO_ENV` is unset or is anything other than `local` or `dev`:
+
+| Action | Per IP | Per account |
+|---|---|---|
+| Signup | 20 | 5 |
+| Login | 50 | 20 |
+| Password reset | 20 | 5 |
+| Verification resend | 20 | 5 |
+
+`local` and `dev` use a higher cap, 10000 per IP and 100 per account, so a laptop and the test suite are not blocked. Those two environments keep their own counters (`ip-dev` and `account-dev`). Any other value, including an empty `AJO_ENV`, uses the table above. The higher caps cannot be turned on by another variable.
+
+A request over either cap returns 429 with `Too many attempts. Try again later.` The body is the same for a known address and an unknown one, and it does not contain the email. Login still runs a bcrypt check on that path, so a locked or limited known address takes the same time as an unknown one. Both return that same 429.
+
+The per-account cap of 5 for password reset and verification resend is the production rule. It means five messages are sent. The fifth request succeeds. The sixth request in that window is limited. Because that production cap is also the first lockout step, reset and resend do not lock on the fifth message. In `local` and `dev` the account cap is 100, so that first lock step can still refuse the fifth request and only four emails go out. The later lock steps, 10 and 20, still apply. Login still locks on the fifth failed password.
+
+Login, password reset, and verification resend also lock the account. Failed attempts are counted on `auth_account_guards`. A login counts only after the password check fails, so a correct password is not a failure. Reset and resend count each request that asks for a message. A quiet 24 hours with no lock in force clears that streak. A lock lasts 1 minute, then 15 minutes, then 1 hour. Further steps stay at 1 hour. The lock is checked with `clock.now()`. While it is in force, a new request for a message returns the same 429 and does not add another failure. A successful login clears the login streak. A completed reset clears the reset streak. Confirming the email clears the resend streak. The per-IP window is not cleared by success.
+
+`POST /api/v1/auth/password/reset` with a valid token skips the per-account cap and the lockout. It still counts toward the per-IP cap. Requests for a reset link cannot use up the account allowance and then block the link. An invalid token is rejected before the limiter runs.
+
+The lockout notice is sent through the same mail sender as password reset, and only when that address has a user row. The message does not include a token or the address. One notice is sent per new lock level. An audit row stores the HMAC, the user id when there is one, and the client IP. If the audit key is missing, these routes return 503 and do not fall back to a plain hash.
 
 ## Password reset (#114)
 
@@ -78,7 +103,7 @@ Setting `EMAIL_SENDER` to one of those dev values when `AJO_ENV` is unset, or is
 
 ## Logs (SR-09)
 
-Do not write passwords, reset tokens, verification tokens, refresh tokens, access tokens, or the links that carry them to the application log. The dev inbox stores the message body for local testing. That copy is git-ignored and is not a log line. Validation errors do not echo the submitted password. Audit rows store the HMAC of the email, not the email.
+Do not write passwords, reset tokens, verification tokens, refresh tokens, access tokens, or the links that carry them to the application log. Do not write the raw email there either. The dev inbox stores the message body for local testing. That copy is git-ignored and is not a log line. Validation errors do not echo the submitted password. Audit rows and rate-limit rows store the HMAC of the email, not the email.
 
 ## Environment variables
 

@@ -321,7 +321,7 @@ def test_unknown_role_cannot_be_granted():
 
 def test_migration_backfills_creator_admin_and_keeps_one_head(tmp_path, monkeypatch):
     config = Config(str(REPO / "alembic.ini"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0006_circle_roles"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0007_auth_rate_limits"]
 
     url = "sqlite:///" + str(tmp_path / "roles.db")
     monkeypatch.setenv("DATABASE_URL", url)
@@ -393,4 +393,4 @@ def test_migration_backfills_creator_admin_and_keeps_one_head(tmp_path, monkeypa
             text("SELECT user_id, role FROM circle_members ORDER BY user_id")
         ).all()
     assert [(row[0], row[1]) for row in rows] == [(1, "admin"), (2, "member")]
-    assert ScriptDirectory.from_config(config).get_heads() == ["0006_circle_roles"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0007_auth_rate_limits"]
