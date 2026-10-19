@@ -67,7 +67,9 @@ In production the application's database role should have only `INSERT` and `SEL
 
 ## CI balance check
 
-`ledger_balance.check_ledger_invariants` reads posted rows and checks two rules, in integer pence. `python -m ledger_balance --seed` posts a synthetic circle, prints the three totals, and exits 1 when either rule fails. The Postgres 16 API job runs that command after `alembic upgrade head`. A mismatch fails the job.
+`ledger_balance.check_ledger_invariants` reads posted rows and checks two rules, in integer pence. `python -m ledger_balance --seed` posts a synthetic circle, prints the three totals, and exits 1 when either rule fails. The Postgres 16 API job runs that command after `alembic upgrade head`, with `AJO_ENV=ci`. A mismatch fails the job.
+
+Seeding writes rows, so `--seed` runs only when `AJO_ENV` is `local`, `dev`, or `ci`. Letter case and surrounding space do not matter. An unset `AJO_ENV`, a blank value, or any other value prints a refusal and exits 1. The database is not opened and nothing is posted. `python -m ledger_balance` without `--seed` only reads, and it runs in any environment.
 
 The synthetic circle is `circle-synth-ci-balance`. Member refs are `member-ada` and `member-bo`. The seed has no email address and no bank detail. Accounts and entries go through `open_account`, `post_entry`, and `post_reversal`, so `created_at` and `posted_at` come from `clock.now()`. One contribution is posted by mistake and then reversed. The reversal sets `reversal_of_id`. The original row stays. Calling the seed again does not post a second copy.
 

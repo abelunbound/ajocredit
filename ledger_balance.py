@@ -18,14 +18,18 @@ Both rules have to hold. Two entries can be unbalanced and still cancel
 in the totals.
 
 ``python -m ledger_balance --seed`` posts a synthetic circle and exits 1
-when either rule fails. The Postgres CI job runs that command. Nothing here
-prints a connection string or a token.
+when either rule fails. Seeding runs only when ``AJO_ENV`` is ``local``,
+``dev``, or ``ci``. The Postgres CI job sets ``AJO_ENV=ci`` for that command.
+A check without ``--seed`` only reads. Nothing here prints a connection
+string or a token.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -80,6 +84,9 @@ REF_FEE = "ci-balance-fee"
 REF_INTEREST = "ci-balance-interest"
 REF_MISTAKE = "ci-balance-ada-mistake"
 REF_MISTAKE_REVERSAL = "ci-balance-ada-mistake-reversal"
+
+# Seeding writes rows. These are the only environments that may do that.
+SEED_ENVS = frozenset({"local", "dev", "ci"})
 
 
 class LedgerInvariantError(Exception):
@@ -317,15 +324,42 @@ def seed_synthetic_ledger(session: Session) -> None:
     _reverse_once(session, mistake_id, REF_MISTAKE_REVERSAL)
 
 
+def seed_refusal(source: Mapping[str, str] | None = None) -> str | None:
+    """Why ``--seed`` must stop, or None when ``AJO_ENV`` is local, dev, or ci.
+
+    Comparison ignores case and surrounding space. An unset or blank value
+    is refused. Any other value is refused.
+    """
+    env = os.environ if source is None else source
+    raw = env.get("AJO_ENV")
+    cleaned = "" if raw is None else str(raw).strip().lower()
+    if cleaned in SEED_ENVS:
+        return None
+    shown = "(unset)" if raw is None or str(raw).strip() == "" else str(raw).strip()
+    return (
+        f"AJO_ENV is {shown!r}; refusing to seed the synthetic ledger. "
+        "Seeding is allowed only when AJO_ENV is local, dev, or ci."
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Seed when asked, then check. Return 1 when the ledger does not balance."""
+    """Seed when asked, then check. Return 1 when the ledger does not balance.
+
+    ``--seed`` returns 1 before opening the database when ``AJO_ENV`` is not
+    local, dev, or ci. A run without ``--seed`` only reads, in any environment.
+    """
     parser = argparse.ArgumentParser(description="Check ledger invariants in integer pence.")
     parser.add_argument(
         "--seed",
         action="store_true",
-        help="Post the synthetic CI ledger before checking.",
+        help="Post the synthetic ledger. Allowed only when AJO_ENV is local, dev, or ci.",
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.seed:
+        refusal = seed_refusal()
+        if refusal is not None:
+            print(refusal, file=sys.stderr)
+            return 1
     session = database.SessionLocal()
     try:
         if args.seed:

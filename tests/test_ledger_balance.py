@@ -25,6 +25,7 @@ from sqlalchemy import insert, select
 
 import clock
 import database
+import ledger_balance
 from ledger import (
     ASSET,
     CREDIT,
@@ -296,7 +297,8 @@ def test_injected_offsetting_mismatch_fails_even_though_the_books_still_sum():
         db.close()
 
 
-def test_cli_seed_exits_zero_when_the_ledger_balances(capsys):
+def test_cli_seed_exits_zero_when_the_ledger_balances(monkeypatch, capsys):
+    monkeypatch.setenv("AJO_ENV", "ci")
     assert main(["--seed"]) == 0
     out = capsys.readouterr().out
     assert "://" not in out
@@ -308,6 +310,53 @@ def test_cli_seed_exits_zero_when_the_ledger_balances(capsys):
         key, value = token.split("=", 1)
         parts[key] = int(value)
     assert parts["money_in"] == parts["money_out"] + parts["balances"]
+
+
+@pytest.mark.parametrize("env_name", ["local", "dev", "ci", "CI", "Local", "  Dev  "])
+def test_seed_runs_for_local_dev_or_ci(monkeypatch, capsys, env_name):
+    monkeypatch.setenv("AJO_ENV", env_name)
+    assert main(["--seed"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith("ledger balances: ")
+    assert "refusing to seed" not in captured.err
+    assert "://" not in captured.out
+
+
+@pytest.mark.parametrize(
+    "env_name",
+    [None, "", "   ", "production", "staging", "test", "prod", "localdev"],
+)
+def test_seed_refuses_for_any_other_ajo_env(monkeypatch, capsys, env_name):
+    if env_name is None:
+        monkeypatch.delenv("AJO_ENV", raising=False)
+    else:
+        monkeypatch.setenv("AJO_ENV", env_name)
+
+    def _opened():
+        raise AssertionError("database opened")
+
+    monkeypatch.setattr(ledger_balance.database, "SessionLocal", _opened)
+    assert main(["--seed"]) == 1
+    err = capsys.readouterr().err
+    assert "refusing to seed the synthetic ledger" in err
+    assert "local, dev, or ci" in err
+    assert "://" not in err
+    if env_name is None or env_name.strip() == "":
+        assert "AJO_ENV is '(unset)'" in err
+    else:
+        assert f"AJO_ENV is {env_name.strip()!r}" in err
+
+
+@pytest.mark.parametrize("env_name", [None, "", "production", "staging"])
+def test_readonly_check_runs_when_seeding_is_refused(monkeypatch, capsys, env_name):
+    if env_name is None:
+        monkeypatch.delenv("AJO_ENV", raising=False)
+    else:
+        monkeypatch.setenv("AJO_ENV", env_name)
+    assert main([]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith("ledger balances: ")
+    assert "refusing to seed" not in captured.err
 
 
 def test_cli_exits_nonzero_when_the_checker_reports_a_mismatch(monkeypatch, capsys):

@@ -67,6 +67,8 @@ jobs:
       run: alembic upgrade head
 
     - name: Check seeded ledger balances
+      env:
+        AJO_ENV: ci
       run: python -m ledger_balance --seed
 
     - name: Run tests
