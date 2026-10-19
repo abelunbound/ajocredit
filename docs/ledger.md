@@ -65,6 +65,36 @@ The ledger is append-only. Rows are inserted and then left as they were. Updates
 
 In production the application's database role should have only `INSERT` and `SELECT` on `ledger_accounts`, `ledger_entries`, and `ledger_lines`. Postgres triggers do not block `TRUNCATE`, so that role must not be able to truncate, update, or delete those tables.
 
+## CI balance check
+
+`ledger_balance.check_ledger_invariants` reads posted rows and checks two rules, in integer pence. `python -m ledger_balance --seed` posts a synthetic circle, prints the three totals, and exits 1 when either rule fails. The Postgres 16 API job runs that command after `alembic upgrade head`, with `AJO_ENV=ci`. A mismatch fails the job.
+
+Seeding writes rows, so `--seed` runs only when `AJO_ENV` is `local`, `dev`, or `ci`. Letter case and surrounding space do not matter. An unset `AJO_ENV`, a blank value, or any other value prints a refusal and exits 1. The database is not opened and nothing is posted. `python -m ledger_balance` without `--seed` only reads, and it runs in any environment.
+
+The synthetic circle is `circle-synth-ci-balance`. Member refs are `member-ada` and `member-bo`. The seed has no email address and no bank detail. Accounts and entries go through `open_account`, `post_entry`, and `post_reversal`, so `created_at` and `posted_at` come from `clock.now()`. One contribution is posted by mistake and then reversed. The reversal sets `reversal_of_id`. The original row stays. Calling the seed again does not post a second copy.
+
+1. Every posted transaction balances. For each `ledger_entries` row, including a reversal, debit pence equal credit pence and there are at least two lines. Each entry is checked on its own. Two unbalanced entries can still cancel in the account totals.
+2. The accounts reconcile: **money in = money out + balances**.
+   - **Money in** is the signed balances of liability, equity, and income (credit-normal: credits − debits).
+   - **Money out** is the signed balances of expense accounts (debit-normal: debits − credits).
+   - **Balances** is the signed balances of asset accounts (debit-normal: debits − credits).
+
+An empty ledger passes (`0 = 0 + 0`). The CI seed is not empty.
+
+| Entry | Debit | Credit |
+|---|---|---|
+| Equity opening | asset 1000 | equity 1000 |
+| Ada contribution | asset 2575 | liability Ada 2575 |
+| Bo contribution | asset 5000 | liability Bo 5000 |
+| Fee | expense 75 | asset 75 |
+| Interest | asset 25 | income 25 |
+| Mistaken Ada contribution | asset 100 | liability Ada 100 |
+| Reversal of that mistake | liability Ada 100 | asset 100 |
+
+Asset balance 8525. Liabilities 7575. Equity 1000. Income 25. Expense 75. Money in 8600, money out 75, balances 8525. `8600 = 75 + 8525`.
+
+`post_entry` rejects an unbalanced entry before it is stored. A raw `INSERT` can still store one, because the table checks allow any positive pence amount. `tests/test_ledger_balance.py` inserts a broken fixture that way, asserts the checker fails, and rolls the insert back. One fixture is a single entry whose debits and credits differ, so the equation fails too. The other is a pair of unbalanced entries that cancel in the totals. The per-entry rule catches that pair. Either mismatch fails the same check the Postgres job runs.
+
 ## Posting time
 
 `ledger_accounts.created_at` and `ledger_entries.posted_at` are set from `clock.now()`.
