@@ -19,6 +19,13 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+from dotenv import load_dotenv
+
+# Same file Dash loads. Skip under pytest so startup-failure tests still see
+# a missing or placeholder secret instead of values from a local .env.
+if not os.environ.get("PYTEST_CURRENT_TEST"):
+    load_dotenv(override=False)
+
 # ─── Configuration: Load from environment ─────────────────────────────────────
 #
 #  Validate secrets before importing the rest of the app. A bad secret must

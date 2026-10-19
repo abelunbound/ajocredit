@@ -14,6 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+
+if not os.environ.get("PYTEST_CURRENT_TEST"):
+    load_dotenv(ROOT / ".env", override=False)
+
 from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine.url import make_url
