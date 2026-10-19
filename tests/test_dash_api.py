@@ -1,0 +1,322 @@
+"""Dash calls the FastAPI app with the server session, not the stub role map.
+
+Tokens stay in the Dash process. The Flask session stores an opaque id.
+Only admintest and membertest can sign in. Persona names are refused.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
+os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
+os.environ["SEED_DEMO_ACCOUNTS"] = "false"
+os.environ.setdefault("AJO_ENV", "local")
+os.environ.setdefault("EMAIL_SENDER", "dev")
+os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
+
+if "api" not in sys.modules:
+    _configured_url = os.environ.get("DATABASE_URL", "")
+    if not _configured_url.startswith("postgres"):
+        _db_dir = tempfile.mkdtemp(prefix="ajo-dash-api-")
+        os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_db_dir) / "ajo.db")
+    from alembic import command
+    from alembic.config import Config
+
+    command.upgrade(Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head")
+
+import pytest
+from fastapi.testclient import TestClient
+from flask import session
+
+import api
+import clock
+import dash_api
+import database
+import demo_accounts
+from app_dash_web import apply_signin, app, next_state, render_shell
+from audit import PLATFORM_ADMIN
+
+ADMIN_PW = "pw-admin"
+MEMBER_PW = "pw-member"
+http = TestClient(api.app)
+
+
+def _send(calls):
+    def send(method, path, body, headers, params):
+        calls.append(
+            {
+                "method": method,
+                "path": path.split("?", 1)[0],
+                "body": body,
+                "headers": dict(headers),
+                "params": params,
+            }
+        )
+        response = http.request(method, path, json=body, headers=headers, params=params)
+        payload = response.json() if response.content else None
+        return response.status_code, payload
+
+    return send
+
+
+@pytest.fixture
+def api_dash(tmp_path, monkeypatch):
+    path = tmp_path / "stub-users.json"
+    path.write_text(
+        json.dumps({"admintest": ADMIN_PW, "membertest": MEMBER_PW}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("STUB_USERS_FILE", str(path))
+    monkeypatch.setenv("SEED_DEMO_ACCOUNTS", "true")
+    monkeypatch.setenv("AJO_ENV", "local")
+    monkeypatch.setenv("ALLOW_LOCAL_STUB_LOGIN", "false")
+    monkeypatch.setenv("AJO_API_BASE", "http://127.0.0.1:8000")
+    demo_accounts.seed_demo_accounts()
+    calls: list[dict] = []
+    dash_api.install_transport_for_tests(_send(calls))
+    yield calls
+    dash_api.install_transport_for_tests(None)
+    dash_api.VAULT._rows.clear()
+    clock.restore_for_tests()
+
+
+def _paths(calls, path):
+    return [call for call in calls if call["path"] == path]
+
+
+def test_admintest_signs_in_through_the_api_and_keeps_the_token_off_the_session(api_dash):
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "admintest",
+            ADMIN_PW,
+        )
+        assert page == "home"
+        assert error == ""
+        assert session["username"] == "admintest"
+        assert session["role"] == "admin"
+        assert session["api_sid"]
+        assert "access_token" not in session
+        assert "refresh_token" not in session
+        token = dash_api.VAULT.get(session["api_sid"])["access_token"]
+        stored = json.dumps({key: session[key] for key in session})
+        assert token not in stored
+        assert ADMIN_PW not in stored
+        text = str(render_shell("home", "member"))
+        assert token not in text
+        assert "Local Demo Circle · admin" in text
+        assert "PayoutsTracker" in text
+    login = _paths(api_dash, "/api/v1/auth/login")
+    assert len(login) == 1
+    assert login[0]["body"]["email"] == "admintest@example.test"
+    assert "role" not in login[0]["body"]
+    assert _paths(api_dash, "/api/v1/me")
+    assert _paths(api_dash, "/api/v1/circles")
+    circle_reads = [call for call in api_dash if call["path"].startswith("/api/v1/circles/")]
+    assert circle_reads
+    assert circle_reads[0]["headers"]["Authorization"].startswith("Bearer ")
+    assert "role" not in (circle_reads[0]["params"] or {})
+
+
+def test_membertest_role_comes_from_the_server_and_blocks_payouts(api_dash):
+    with app.server.test_request_context():
+        identity = apply_signin("  membertest@example.test ", MEMBER_PW)
+        assert identity is not None
+        assert identity.username == "membertest"
+        assert session["role"] == "member"
+        text = str(render_shell("payouts", "admin"))
+        assert session["role"] == "member"
+        assert "Hold to release" not in text
+        assert "Local Demo Circle · member" in text
+        saved = {key: session[key] for key in session}
+        sid = session["api_sid"]
+    saved["role"] = "admin"
+    saved["circles"] = [{"circle_id": 999, "name": "Fake Circle", "role": "admin"}]
+    client = app.server.test_client()
+    with client.session_transaction() as sess:
+        sess.update(saved)
+    response = client.get("/payouts?role=admin")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/dashboard")
+    assert "Hold to release" not in response.get_data(as_text=True)
+    assert dash_api.VAULT.get(sid)["access_token"] not in response.get_data(as_text=True)
+
+
+def test_personas_and_other_accounts_cannot_sign_in(api_dash):
+    with app.server.test_request_context():
+        assert apply_signin("kemi_a", ADMIN_PW) is None
+        assert apply_signin("amina@example.test", ADMIN_PW) is None
+        assert "role" not in session
+    assert _paths(api_dash, "/api/v1/auth/login") == []
+
+
+def test_wrong_password_does_not_open_a_session(api_dash):
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "admintest",
+            "not-the-password",
+        )
+        assert page == "signin"
+        assert error == "Sign-in failed."
+        assert "role" not in session
+        assert dash_api.VAULT._rows == {}
+
+
+def test_refresh_uses_the_test_clock_and_logout_drops_the_token(api_dash):
+    with app.server.test_request_context():
+        apply_signin("admintest", ADMIN_PW)
+        sid = session["api_sid"]
+        previous = dash_api.VAULT.get(sid)["access_token"]
+        clock.advance(timedelta(minutes=16))
+        status, me = dash_api.request("GET", "/api/v1/me", sid=sid)
+        assert status == 200
+        assert me["email"] == "admintest@example.test"
+        refreshed = dash_api.VAULT.get(sid)["access_token"]
+        assert refreshed != previous
+        assert any(call["path"] == "/api/v1/auth/refresh" for call in api_dash)
+        dash_api.logout(sid)
+        assert dash_api.VAULT.get(sid) is None
+        assert any(call["path"] == "/api/v1/auth/logout" for call in api_dash)
+        replay = http.get("/api/v1/me", headers={"Authorization": f"Bearer {refreshed}"})
+        assert replay.status_code == 401
+        assert previous not in json.dumps({key: session.get(key) for key in ("username", "role", "api_sid")})
+
+
+def test_admin_page_calls_audit_and_ledger_without_printing_tokens(api_dash):
+    with database.SessionLocal() as db:
+        admin = db.query(database.User).filter(database.User.email == "admintest@example.test").one()
+        admin.platform_role = PLATFORM_ADMIN
+        db.commit()
+    frozen = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
+    clock.freeze(frozen)
+    with app.server.test_request_context():
+        apply_signin("admintest", ADMIN_PW)
+        token = dash_api.VAULT.get(session["api_sid"])["access_token"]
+        text = str(render_shell("admin", "member"))
+        assert "Checked 2026-04-01 12:00:00 UTC" in text
+        assert "Audit log" in text
+        assert "Not allowed." not in text
+        assert "The ledger view is not available from this API." in text
+        assert token not in text
+        assert "admintest@example.test" not in text
+        assert ADMIN_PW not in text
+    assert _paths(api_dash, "/api/v1/admin/audit")
+    assert _paths(api_dash, "/api/v1/admin/ledger")
+    audit_call = _paths(api_dash, "/api/v1/admin/audit")[-1]
+    assert audit_call["headers"]["Authorization"].startswith("Bearer ")
+    assert "role" not in (audit_call["params"] or {})
+
+
+def test_circle_member_is_refused_the_audit_log(api_dash):
+    with app.server.test_request_context():
+        apply_signin("membertest", MEMBER_PW)
+        text = str(render_shell("admin", "admin"))
+        assert "Not allowed." in text
+        assert "The ledger view is not available from this API." in text
+        token = dash_api.VAULT.get(session["api_sid"])["access_token"]
+        assert token not in text
+
+
+def test_create_and_join_use_the_api(api_dash):
+    with app.server.test_request_context():
+        apply_signin("admintest", ADMIN_PW)
+        admin_sid = session["api_sid"]
+        status, created = dash_api.request(
+            "POST",
+            "/api/v1/circles",
+            json_body={"name": "Synth Circle"},
+            sid=admin_sid,
+        )
+        assert status == 201, created
+        circle_id = created["circle_id"]
+        dash_api.sync_session_force()
+        assert any(circle["name"] == "Synth Circle" and circle["role"] == "admin" for circle in session["circles"])
+    with app.server.test_request_context():
+        apply_signin("membertest", MEMBER_PW)
+        status, joined = dash_api.request("POST", f"/api/v1/circles/{circle_id}/join", sid=session["api_sid"])
+        assert status == 200, joined
+        dash_api.sync_session_force()
+        match = [circle for circle in session["circles"] if circle["name"] == "Synth Circle"]
+        assert match and match[0]["role"] == "member"
+        payouts = dash_api.request("GET", f"/api/v1/circles/{circle_id}/payouts", sid=session["api_sid"])
+        assert payouts[0] == 403
+
+
+def test_signup_accepts_only_example_test_addresses(api_dash):
+    signup = {
+        "first": "Ada",
+        "last": "Example",
+        "email": "ada.screen@example.test",
+        "phone": "07000000000",
+        "password": "correct-horse",
+        "confirm": "correct-horse",
+    }
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signup-submit"},
+            "getstarted-1",
+            0,
+            "",
+            "",
+            signup,
+        )
+        assert page == "signin"
+        assert error == ""
+        refused = dict(signup)
+        refused["email"] = "ada.screen@example.com"
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signup-submit"},
+            "getstarted-1",
+            0,
+            "",
+            "",
+            refused,
+        )
+        assert page == "getstarted-1"
+        assert error == "Use an @example.test address."
+        assert apply_signin("ada.screen@example.test", "correct-horse") is None
+    posted = _paths(api_dash, "/api/v1/auth/signup")
+    assert len(posted) == 1
+    assert posted[0]["body"]["email"] == "ada.screen@example.test"
+    assert "role" not in posted[0]["body"]
+
+
+def test_demo_sign_in_is_refused_outside_local_and_dev(api_dash, monkeypatch):
+    monkeypatch.setenv("AJO_ENV", "production")
+    with app.server.test_request_context():
+        assert apply_signin("admintest", ADMIN_PW) is None
+    assert _paths(api_dash, "/api/v1/auth/login") == []
+
+
+def test_stub_sign_in_remains_when_the_api_base_is_unset(tmp_path, monkeypatch):
+    path = tmp_path / "stub-users.json"
+    path.write_text(json.dumps({"admintest": ADMIN_PW, "membertest": MEMBER_PW}), encoding="utf-8")
+    monkeypatch.setenv("STUB_USERS_FILE", str(path))
+    monkeypatch.setenv("ALLOW_LOCAL_STUB_LOGIN", "true")
+    monkeypatch.setenv("DASH_HOST", "127.0.0.1")
+    monkeypatch.setenv("AJO_ENV", "local")
+    monkeypatch.delenv("AJO_API_BASE", raising=False)
+    dash_api.install_transport_for_tests(None)
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "admintest",
+            ADMIN_PW,
+        )
+        assert page == "home"
+        assert error == ""
+        assert session["role"] == "admin"
+        assert "api_sid" not in session

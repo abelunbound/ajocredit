@@ -91,7 +91,15 @@ On a laptop, the only demo accounts that can sign in are `admintest` and `member
 
 The ten demo personas are display data for the UI. They have no user rows and no passwords in the database, so they cannot sign in.
 
-The older Dash stub (`ALLOW_LOCAL_STUB_LOGIN`) is separate. It also knows only `admintest` and `membertest`. It is allowed only on a loopback bind (`127.0.0.1`, `localhost`, or `::1`) when `AJO_ENV` is unset or `local`. Enabling it anywhere else refuses to start.
+The older Dash stub (`ALLOW_LOCAL_STUB_LOGIN`) is separate. It also knows only `admintest` and `membertest`. It is allowed only on a loopback bind (`127.0.0.1`, `localhost`, or `::1`) when `AJO_ENV` is unset or `local`. Enabling it anywhere else refuses to start. The stub is what the test suite uses when `AJO_API_BASE` is unset. With `AJO_API_BASE` set, Dash does not use that stub.
+
+## Dash calls the API
+
+Set `AJO_API_BASE` to the API origin, for example `http://127.0.0.1:8000`. `python app_dash_web.py` uses that origin when the variable is unset. See the README for the two-process local setup.
+
+Dash signs in with `POST /api/v1/auth/login`, reads `GET /api/v1/me`, and loads circles with `GET /api/v1/circles` and `GET /api/v1/circles/{id}`. The role on the page is the membership role from those responses. A username is not turned into a role. Payouts calls `GET /api/v1/circles/{id}/payouts`. Admin calls `GET /api/v1/admin/audit` and `GET /api/v1/admin/ledger`. Create, join, and logout use the existing POST routes.
+
+The access token and the refresh token stay in the Dash process. The browser cookie holds an opaque id. Tokens are not written to the application log, to the address bar, or to `localStorage`. A 401 sends the refresh token once to `POST /api/v1/auth/refresh` and then retries. Only `admintest` and `membertest` can sign in through the UI, and only when `AJO_ENV` is `local` or `dev`.
 
 ## Dev inbox
 

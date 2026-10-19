@@ -36,6 +36,7 @@ NAV = [
     ("autoloan", "Delay Cover", "spark"),
     ("wallet", "EarlyPayouts", "wallet"),
     ("support", "Support", "support"),
+    ("admin", "Admin", "flag"),
 ]
 # Temporarily hidden from the sidebar (#103). The page and /credit route stay.
 HIDDEN_NAV_PAGES = frozenset({"credit"})
@@ -54,4 +55,5 @@ CRUMBS = {
     "getstarted-4": ["AjoFinance", "Settings", "UK credit check"],
     "join": ["AjoFinance", "Join Ajo"],
     "support": ["AjoFinance", "Support"],
+    "admin": ["AjoFinance", "Admin"],
 }

@@ -22,7 +22,37 @@ class CircleResponse(BaseModel):
     name: str
 
 
+class CircleMembership(BaseModel):
+    circle_id: int
+    name: str
+    role: str
+
+
+class CircleList(BaseModel):
+    circles: list[CircleMembership]
+
+
 def register_circle_routes(fastapi_app: FastAPI, get_current_user) -> None:
+    @fastapi_app.get("/api/v1/circles", response_model=CircleList)
+    def list_circles(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):
+        """Circles this session belongs to. The role is the stored membership."""
+        rows = (
+            db.query(Circle, CircleMember)
+            .join(CircleMember, CircleMember.circle_id == Circle.id)
+            .filter(CircleMember.user_id == user.id)
+            .order_by(Circle.id)
+            .all()
+        )
+        return CircleList(
+            circles=[
+                CircleMembership(circle_id=circle.id, name=circle.name, role=membership.role)
+                for circle, membership in rows
+            ]
+        )
+
     @fastapi_app.post("/api/v1/circles", response_model=CircleResponse, status_code=201)
     def create_circle(
         body: CircleRequest,

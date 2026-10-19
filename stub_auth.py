@@ -49,6 +49,7 @@ APP_PAGES = frozenset(
         "getstarted-4",
         "join",
         "support",
+        "admin",
     }
 )
 AUTH_PAGES = frozenset(

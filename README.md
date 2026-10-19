@@ -134,6 +134,38 @@ After the stub sign-in above, open **+ Join Ajo** under **My circles** in the si
 pytest tests/test_join.py -v
 ```
 
+### Running the UI and the API together
+
+Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in.
+
+1. Copy the password template and set local passwords. Do not commit the copy.
+   ```bash
+   cp local/stub-users.example.json local/stub-users.json
+   ```
+2. In `.env`, set:
+   ```bash
+   AJO_ENV=local
+   DASH_HOST=127.0.0.1
+   SEED_DEMO_ACCOUNTS=true
+   AJO_API_BASE=http://127.0.0.1:8000
+   ```
+   `JWT_SECRET_KEY` and `DATABASE_URL` are still required. `SEED_DEMO_ACCOUNTS` creates only `admintest@example.test` and `membertest@example.test`.
+3. Create the tables, then start the API and the UI in two terminals:
+   ```bash
+   alembic upgrade head
+   uvicorn api:app --reload --no-proxy-headers
+   ```
+   ```bash
+   python app_dash_web.py
+   ```
+   `python app_dash_web.py` uses `http://127.0.0.1:8000` when `AJO_API_BASE` is unset. The test suite leaves that variable unset and keeps the local stub.
+
+Sign in at http://127.0.0.1:8055/signin with `admintest` or `membertest` and the password from `local/stub-users.json`. Dash sends that password to `POST /api/v1/auth/login` and keeps the access token and refresh token in the Dash process. The browser cookie stores an opaque id. Tokens are not put in the address bar, in `localStorage`, or in the application log. A 401 refreshes the session once through `POST /api/v1/auth/refresh`.
+
+The role on screen is the role stored for that circle. Dash reads `GET /api/v1/circles` and `GET /api/v1/circles/{id}`. It does not turn a username into a role. Payouts Tracker calls `GET /api/v1/circles/{id}/payouts` and hides the tracker when the API refuses. **Admin** calls `GET /api/v1/admin/audit` and `GET /api/v1/admin/ledger`. A circle admin is not a platform admin, so those reads show the API's refusal unless the account's stored platform role allows them. Checked times on that page use `clock.now()`.
+
+Registration from **Get started** calls `POST /api/v1/auth/signup` only for an `@example.test` address. **Create Ajo** and **Join Ajo** on the Admin page call the circle endpoints. **Sign out** calls `POST /api/v1/auth/logout`.
+
 ### FastAPI Backend
 
 The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). Local development uses SQLite. The database file holds synthetic data only.
@@ -173,6 +205,7 @@ CI runs the same migration and the same API tests against Postgres 16. A `postgr
 | `STUB_USERS_FILE` | No | `local/stub-users.json` | Git-ignored JSON file with stub passwords |
 | `ALLOW_TEST_CLOCK` | No | `false` | Let tests or a loopback dev process move the clock. Any other process exits on startup |
 | `SEED_DEMO_ACCOUNTS` | No | `false` | Seed `admintest` (admin) and `membertest` (member) on Local Demo Circle. Refused unless `AJO_ENV` is `local` or `dev` |
+| `AJO_API_BASE` | No | unset in tests; `http://127.0.0.1:8000` when the UI process starts | Origin Dash uses for authenticated API calls. Unset keeps the local stub |
 | `AUDIT_EMAIL_HMAC_KEY` | Outside local and dev | — | HMAC key for audit email hashes. On `local` or `dev`, a missing key is created in git-ignored `local/audit-email-hmac.key`. The audit log stores that hash, never the address |
 
 ## Security notes
@@ -196,6 +229,12 @@ Per-circle role checks are in `tests/test_roles.py`. The read-only platform-admi
 
 ```bash
 pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
+```
+
+Dash calls to the API (sign-in, refresh, circle roles, the audit log, and the ledger) are covered by `tests/test_dash_api.py`.
+
+```bash
+pytest tests/test_dash_api.py -v
 ```
 
 ### Financial Health Overview
