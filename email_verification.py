@@ -68,8 +68,9 @@ def require_verified_email(user: User) -> None:
 
 
 def verification_link(token: str) -> str:
-    base = os.getenv("PUBLIC_APP_URL", "http://127.0.0.1:8000").rstrip("/")
-    return f"{base}/verify-email#{token}"
+    from password_reset import public_app_origin
+
+    return f"{public_app_origin()}/verify-email#{token}"
 
 
 def _client_ip(request: Request) -> str | None:

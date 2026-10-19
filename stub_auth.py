@@ -57,6 +57,8 @@ AUTH_PAGES = frozenset(
         "landing",
         "signin",
         "getstarted-1",
+        "reset-password",
+        "verify-email",
     }
 )
 SIGNIN_FAILED = "Sign-in failed."

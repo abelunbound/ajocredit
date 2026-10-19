@@ -239,7 +239,7 @@ def test_sign_in_reset_verification_and_lockout_use_the_clock_and_hmac():
     mail.clear_memory_inbox()
     forgot = client.post("/api/v1/auth/password/forgot", json={"email": email})
     assert forgot.status_code == 200, forgot.text
-    reset_token = mail.memory_inbox()[-1]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    reset_token = mail.memory_inbox()[-1]["body"].split("/reset-password#token=", 1)[1].split()[0].strip()
     reset = client.post(
         "/api/v1/auth/password/reset",
         json={"token": reset_token, "password": NEW_PASSWORD},

@@ -105,6 +105,12 @@ The live reference is on the API port, not the Dash port:
 
 Those three are switched off unless `AJO_ENV` (trimmed, case-insensitive) is `local` or `dev`. Unset, `prod`, `staging`, and any other value make all three respond with 404.
 
+## Forgot and reset password
+
+`/signin` opens an email form and calls `POST /api/v1/auth/password/forgot`. The screen shows one message whether or not that email exists. `/reset-password` calls `POST /api/v1/auth/password/reset` with the token in the JSON body. Settings **Email reset link** uses the same forgot call for the signed-in account.
+
+To try it on a laptop, run the API and Dash as above with `AJO_ENV=local` and `EMAIL_SENDER=dev`. Use an `@example.test` address. Open the newest file in `local/email-inbox` (git-ignored). The link starts with `PUBLIC_APP_URL`, which defaults to `http://localhost:8055`, and ends with `#token=`. The page removes that fragment from the address bar on load.
+
 ## Try the outage message
 
 1. Sign in as `membertest`.

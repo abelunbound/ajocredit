@@ -294,7 +294,7 @@ def test_password_reset_lockout_is_the_same_for_known_and_unknown(monkeypatch):
     _signup(known)
     mail.clear_memory_inbox()
     assert client.post("/api/v1/auth/password/forgot", json={"email": known}).status_code == 200
-    token = mail.memory_inbox()[-1]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    token = mail.memory_inbox()[-1]["body"].split("/reset-password#token=", 1)[1].split()[0].strip()
     locked = client.post("/api/v1/auth/password/forgot", json={"email": known})
     missing = client.post("/api/v1/auth/password/forgot", json={"email": unknown})
     missing_again = client.post("/api/v1/auth/password/forgot", json={"email": unknown})
@@ -329,7 +329,7 @@ def test_five_reset_requests_still_let_a_valid_token_complete(monkeypatch):
     sixth = client.post("/api/v1/auth/password/forgot", json={"email": email})
     assert sixth.status_code == 429
     assert sixth.json()["detail"] == auth.RATE_LIMITED
-    token = mail.memory_inbox()[0]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    token = mail.memory_inbox()[0]["body"].split("/reset-password#token=", 1)[1].split()[0].strip()
     completed = client.post(
         "/api/v1/auth/password/reset",
         json={"token": token, "password": "another-password"},
@@ -346,7 +346,7 @@ def test_reset_confirm_keeps_the_per_ip_limit(monkeypatch):
     mail.clear_memory_inbox()
     http = _from("203.0.113.80")
     assert http.post("/api/v1/auth/password/forgot", json={"email": email}).status_code == 200
-    token = mail.memory_inbox()[-1]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    token = mail.memory_inbox()[-1]["body"].split("/reset-password#token=", 1)[1].split()[0].strip()
     blocked = http.post(
         "/api/v1/auth/password/reset",
         json={"token": token, "password": "another-password"},
