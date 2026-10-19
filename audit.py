@@ -320,8 +320,7 @@ def record_event(
         "user_agent": user_agent,
     }
     previous = _lock_and_previous(db)
-    body = {"prev": previous, **material}
-    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canonical = _canonical_json(previous, material)
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     row = AuditLog(
         created_at=moment,
@@ -394,25 +393,50 @@ def write_auth_audit(
     return row
 
 
+def _canonical_json(previous: str, material: dict) -> str:
+    """Exact bytes that ``entry_hash`` covers, including the previous hash."""
+    body = {"prev": previous, **material}
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _material_from_row(row: AuditLog) -> dict:
+    """Rebuild the hashed record from the stored columns, not from ``canonical``."""
+    return {
+        "action": row.action,
+        "actor_role": row.actor_role,
+        "actor_user_id": row.actor_user_id,
+        "after": row.after_values,
+        "before": row.before_values,
+        "circle_id": row.circle_id,
+        "created_at": _iso(row.created_at),
+        "email_hash": row.email_hash,
+        "ip": row.ip,
+        "request_id": row.request_id,
+        "session_id": row.session_id,
+        "target_user_id": row.target_user_id,
+        "user_agent": row.user_agent,
+    }
+
+
 def verify_chain(db: Session) -> bool:
-    """True when every row's hash matches its canonical body and the previous hash."""
+    """True when every column, the stored canonical copy, and the hash chain agree.
+
+    Each row is rebuilt from its columns and the previous row's hash. That JSON
+    must match the stored ``canonical`` byte for byte. Its SHA-256 must match
+    ``entry_hash``, and ``prev_hash`` must be the previous row's ``entry_hash``.
+    """
     rows = db.query(AuditLog).order_by(AuditLog.id).all()
     previous = ""
     for row in rows:
-        try:
-            parsed = json.loads(row.canonical)
-        except json.JSONDecodeError:
+        if row.canonical is None:
             return False
-        if parsed.get("prev") != previous:
+        rebuilt = _canonical_json(previous, _material_from_row(row))
+        if rebuilt != row.canonical:
             return False
-        digest = hashlib.sha256(row.canonical.encode("utf-8")).hexdigest()
-        if digest != row.entry_hash or row.prev_hash != (previous or None):
+        digest = hashlib.sha256(rebuilt.encode("utf-8")).hexdigest()
+        if digest != row.entry_hash:
             return False
-        if parsed.get("action") != row.action:
-            return False
-        if parsed.get("created_at") != _iso(row.created_at):
-            return False
-        if parsed.get("email_hash") != row.email_hash:
+        if row.prev_hash != (previous or None):
             return False
         previous = row.entry_hash
     return True
@@ -497,7 +521,8 @@ class AuditFilters:
     event_type: str | None
     start: datetime | None
     end_before: datetime | None
-    page: int
+    before_id: int | None
+    after_id: int | None
     page_size: int
     start_raw: str
     end_raw: str
@@ -526,14 +551,16 @@ def _parse_bound(value: str, *, end: bool) -> datetime:
 
 
 def parse_filters(params: Mapping[str, str]) -> AuditFilters:
-    """Read list filters. A bad value is a 422, not a filter bypass."""
+    """Read list filters. A bad value is a 422, not a filter bypass.
+
+    Pages are a keyset on ``id``. ``before_id`` returns older rows. ``after_id``
+    returns the next newer rows. Offset ``page`` is ignored so a logged read
+    cannot shift the next page onto a row the caller already saw.
+    """
     try:
-        page = int(params.get("page", "1"))
         page_size = int(params.get("page_size", "50"))
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail="Page must be a number.") from exc
-    if page < 1 or page > 10000:
-        raise HTTPException(status_code=422, detail="Page is out of range.")
+        raise HTTPException(status_code=422, detail="Page size must be a number.") from exc
     if page_size < 1 or page_size > MAX_PAGE_SIZE:
         raise HTTPException(status_code=422, detail="Page size must be from 1 to 100.")
 
@@ -561,13 +588,18 @@ def parse_filters(params: Mapping[str, str]) -> AuditFilters:
         raise HTTPException(status_code=422, detail="Use an ISO date.") from exc
     if start is not None and end_before is not None and start >= end_before:
         raise HTTPException(status_code=422, detail="The start is after the end.")
+    before_id = optional_id("before_id")
+    after_id = optional_id("after_id")
+    if before_id is not None and after_id is not None:
+        raise HTTPException(status_code=422, detail="Pass before_id or after_id, not both.")
     return AuditFilters(
         user_id=optional_id("user_id"),
         circle_id=optional_id("circle_id"),
         event_type=event_type or None,
         start=start,
         end_before=end_before,
-        page=page,
+        before_id=before_id,
+        after_id=after_id,
         page_size=page_size,
         start_raw=start_raw,
         end_raw=end_raw,
@@ -592,12 +624,19 @@ def query_entries(db: Session, filters: AuditFilters) -> tuple[list[AuditLog], i
     if filters.end_before is not None:
         query = query.filter(AuditLog.created_at < filters.end_before)
     total = query.count()
-    rows = (
-        query.order_by(AuditLog.id.desc())
-        .offset((filters.page - 1) * filters.page_size)
-        .limit(filters.page_size)
-        .all()
-    )
+    if filters.before_id is not None:
+        query = query.filter(AuditLog.id < filters.before_id)
+        rows = query.order_by(AuditLog.id.desc()).limit(filters.page_size).all()
+    elif filters.after_id is not None:
+        rows = (
+            query.filter(AuditLog.id > filters.after_id)
+            .order_by(AuditLog.id.asc())
+            .limit(filters.page_size)
+            .all()
+        )
+        rows.reverse()
+    else:
+        rows = query.order_by(AuditLog.id.desc()).limit(filters.page_size).all()
     return rows, total
 
 
@@ -640,7 +679,8 @@ def _record_view(db: Session, user: User, filters: AuditFilters, *, view: str, a
         circle_id=filters.circle_id,
         after={
             "view": view,
-            "page": filters.page,
+            "before_id": filters.before_id,
+            "after_id": filters.after_id,
             "page_size": filters.page_size,
             "event_type": filters.event_type,
             "allowed": allowed,
@@ -690,15 +730,14 @@ def _render_page(rows: list[AuditLog], total: int, filters: AuditFilters) -> str
         )
     if not body_rows:
         body_rows.append('<tr><td colspan="10">No entries.</td></tr>')
-    pages = max(1, (total + filters.page_size - 1) // filters.page_size)
-    def page_href(page: int) -> str:
+    def page_href(cursor_name: str, cursor: int) -> str:
         query = {
             "user_id": "" if filters.user_id is None else str(filters.user_id),
             "circle_id": "" if filters.circle_id is None else str(filters.circle_id),
             "event_type": filters.event_type or "",
             "start": filters.start_raw,
             "end": filters.end_raw,
-            "page": str(page),
+            cursor_name: str(cursor),
             "page_size": str(filters.page_size),
         }
         return "/admin/audit?" + "&".join(
@@ -706,12 +745,14 @@ def _render_page(rows: list[AuditLog], total: int, filters: AuditFilters) -> str
             for key, value in query.items()
         )
 
+    newest_id = rows[0].id if rows else None
+    oldest_id = rows[-1].id if rows else None
     prev_link = ""
     next_link = ""
-    if filters.page > 1:
-        prev_link = f'<a href="{page_href(filters.page - 1)}">Previous</a>'
-    if filters.page < pages:
-        next_link = f'<a href="{page_href(filters.page + 1)}">Next</a>'
+    if newest_id is not None and (filters.before_id is not None or filters.after_id is not None):
+        prev_link = f'<a href="{page_href("after_id", newest_id)}">Newer</a>'
+    if oldest_id is not None and len(rows) == filters.page_size:
+        next_link = f'<a href="{page_href("before_id", oldest_id)}">Older</a>'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -749,7 +790,7 @@ th, td {{ text-align: left; padding: 0.45rem 0.55rem; border-bottom: 1px solid #
 {"".join(body_rows)}
 </tbody>
 </table>
-<p class="pager">{prev_link}<span>Page {filters.page} of {pages} ({total} entries)</span>{next_link}</p>
+<p class="pager">{prev_link}<span>{total} entries</span>{next_link}</p>
 </body>
 </html>
 """
@@ -772,9 +813,10 @@ def register_audit_routes(fastapi_app: FastAPI, get_current_user) -> None:
         _record_view(db, user, filters, view="api", allowed=True)
         return {
             "entries": [entry_payload(row) for row in rows],
-            "page": filters.page,
             "page_size": filters.page_size,
             "total": total,
+            "before_id": rows[-1].id if rows else None,
+            "after_id": rows[0].id if rows else None,
         }
 
     @fastapi_app.get("/admin/audit")

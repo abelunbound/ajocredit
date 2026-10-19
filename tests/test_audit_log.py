@@ -6,7 +6,9 @@ and page are platform-admin only, from the stored role.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import shutil
 import sys
 import tempfile
 import uuid
@@ -36,8 +38,9 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
 
 import api
 import audit
@@ -389,7 +392,8 @@ def test_role_and_position_changes_are_recorded_and_admin_read_is_gated():
     )
     assert listed.status_code == 200, listed.text
     body = listed.json()
-    assert body["page"] == 1
+    assert body["before_id"] == body["entries"][-1]["id"]
+    assert body["after_id"] == body["entries"][0]["id"]
     assert body["total"] >= 1
     assert all(entry["action"] == "role_changed" for entry in body["entries"])
     assert all(entry["circle_id"] == circle_id for entry in body["entries"])
@@ -452,22 +456,36 @@ def test_filters_pagination_and_dates():
     finally:
         db.close()
     reset()
+    window = client.get(
+        "/api/v1/admin/audit",
+        headers=_auth(token),
+        params={"circle_id": 880001, "event_type": "settings_changed", "page_size": 2, "start": "2026-05-01", "end": "2026-05-02"},
+    )
+    assert window.status_code == 200, window.text
+    assert window.json()["total"] == 2
+    assert len(window.json()["entries"]) == 2
     first = client.get(
         "/api/v1/admin/audit",
         headers=_auth(token),
-        params={"circle_id": 880001, "event_type": "settings_changed", "page": 1, "page_size": 2, "start": "2026-05-01", "end": "2026-05-02"},
+        params={"circle_id": 880001, "event_type": "settings_changed", "page_size": 2},
     )
     assert first.status_code == 200, first.text
-    assert first.json()["total"] == 2
+    assert first.json()["total"] == 3
     assert len(first.json()["entries"]) == 2
     second = client.get(
         "/api/v1/admin/audit",
         headers=_auth(token),
-        params={"circle_id": 880001, "event_type": "settings_changed", "page": 2, "page_size": 2},
+        params={
+            "circle_id": 880001,
+            "event_type": "settings_changed",
+            "page_size": 2,
+            "before_id": first.json()["before_id"],
+        },
     )
     assert second.status_code == 200, second.text
     assert second.json()["total"] == 3
     assert len(second.json()["entries"]) == 1
+    assert second.json()["entries"][0]["id"] < first.json()["before_id"]
     outside = client.get(
         "/api/v1/admin/audit",
         headers=_auth(token),
@@ -475,8 +493,14 @@ def test_filters_pagination_and_dates():
     )
     assert outside.status_code == 200
     assert outside.json()["total"] == 0
-    bad = client.get("/api/v1/admin/audit", headers=_auth(token), params={"page": 0})
+    bad = client.get("/api/v1/admin/audit", headers=_auth(token), params={"before_id": 0})
     assert bad.status_code == 422
+    both = client.get(
+        "/api/v1/admin/audit",
+        headers=_auth(token),
+        params={"before_id": 1, "after_id": 2},
+    )
+    assert both.status_code == 422
 
 
 def test_lockout_and_rate_limit_land_in_the_audit_log(monkeypatch):
@@ -527,6 +551,156 @@ def test_lockout_and_rate_limit_land_in_the_audit_log(monkeypatch):
         assert audit.verify_chain(db) is True
     finally:
         db.close()
+
+
+AUDIT_COLUMNS = (
+    "id",
+    "created_at",
+    "actor_user_id",
+    "actor_role",
+    "session_id",
+    "request_id",
+    "ip",
+    "user_agent",
+    "circle_id",
+    "action",
+    "target_user_id",
+    "email_hash",
+    "before_values",
+    "after_values",
+    "prev_hash",
+    "entry_hash",
+    "canonical",
+)
+
+
+def _tampered_value(column: str):
+    if column == "id":
+        return -1
+    if column == "created_at":
+        return datetime(1999, 1, 1, tzinfo=timezone.utc)
+    if column in {"actor_user_id", "target_user_id", "circle_id", "session_id"}:
+        return 9_000_001
+    if column in {"prev_hash", "entry_hash", "email_hash"}:
+        return hashlib.sha256(f"tamper-{column}".encode()).hexdigest()
+    if column == "canonical":
+        return '{"tampered":true}'
+    if column == "action":
+        return "tampered_action"
+    if column == "actor_role":
+        return "tampered-role"
+    if column == "request_id":
+        return "tampered-request"
+    if column == "ip":
+        return "192.0.2.99"
+    if column == "user_agent":
+        return "tampered-agent"
+    if column in {"before_values", "after_values"}:
+        return '{"tampered":true}'
+    raise AssertionError(column)
+
+
+@pytest.fixture(scope="module")
+def _migrated_audit_sqlite(tmp_path_factory):
+    """Schema copy used only to tamper rows. The shared test database stays append-only."""
+    directory = tmp_path_factory.mktemp("audit-chain")
+    base = directory / "base.db"
+    previous = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = "sqlite:///" + str(base)
+    try:
+        command.upgrade(Config(str(REPO / "alembic.ini")), "head")
+    finally:
+        if previous is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = previous
+    return base
+
+
+@pytest.mark.parametrize("column", AUDIT_COLUMNS)
+def test_changing_one_stored_column_fails_verification(column, _migrated_audit_sqlite, tmp_path):
+    copy_path = tmp_path / "audit.db"
+    shutil.copy(_migrated_audit_sqlite, copy_path)
+    engine = create_engine("sqlite:///" + str(copy_path), connect_args={"check_same_thread": False})
+    db = sessionmaker(bind=engine)()
+    try:
+        audit.record_event(
+            db,
+            action="settings_changed",
+            actor_user_id=1,
+            actor_role="member",
+            after={"n": 1},
+        )
+        second = audit.record_event(
+            db,
+            action="role_changed",
+            actor_user_id=11,
+            actor_role="admin",
+            session_id=22,
+            request_id="req-tamper",
+            ip="198.51.100.10",
+            user_agent="tamper-agent",
+            circle_id=880099,
+            target_user_id=12,
+            email=_email(),
+            before={"role": "member"},
+            after={"role": "admin"},
+        )
+        db.commit()
+        assert audit.verify_chain(db) is True
+        original = getattr(db.get(AuditLog, second.id), column)
+        replacement = _tampered_value(column)
+        assert replacement != original
+        db.execute(text("DROP TRIGGER IF EXISTS audit_log_append_only_update"))
+        db.execute(text("DROP TRIGGER IF EXISTS audit_log_append_only_delete"))
+        db.commit()
+        db.execute(
+            text(f"UPDATE audit_log SET {column} = :value WHERE id = :id"),
+            {"value": replacement, "id": second.id},
+        )
+        db.commit()
+        db.expire_all()
+        assert audit.verify_chain(db) is False
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_keyset_pages_do_not_repeat_when_the_read_is_logged():
+    email, token, user_id = _signup_and_token()
+    _promote(user_id)
+    db = database.SessionLocal()
+    try:
+        for offset in range(4):
+            audit.record_event(
+                db,
+                action="settings_changed",
+                actor_user_id=user_id,
+                circle_id=880003,
+                after={"n": offset},
+            )
+        db.commit()
+    finally:
+        db.close()
+    first = client.get(
+        "/api/v1/admin/audit",
+        headers=_auth(token),
+        params={"circle_id": 880003, "page_size": 2},
+    )
+    assert first.status_code == 200, first.text
+    ids1 = [entry["id"] for entry in first.json()["entries"]]
+    assert len(ids1) == 2
+    assert ids1 == sorted(ids1, reverse=True)
+    second = client.get(
+        "/api/v1/admin/audit",
+        headers=_auth(token),
+        params={"circle_id": 880003, "page_size": 2, "before_id": first.json()["before_id"]},
+    )
+    assert second.status_code == 200, second.text
+    ids2 = [entry["id"] for entry in second.json()["entries"]]
+    assert len(ids2) == 2
+    assert set(ids1).isdisjoint(ids2)
+    assert max(ids2) < min(ids1)
 
 
 def test_downgrade_removes_the_audit_table(tmp_path, monkeypatch):

@@ -59,7 +59,7 @@ The application inserts rows. It has no update or delete route. `UPDATE` and `DE
 
 A correction is a new row. Inserts take a row lock on `audit_chain_lock` so two writers do not share one previous hash.
 
-A hash chain shows a gap or a changed body. Someone who can rewrite the whole table and recompute every hash can still forge a chain. Production should keep the database role able to insert and not able to disable triggers, and should keep backups.
+A hash chain shows a gap or a changed body. `verify_chain` rebuilds the canonical JSON from every stored column and the previous row's hash, compares those bytes with the stored `canonical`, then checks the SHA-256 against `entry_hash` and `prev_hash` against the previous row. Any mismatch fails. Someone who can rewrite the whole table and recompute every hash can still forge a chain. Production should keep the database role able to insert and not able to disable triggers, and should keep backups.
 
 ## Who can read it
 
@@ -80,17 +80,17 @@ Admin page (send the access token; the page does not accept the token in the que
 
 ```bash
 curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "http://127.0.0.1:8000/admin/audit?event_type=role_changed&page=1&page_size=50"
+  "http://127.0.0.1:8000/admin/audit?event_type=role_changed&page_size=50"
 ```
 
-API, with filters for user, circle, event type, and date range. `start` and `end` are ISO dates or datetimes. An end date includes that UTC day. `page` starts at 1. `page_size` is 1 to 100.
+API, with filters for user, circle, event type, and date range. `start` and `end` are ISO dates or datetimes. An end date includes that UTC day. `page_size` is 1 to 100. Results are newest first. Pass `before_id` from the previous response to read older rows, or `after_id` to read the next newer rows. The two cursors are not combined. A logged read appends a new id, so the next page does not repeat a row.
 
 ```bash
 curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "http://127.0.0.1:8000/api/v1/admin/audit?user_id=1&circle_id=2&event_type=sign_in_failure&start=2026-10-01&end=2026-10-18&page=1&page_size=50"
+  "http://127.0.0.1:8000/api/v1/admin/audit?user_id=1&circle_id=2&event_type=sign_in_failure&start=2026-10-01&end=2026-10-18&page_size=50"
 ```
 
-The JSON body is `entries`, `page`, `page_size`, and `total`. Entries have no email field. Responses send `Cache-Control: no-store`.
+The JSON body is `entries`, `page_size`, `total`, `before_id`, and `after_id`. `before_id` is the oldest id on this page. `after_id` is the newest. Entries have no email field. Responses send `Cache-Control: no-store`.
 
 Local SQLite (`sqlite:///local/ajo.db`):
 
