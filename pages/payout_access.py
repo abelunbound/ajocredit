@@ -7,6 +7,7 @@ The #20 role gate still applies: a member session is never treated as admin.
 
 from __future__ import annotations
 
+import dash_api
 from pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
 
 CREATOR_STUB = "admintest"
@@ -32,6 +33,8 @@ def _api_admin_names() -> list[str] | None:
         return None
     if not has_request_context() or not session.get("api_sid"):
         return None
+    if dash_api.service_unavailable():
+        return []
     circles = session.get("circles") or []
     names: list[str] = []
     for circle in circles:

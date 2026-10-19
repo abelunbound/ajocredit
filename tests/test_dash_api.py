@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -467,10 +468,12 @@ def test_unreachable_api_is_distinct_from_a_rejected_sign_in(api_dash, monkeypat
     dash_api.install_transport_for_tests(None)
     monkeypatch.setenv("AJO_API_BASE", "http://127.0.0.1:9")
 
-    def boom(*_args, **_kwargs):
+    def boom(*_args, **kwargs):
+        assert kwargs.get("timeout") == dash_api.API_TIMEOUT_SECONDS
         raise TimeoutError("timed out")
 
     monkeypatch.setattr(dash_api.urllib.request, "urlopen", boom)
+    assert 3 <= dash_api.API_TIMEOUT_SECONDS <= 5
     status, payload = dash_api._urllib_send("POST", "/api/v1/auth/login", {}, {}, None)
     assert (status, payload) == (0, None)
 
@@ -532,6 +535,7 @@ def test_signed_in_session_survives_an_unreachable_api(api_dash):
         client = _client_with_session(saved)
         body = _render(client, "/dashboard")
         assert '"display":"none"' in body
+        assert dash_api.SERVICE_UNAVAILABLE in body
         with client.session_transaction() as sess:
             assert sess.get("role") == "admin"
             assert sess.get("api_sid") == sid
@@ -551,7 +555,8 @@ def test_signed_in_session_survives_an_unreachable_api(api_dash):
 
     dash_api.install_transport_for_tests(refresh_down)
     client = _client_with_session(saved)
-    _render(client, "/members")
+    body = _render(client, "/members")
+    assert dash_api.SERVICE_UNAVAILABLE in body
     with client.session_transaction() as sess:
         assert sess.get("role") == "admin"
         assert sess.get("api_sid") == sid
@@ -570,6 +575,89 @@ def test_signed_in_session_survives_an_unreachable_api(api_dash):
         assert sess.get("role") is None
         assert "api_sid" not in sess
     assert '"display":"none"' not in body
+    assert dash_api.SERVICE_UNAVAILABLE not in body
+
+
+def _signed_in_client(username, password):
+    with app.server.test_request_context():
+        assert apply_signin(username, password) is not None
+        sid = session["api_sid"]
+        saved = dict(session)
+    return sid, saved, _client_with_session(saved)
+
+
+@pytest.mark.parametrize("path", ["/dashboard", "/members", "/support", "/payouts"])
+@pytest.mark.parametrize("failure", ["connection", "timeout"])
+def test_signed_in_pages_show_unavailable_when_refresh_fails(api_dash, path, failure):
+    real = dash_api._transport_send
+    sid, saved, client = _signed_in_client("admintest", ADMIN_PW)
+
+    def send(method, call_path, body, headers, params):
+        pure = call_path.split("?", 1)[0]
+        if pure == "/api/v1/me" or pure.startswith("/api/v1/circles"):
+            if failure == "timeout":
+                raise TimeoutError("timed out")
+            return 0, None
+        return real(method, call_path, body, headers, params)
+
+    dash_api.install_transport_for_tests(send)
+    rendered = _render(client, path)
+    assert dash_api.SERVICE_UNAVAILABLE in rendered
+    assert "payouts-tracker" not in rendered
+    assert "Hold to release" not in rendered
+    assert "· admin" not in rendered
+    assert '"href":"/admin"' not in rendered
+    assert '"href":"/payouts"' not in rendered
+    with client.session_transaction() as sess:
+        assert sess.get("role") == "admin"
+        assert sess.get("api_sid") == sid
+        assert sess.get("circles") == saved["circles"]
+    assert dash_api.VAULT.get(sid) is not None
+    assert '"display":"none"' in rendered
+
+
+def test_timeout_on_the_first_circle_skips_the_rest(api_dash):
+    with app.server.test_request_context():
+        assert apply_signin("admintest", ADMIN_PW) is not None
+        sid = session["api_sid"]
+        for name in ("Synth North", "Synth South"):
+            status, created = dash_api.request(
+                "POST",
+                "/api/v1/circles",
+                json_body={"name": name},
+                sid=sid,
+            )
+            assert status == 201, created
+        dash_api.sync_session_force()
+        circle_ids = [circle["circle_id"] for circle in session["circles"]]
+        assert len(circle_ids) >= 3
+        saved = dict(session)
+    real = dash_api._transport_send
+    detail_calls: list[str] = []
+    delay = 0.75
+
+    def send(method, path, body, headers, params):
+        pure = path.split("?", 1)[0]
+        parts = pure.strip("/").split("/")
+        if len(parts) == 4 and parts[:3] == ["api", "v1", "circles"] and parts[3].isdigit():
+            detail_calls.append(pure)
+            time.sleep(delay)
+            raise TimeoutError("timed out")
+        return real(method, path, body, headers, params)
+
+    dash_api.install_transport_for_tests(send)
+    client = _client_with_session(saved)
+    started = time.monotonic()
+    rendered = _render(client, "/members")
+    elapsed = time.monotonic() - started
+    assert len(detail_calls) == 1
+    assert elapsed < delay * 2
+    assert elapsed < dash_api.API_TIMEOUT_SECONDS * len(circle_ids)
+    assert dash_api.SERVICE_UNAVAILABLE in rendered
+    assert "· admin" not in rendered
+    with client.session_transaction() as sess:
+        assert sess.get("role") == "admin"
+        assert sess.get("api_sid") == sid
 
 
 def test_stub_sign_in_remains_when_the_api_base_is_unset(tmp_path, monkeypatch):

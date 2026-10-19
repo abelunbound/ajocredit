@@ -114,6 +114,29 @@ class ApiUnavailable(Exception):
 
 
 SERVICE_UNAVAILABLE = "Service unavailable, please try again shortly"
+# One attempt. Long enough for a local API, short enough that a hung call
+# does not stall the page for every circle.
+API_TIMEOUT_SECONDS = 4
+
+
+def service_unavailable() -> bool:
+    """True when this request could not refresh roles or circles."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return False
+    if not has_request_context():
+        return False
+    return bool(getattr(g, "ajo_service_unavailable", False))
+
+
+def _mark_unavailable() -> None:
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return
+    if has_request_context():
+        g.ajo_service_unavailable = True
 
 
 def _unavailable(status: int) -> bool:
@@ -147,7 +170,7 @@ def _urllib_send(method: str, path: str, body: dict | None, headers: dict, param
         hdrs["Accept"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=hdrs, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=API_TIMEOUT_SECONDS) as response:
             return response.status, _decode_body(response.read())
     except urllib.error.HTTPError as exc:
         return exc.code, _decode_body(exc.read())
@@ -188,7 +211,7 @@ def _refresh(sid: str) -> bool:
         None,
     )
     if _unavailable(status):
-        return False
+        raise ApiUnavailable()
     if status != 200 or not isinstance(payload, dict):
         VAULT.drop(sid)
         return False
@@ -217,7 +240,11 @@ def request(
         headers["Authorization"] = f"Bearer {row['access_token']}"
     status, payload = _send(method, path, json_body, headers, params)
     if status == 401 and refresh_on_unauthorized and row is not None and path != "/api/v1/auth/refresh":
-        if not _refresh(sid or ""):
+        try:
+            refreshed_ok = _refresh(sid or "")
+        except ApiUnavailable:
+            return 0, None
+        if not refreshed_ok:
             return status, payload
         refreshed = VAULT.get(sid)
         if refreshed is None:
@@ -241,7 +268,11 @@ def _role_from_circles(circles: list[dict]) -> str | None:
 
 
 def _confirmed_circles(sid: str, listed: list) -> list[dict]:
-    """Re-read each circle so the role is the one the server stores."""
+    """Re-read each circle so the role is the one the server stores.
+
+    The first connection error, timeout, or server error stops the walk.
+    Later circles are not called.
+    """
     confirmed: list[dict] = []
     for item in listed:
         if not isinstance(item, dict):
@@ -376,11 +407,14 @@ def sync_session() -> None:
         return
     me_status, me = request("GET", "/api/v1/me", sid=sid)
     if _unavailable(me_status):
+        _mark_unavailable()
         return
     if me_status == 401:
         if VAULT.get(sid) is None:
             logout(sid)
             session.clear()
+        else:
+            _mark_unavailable()
         return
     if me_status == 200 and isinstance(me, dict):
         session["email_verified"] = bool(me.get("email_verified"))
@@ -389,6 +423,7 @@ def sync_session() -> None:
     try:
         circles = load_circles(sid)
     except ApiUnavailable:
+        _mark_unavailable()
         return
     session["circles"] = circles
     session["role"] = _role_from_circles(circles)
@@ -407,6 +442,8 @@ def confirm_payouts() -> None:
     sid = session.get("api_sid")
     if not isinstance(sid, str) or VAULT.get(sid) is None:
         return
+    if service_unavailable():
+        return
     updated = []
     for circle in session.get("circles") or []:
         if not isinstance(circle, dict):
@@ -420,6 +457,7 @@ def confirm_payouts() -> None:
             sid=sid,
         )
         if _unavailable(status):
+            _mark_unavailable()
             return
         if status == 200 and isinstance(payload, dict) and payload.get("role") == "admin":
             updated.append({**circle, "role": "admin"})

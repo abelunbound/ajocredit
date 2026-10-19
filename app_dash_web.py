@@ -95,9 +95,17 @@ def current_identity():
     """Role and username from the server session. Never from the client.
 
     An API session replaces the role with the one the API just returned.
+    When that refresh fails, admin-only pages stay hidden. The session itself
+    is kept so the visitor is still signed in.
     """
     dash_api.sync_session()
-    return session.get("role"), session.get("username")
+    return _role_for_request(session.get("role")), session.get("username")
+
+
+def _role_for_request(role):
+    if role == "admin" and dash_api.service_unavailable():
+        return "member"
+    return role
 
 
 def normalize_pathname(pathname: str | None) -> str:
@@ -252,7 +260,16 @@ def _sidebar_circles():
             return None, True
         circles = session.get("circles")
         verified = bool(session.get("email_verified", True))
-        return circles if isinstance(circles, list) else [], verified
+        if not isinstance(circles, list):
+            return [], verified
+        if dash_api.service_unavailable():
+            circles = [
+                {**circle, "role": "member"}
+                if isinstance(circle, dict) and circle.get("role") == "admin"
+                else circle
+                for circle in circles
+            ]
+        return circles, verified
     except RuntimeError:
         return None, True
 
@@ -393,7 +410,9 @@ def render_shell(page, _client_value=None):
     page = gate_page(page, role)
     if page == "payouts":
         dash_api.confirm_payouts()
-        role, username = session.get("role"), session.get("username")
+        role, username = _role_for_request(session.get("role")), session.get("username")
+    if dash_api.service_unavailable() and role == "admin":
+        role = "member"
     if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     if page == "signin":
@@ -417,6 +436,7 @@ def render_shell(page, _client_value=None):
             html.Div(
                 className="main",
                 children=[
+                    _service_banner(),
                     topbar(page, role, username),
                     html.Div(
                         render_page(page, role, username, profile_from_session()),
@@ -427,6 +447,13 @@ def render_shell(page, _client_value=None):
             ),
         ],
     )
+
+
+def _service_banner():
+    """Visible notice when this request could not refresh roles or circles."""
+    if not dash_api.service_unavailable():
+        return None
+    return html.Div(SERVICE_UNAVAILABLE, id="service-unavailable", className="service-unavailable")
 
 
 def signin_dock_style(page):
