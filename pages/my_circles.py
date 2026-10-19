@@ -1,8 +1,8 @@
-"""Sidebar "My circles" list, loaded from dummy data until a database exists.
+"""Sidebar "My circles" list.
 
-Circle names come from the persona groups document (#16). Create Ajo and
-Join Ajo come from ``data/circle_actions.json``. Swap the loaders for a
-database query later; the sidebar should keep calling ``my_circles_rows``.
+Persona groups stay display data. When the session came from the API,
+``api_circles`` is that response and the persona list is not used.
+Create Ajo and Join Ajo come from ``data/circle_actions.json``.
 """
 
 from __future__ import annotations
@@ -77,22 +77,45 @@ def my_circles_rows(
     role=None,
     page=None,
     email_verified: bool = True,
+    api_circles=None,
 ):
-    """Dash rows for the sidebar: this person's circles, then Create Ajo, then Join Ajo."""
-    if username is None and role is None:
-        names = load_circle_names(persona_path)
+    """Dash rows for the sidebar: this person's circles, then Create Ajo, then Join Ajo.
+
+    ``api_circles`` is the server list (name and role). When it is provided,
+    including an empty list, persona groups are not shown.
+    """
+    if api_circles is not None:
+        circle_rows = []
+        for circle in api_circles:
+            row = _api_circle_row(circle)
+            if row is not None:
+                circle_rows.append(row)
+    elif username is None and role is None:
+        circle_rows = [
+            html.Div([html.Span(className="cdot"), name], className="circle-row")
+            for name in load_circle_names(persona_path)
+        ]
     else:
-        names = names_for_viewer(username, role, persona_path)
-    circle_rows = [
-        html.Div([html.Span(className="cdot"), name], className="circle-row")
-        for name in names
-    ]
+        circle_rows = [
+            html.Div([html.Span(className="cdot"), name], className="circle-row")
+            for name in names_for_viewer(username, role, persona_path)
+        ]
     action_rows = [_action_row(action, page) for action in load_circle_actions(actions_path)]
     if email_verified:
         return circle_rows + action_rows
     from pages.verification_prompt import verify_email_banner
 
     return [verify_email_banner(False), *circle_rows, *action_rows]
+
+
+def _api_circle_row(circle):
+    if not isinstance(circle, dict):
+        return None
+    name = circle.get("name")
+    role = circle.get("role")
+    if not isinstance(name, str) or not name or role not in {"admin", "member"}:
+        return None
+    return html.Div([html.Span(className="cdot"), f"{name} · {role}"], className="circle-row")
 
 
 def _action_row(action: dict, page: str | None):
