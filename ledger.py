@@ -14,7 +14,7 @@ triggers that reject UPDATE and DELETE on SQLite and PostgreSQL.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
@@ -25,6 +25,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     event,
+    func,
     select,
 )
 from sqlalchemy.exc import IntegrityError
@@ -333,6 +334,186 @@ def account_balance_pence(session: Session, account: LedgerAccount) -> int:
     if account.kind in DEBIT_NORMAL:
         return debit - credit
     return credit - debit
+
+
+def format_pence(amount_pence: int, currency: str = "GBP") -> str:
+    """Show integer pence as money. ``2575`` and ``GBP`` is ``£25.75``.
+
+    The ledger never stores a float. This divides by 100 only for display.
+    """
+    if isinstance(amount_pence, bool) or not isinstance(amount_pence, int):
+        raise LedgerPostingError("amount_pence must be an integer number of pence")
+    sign = "-" if amount_pence < 0 else ""
+    pounds, rem = divmod(abs(amount_pence), 100)
+    if currency == "GBP":
+        return f"{sign}£{pounds}.{rem:02d}"
+    return f"{sign}{currency} {pounds}.{rem:02d}"
+
+
+@dataclass(frozen=True)
+class LedgerReadFilters:
+    """Read filters. Dates are inclusive bounds on ``posted_at`` in UTC."""
+
+    circle_ref: str | None = None
+    member_ref: str | None = None
+    account_kind: str | None = None
+    posted_from: datetime | None = None
+    posted_until: datetime | None = None
+
+
+@dataclass(frozen=True)
+class AccountBalance:
+    """Derived figures. Nothing in the database stores these numbers.
+
+    ``balance_pence`` is every entry from the beginning through the end date,
+    or through ``clock.now()`` when no end date is set. ``change_in_period_pence``
+    is the entries from the start date through that same point. It is ``None``
+    when no start date is set.
+    """
+
+    account: LedgerAccount
+    balance_pence: int
+    change_in_period_pence: int | None = None
+
+
+@dataclass(frozen=True)
+class TransactionLine:
+    """One side of a transaction, with the account it posted to."""
+
+    line: LedgerLine
+    account: LedgerAccount
+
+
+@dataclass(frozen=True)
+class TransactionRecord:
+    """One journal entry and every line on it."""
+
+    entry: LedgerEntry
+    lines: tuple[TransactionLine, ...]
+
+
+def _signed_pence(kind: str, direction: str, amount_pence: int) -> int:
+    amount = int(amount_pence)
+    if kind in DEBIT_NORMAL:
+        return amount if direction == DEBIT else -amount
+    return amount if direction == CREDIT else -amount
+
+
+def _accounts_for(session: Session, filters: LedgerReadFilters) -> list[LedgerAccount]:
+    stmt = select(LedgerAccount)
+    if filters.circle_ref is not None:
+        stmt = stmt.where(LedgerAccount.circle_ref == filters.circle_ref)
+    if filters.member_ref is not None:
+        stmt = stmt.where(LedgerAccount.member_ref == filters.member_ref)
+    if filters.account_kind is not None:
+        stmt = stmt.where(LedgerAccount.kind == filters.account_kind)
+    stmt = stmt.order_by(LedgerAccount.code, LedgerAccount.id)
+    return list(session.scalars(stmt).all())
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def query_balances(session: Session, filters: LedgerReadFilters) -> list[AccountBalance]:
+    """Derived balance and, when a start date is set, the change in that period.
+
+    Balance is the signed sum of every matching line from the beginning through
+    the end of ``posted_until``, or through ``clock.now()`` when no end date
+    is set. Change in period is the signed sum from ``posted_from`` through
+    that same point. It is omitted when ``posted_from`` is absent. Neither
+    figure is stored.
+    """
+    accounts = _accounts_for(session, filters)
+    upper = _as_utc(filters.posted_until) if filters.posted_until is not None else _as_utc(clock.now())
+    start = _as_utc(filters.posted_from) if filters.posted_from is not None else None
+    totals = {account.id: 0 for account in accounts}
+    period = {account.id: 0 for account in accounts} if start is not None else None
+    account_ids = [account.id for account in accounts]
+    if account_ids:
+        rows = session.execute(
+            select(LedgerLine, LedgerEntry)
+            .join(LedgerEntry, LedgerEntry.id == LedgerLine.entry_id)
+            .where(LedgerLine.account_id.in_(account_ids))
+            .where(LedgerEntry.posted_at <= upper)
+        ).all()
+        kinds = {account.id: account.kind for account in accounts}
+        for line, entry in rows:
+            signed = _signed_pence(kinds[line.account_id], line.direction, int(line.amount_pence))
+            totals[line.account_id] += signed
+            if period is not None and _as_utc(entry.posted_at) >= start:
+                period[line.account_id] += signed
+    return [
+        AccountBalance(
+            account=account,
+            balance_pence=totals[account.id],
+            change_in_period_pence=None if period is None else period[account.id],
+        )
+        for account in accounts
+    ]
+
+
+def query_transactions(
+    session: Session,
+    filters: LedgerReadFilters,
+    *,
+    page: int,
+    page_size: int,
+) -> tuple[list[TransactionRecord], int]:
+    """Matching journal entries, newest first, with every line on the entry.
+
+    An entry matches when at least one line posts to an account that matches
+    the circle, member, and account-type filters, and ``posted_at`` is inside
+    the date range. The returned lines include the other side of the entry so
+    the transaction still balances on the page.
+    """
+    if page < 1 or page_size < 1:
+        raise LedgerPostingError("page and page_size must be positive")
+    accounts = _accounts_for(session, filters)
+    account_ids = [account.id for account in accounts]
+    if not account_ids:
+        return [], 0
+    match_ids = (
+        select(LedgerEntry.id)
+        .join(LedgerLine, LedgerLine.entry_id == LedgerEntry.id)
+        .where(LedgerLine.account_id.in_(account_ids))
+    )
+    if filters.posted_from is not None:
+        match_ids = match_ids.where(LedgerEntry.posted_at >= filters.posted_from)
+    if filters.posted_until is not None:
+        match_ids = match_ids.where(LedgerEntry.posted_at <= filters.posted_until)
+    match_ids = match_ids.distinct()
+    total = int(session.scalar(select(func.count()).select_from(match_ids.subquery())) or 0)
+    id_page = session.scalars(
+        select(LedgerEntry.id)
+        .where(LedgerEntry.id.in_(match_ids))
+        .order_by(LedgerEntry.posted_at.desc(), LedgerEntry.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    if not id_page:
+        return [], total
+    entries = {
+        entry.id: entry
+        for entry in session.scalars(select(LedgerEntry).where(LedgerEntry.id.in_(id_page))).all()
+    }
+    line_rows = session.execute(
+        select(LedgerLine, LedgerAccount)
+        .join(LedgerAccount, LedgerAccount.id == LedgerLine.account_id)
+        .where(LedgerLine.entry_id.in_(id_page))
+        .order_by(LedgerLine.entry_id, LedgerLine.id)
+    ).all()
+    grouped: dict[int, list[TransactionLine]] = {entry_id: [] for entry_id in id_page}
+    for line, account in line_rows:
+        grouped[line.entry_id].append(TransactionLine(line=line, account=account))
+    records = [
+        TransactionRecord(entry=entries[entry_id], lines=tuple(grouped[entry_id]))
+        for entry_id in id_page
+        if entry_id in entries
+    ]
+    return records, total
 
 
 def ledger_totals(session: Session) -> tuple[int, int]:

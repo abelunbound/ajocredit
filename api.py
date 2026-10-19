@@ -93,6 +93,7 @@ from password_reset import register_password_reset_routes
 from roles import register_role_routes
 import audit
 from audit import register_audit_routes
+from ledger_admin import register_ledger_admin_routes
 
 JWT_ALGORITHM = "HS256"
 
@@ -104,6 +105,7 @@ register_email_verification_routes(app)
 register_circle_routes(app, get_current_user)
 register_role_routes(app, get_current_user)
 register_audit_routes(app, get_current_user)
+register_ledger_admin_routes(app, get_current_user)
 
 
 @app.middleware("http")

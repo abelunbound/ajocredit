@@ -142,6 +142,106 @@ ORDER BY a.code;
 
 The partner asset row is the pence still held for that circle. A member liability row is the net pence that member has paid in and not yet been paid out.
 
+## Admin view
+
+`GET /admin/ledger` is a read-only page for a platform admin. The server reads `users.platform_role`. The only value that can open the page is `platform_admin`. A circle admin, a circle member, a missing session, and a role in the query string or headers are refused. Denied means no balances and no transactions are returned.
+
+The page lists account balances and the transactions (journal entries) with each of their lines. Both figures are added up from `ledger_lines` when the page is opened. There is no stored balance. Amounts stay integer pence, and the display columns are those integers shown in pounds (`2575` is £25.75). Divide by 100 only for that display.
+
+**Balance** is every entry on the account from the beginning up to the end date. The end of that date is inclusive. When no end date is set, Balance runs up to `clock.now()` instead, so an entry posted after now is not included. The columns are `Balance (pence)` and `Balance`.
+
+**Change in period** is the entries whose `posted_at` falls inside the date range: on or after the start date, and on or before the same end point used for Balance (the end date, or `clock.now()` when no end date is set). The columns are `Change in period (pence)` and `Change in period`. They are shown only when a start date is set.
+
+Filters are circle (`circle_ref`), member (`member_ref`), account type (`asset`, `liability`, `equity`, `income`, or `expense`), and an inclusive UTC date range on `posted_at` (`start` and `end` as `YYYY-MM-DD`). Transactions are paginated (`page`, `page_size`, at most 100) and are limited to that same date range. A transaction that matches still shows every line, including the other side, so the entry on screen still sums to zero.
+
+Suppose member Ada's liability is credited 1000 pence on 1 April and 2575 pence on 15 May, and `clock.now()` is 1 July.
+
+| Dates | Balance | Change in period |
+|---|---|---|
+| none | 3575 | omitted |
+| start 2026-05-01 only | 3575 | 2575 |
+| end 2026-04-30 only | 1000 | omitted |
+| start 2026-05-01 and end 2026-05-31 | 3575 | 2575 |
+
+The form uses GET. There is no create, edit, or delete control, and no POST, PUT, PATCH, or DELETE route.
+
+Opening the page calls `audit.record_event`. The action is `financial_data_viewed`. `created_at` is `clock.now()`. The row is appended to `audit_log`. No email address is stored. `after` records the view and the filters: circle, member, account type, start, end, page, and page size. The gate is `audit.is_platform_admin`.
+
+## Admin API
+
+`GET /api/v1/admin/ledger` uses the same gate, filters, pagination, and audit row as the page. Unknown query parameters are ignored, including `role`.
+
+Example, with a synthetic circle ref:
+
+```bash
+curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "http://127.0.0.1:8000/api/v1/admin/ledger?circle=circle-synth-example&member=member-ada&account_type=liability&start=2026-01-01&end=2026-01-31&page=1&page_size=50"
+```
+
+A successful body looks like this. `balance_pence` and `amount_pence` are integers. `balance_display` and `amount_display` are the same integers shown in pounds. `balance_pence` is Balance: every entry from the beginning through the end date, or through `clock.now()` when `end` is omitted. `change_in_period_pence` and `change_in_period_display` are Change in period. They are present only when `start` is set. `total` counts transactions, not lines.
+
+```json
+{
+  "balances": [
+    {
+      "account_id": 2,
+      "code": "liability:member-ada:circle-synth-example",
+      "name": "Member Ada contributions",
+      "account_type": "liability",
+      "currency": "GBP",
+      "circle": "circle-synth-example",
+      "member": "member-ada",
+      "balance_pence": 2575,
+      "balance_display": "£25.75",
+      "change_in_period_pence": 2575,
+      "change_in_period_display": "£25.75"
+    }
+  ],
+  "transactions": [
+    {
+      "id": 1,
+      "posted_at": "2026-01-15T12:00:00+00:00",
+      "description": "Contribution",
+      "reference": "contrib-synth-1",
+      "reversal_of_id": null,
+      "entries": [
+        {
+          "id": 1,
+          "account_id": 1,
+          "account_code": "asset:partner:circle-synth-example",
+          "account_type": "asset",
+          "circle": "circle-synth-example",
+          "member": null,
+          "direction": "debit",
+          "amount_pence": 2575,
+          "amount_display": "£25.75",
+          "memo": null
+        },
+        {
+          "id": 2,
+          "account_id": 2,
+          "account_code": "liability:member-ada:circle-synth-example",
+          "account_type": "liability",
+          "circle": "circle-synth-example",
+          "member": "member-ada",
+          "direction": "credit",
+          "amount_pence": 2575,
+          "amount_display": "£25.75",
+          "memo": null
+        }
+      ]
+    }
+  ],
+  "page": 1,
+  "page_size": 50,
+  "total": 1
+}
+```
+
+`401` means there is no signed-in session. `403` with detail `Not allowed.` means the signed-in user is not a platform admin. `422` means a filter is invalid (unknown account type, a bad date, `end` before `start`, or a page outside `1..100` for `page_size`). The response is `Cache-Control: no-store`.
+
+`users.platform_role` is the column added by Alembic revision `0008_audit_log`. There is no ledger request that grants it. It is null for everyone else.
+
 One member's history in that circle, oldest first:
 
 ```sql
