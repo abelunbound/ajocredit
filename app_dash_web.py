@@ -56,6 +56,12 @@ from pages.password_flow import (  # noqa: E402
     reset_layout,
     signed_in_email,
 )
+from pages.verify_email import (  # noqa: E402
+    CLIENTSIDE_CAPTURE_VERIFY_TOKEN,
+    VERIFY_PAGE_BOOT_JS,
+    layout as verify_email_layout,
+    verification_result,
+)
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
@@ -79,6 +85,7 @@ PAGE_PATHS = {
     "landing": "/",
     "signin": "/signin",
     "reset-password": "/reset-password",
+    "verify-email": "/verify-email",
     "getstarted-1": "/get-started",
     "getstarted-2": "/get-started/checking",
     "getstarted-3": "/get-started/origin-result",
@@ -428,6 +435,8 @@ def render_shell(page, _client_value=None):
         return html.Div()
     if page == "reset-password":
         return html.Div(className="auth-shell-wrap", children=reset_layout())
+    if page == "verify-email":
+        return html.Div()
     if page == "landing":
         return html.Div(className="auth-shell-wrap", children=home_layout())
     if page == "getstarted-1":
@@ -507,7 +516,7 @@ app.index_string = """<!DOCTYPE html>
         {%favicon%}
         {%css%}
         <script>
-""" + RESET_PAGE_BOOT_JS + """
+""" + RESET_PAGE_BOOT_JS + "\n" + VERIFY_PAGE_BOOT_JS + """
         </script>
     </head>
     <body>
@@ -526,6 +535,7 @@ app.layout = html.Div(
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="store-auth-rev", data=0),
         dcc.Store(id="reset-token", data=""),
+        dcc.Store(id="verify-token", data=""),
         html.Div(id="app-shell"),
         html.Div(
             id="signin-dock",
@@ -538,6 +548,12 @@ app.layout = html.Div(
             className="auth-shell-wrap",
             style={"display": "none"},
             children=getstarted_layout(),
+        ),
+        html.Div(
+            id="verify-dock",
+            className="auth-shell-wrap",
+            style={"display": "none"},
+            children=verify_email_layout(),
         ),
     ],
 )
@@ -657,6 +673,32 @@ app.clientside_callback(
     Input("url", "hash"),
     Input("url", "pathname"),
 )
+
+app.clientside_callback(
+    CLIENTSIDE_CAPTURE_VERIFY_TOKEN,
+    Output("verify-token", "data"),
+    Input("url", "hash"),
+    Input("url", "pathname"),
+)
+
+
+@app.callback(
+    Output("verify-dock", "style"),
+    Input("url", "pathname"),
+)
+def toggle_verify_dock(pathname):
+    if page_from_pathname(pathname) == "verify-email":
+        return {}
+    return {"display": "none"}
+
+
+@app.callback(
+    Output("verify-message", "children"),
+    Input("verify-token", "data"),
+    prevent_initial_call=True,
+)
+def confirm_email_link(token):
+    return verification_result(token)
 
 
 @app.callback(

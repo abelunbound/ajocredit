@@ -384,6 +384,11 @@ def reset_password(token: str, password: str) -> tuple[int, object]:
     return _post_public("/api/v1/auth/password/reset", {"token": token, "password": password})
 
 
+def confirm_verification(token: str) -> tuple[int, object]:
+    """Confirm an email. The token is sent only in this JSON body."""
+    return _post_public("/api/v1/auth/verification/confirm", {"token": token})
+
+
 def signup(name: str, email: str, password: str) -> tuple[int, object]:
     """Create an account. Only synthetic @example.test addresses are sent."""
     address = email.strip().lower()

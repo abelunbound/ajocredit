@@ -209,6 +209,31 @@ def test_signup_of_an_existing_email_does_not_send_a_verification_link():
     assert "/verify-email#" not in mail.memory_inbox()[-1]["body"]
 
 
+def test_verification_link_uses_public_app_url_and_ignores_the_host_header(monkeypatch):
+    import inspect
+
+    monkeypatch.delenv("PUBLIC_APP_URL", raising=False)
+    assert email_verification.verification_link("abc") == "http://localhost:8055/verify-email#abc"
+    source = inspect.getsource(email_verification.verification_link)
+    assert "Host" not in source
+    assert "headers" not in source
+    assert "request" not in source
+
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://ajo.example.test/")
+    email = _email()
+    mail.clear_memory_inbox()
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={"name": "Ada Test", "email": email, "password": PASSWORD},
+        headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example"},
+    )
+    assert response.status_code == 201, response.text
+    body = mail.memory_inbox()[-1]["body"]
+    assert "https://ajo.example.test/verify-email#" in body
+    assert "evil.example" not in body
+    assert "testserver" not in body
+
+
 def test_email_endpoints_fail_closed_when_ajo_env_is_unset(monkeypatch):
     monkeypatch.setenv("AJO_ENV", "")
     monkeypatch.delenv("EMAIL_SENDER", raising=False)

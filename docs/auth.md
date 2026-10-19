@@ -81,7 +81,9 @@ Sign-up sends a verification link through the same sender as password reset. The
 | `POST /api/v1/circles` | Creates an Ajo. Rejected until the email is verified. |
 | `POST /api/v1/circles/{id}/join` | Joins an Ajo. Rejected until the email is verified. |
 
-The verification token is `secrets.token_urlsafe`. Only its SHA-256 hash is stored. It expires 24 hours after `clock.now()`. The presented token is consumed by one conditional update, so a second use fails. The link is `{PUBLIC_APP_URL}/verify-email#<token>`.
+The verification token is `secrets.token_urlsafe`. Only its SHA-256 hash is stored. It expires 24 hours after `clock.now()`. The presented token is consumed by one conditional update, so a second use fails. The link is `{PUBLIC_APP_URL}/verify-email#<token>`. It is built only from `PUBLIC_APP_URL`, not from the request Host header.
+
+Dash `/verify-email` reads that fragment, removes it from the address bar with `history.replaceState` on load, and posts the token only in `POST /api/v1/auth/verification/confirm`. The page shows the API `detail` for success, an expired or used link, and 429. It links to `/signin`. The token is not written to the application log.
 
 An unverified user can log in and call `GET /api/v1/me` (`email_verified` is false). Creating or joining an Ajo is blocked on the server with 403 and the detail `Verify your email before creating or joining an Ajo.` The check runs before the circle is looked up. The Join Ajo page and the Create Ajo row show that same prompt when the session says the address is not verified.
 
