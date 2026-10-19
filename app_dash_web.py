@@ -7,6 +7,7 @@ from flask import redirect, request, session
 load_dotenv(override=False)
 
 import dash_api  # noqa: E402
+from dash_api import SERVICE_UNAVAILABLE  # noqa: E402
 from stub_auth import (  # noqa: E402
     SIGNIN_FAILED,
     authenticate,
@@ -196,7 +197,10 @@ def next_state(trigger, current_page, current_rev, username, password, signup=No
         if action == "signin-back":
             return "landing", rev, ""
         if action == "signin-submit":
-            identity = apply_signin(username, password)
+            try:
+                identity = apply_signin(username, password)
+            except dash_api.ApiUnavailable:
+                return "signin", rev + 1, SERVICE_UNAVAILABLE
             if identity is None:
                 return "signin", rev + 1, SIGNIN_FAILED
             return "home", rev + 1, ""
@@ -353,22 +357,30 @@ def profile_from_session():
 
 
 def render_page(page, role, username=None, profile=None):
+    """Build only the page being shown.
+
+    Layouts are callables. Calling every layout here would hit the admin
+    audit and ledger APIs on pages the visitor never opened.
+    """
     if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     pages = {
-        "home": dashboard_layout(role),
-        "members": members_layout(role, username),
-        "payouts": payouts_layout(role, username),
-        "credit": credit_layout(),
-        "autoloan": autoloan_layout(),
-        "wallet": wallet_layout(),
-        "circle": circle_layout(role, username),
-        "settings": settings_layout(username, profile or {}),
-        "join": join_layout(role),
-        "support": support_layout(),
-        "admin": admin_layout(),
+        "home": lambda: dashboard_layout(role),
+        "members": lambda: members_layout(role, username),
+        "payouts": lambda: payouts_layout(role, username),
+        "credit": credit_layout,
+        "autoloan": autoloan_layout,
+        "wallet": wallet_layout,
+        "circle": lambda: circle_layout(role, username),
+        "settings": lambda: settings_layout(username, profile or {}),
+        "join": lambda: join_layout(role),
+        "support": support_layout,
+        "admin": admin_layout,
     }
-    return pages.get(page, dashboard_layout(role))
+    build = pages.get(page)
+    if build is None:
+        return dashboard_layout(role)
+    return build()
 
 
 def render_shell(page, _client_value=None):

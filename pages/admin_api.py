@@ -36,7 +36,7 @@ def _rows(entries: list, columns: list[tuple[str, str]]):
 
 def _section(title: str, status: int, payload: object, unavailable: str, columns: list[tuple[str, str]], list_key: str):
     children: list = [html.H2(title, className="h2")]
-    if status == 0:
+    if status == 0 or status == 408 or status >= 500:
         children.append(html.Div(unavailable, className="sub"))
         return html.Div(className="card", children=children)
     if status == 404:

@@ -109,6 +109,18 @@ def _decode_body(raw: bytes) -> object:
         return None
 
 
+class ApiUnavailable(Exception):
+    """The API could not be reached, timed out, or returned a server error."""
+
+
+SERVICE_UNAVAILABLE = "Service unavailable, please try again shortly"
+
+
+def _unavailable(status: int) -> bool:
+    """Connection failures, timeouts, and server errors. Not a refused login."""
+    return status == 0 or status == 408 or status >= 500
+
+
 def _urllib_send(method: str, path: str, body: dict | None, headers: dict, params: dict | None) -> tuple[int, object]:
     base = api_base()
     if not base:
@@ -139,14 +151,17 @@ def _urllib_send(method: str, path: str, body: dict | None, headers: dict, param
             return response.status, _decode_body(response.read())
     except urllib.error.HTTPError as exc:
         return exc.code, _decode_body(exc.read())
-    except urllib.error.URLError:
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
         return 0, None
 
 
 def _send(method: str, path: str, body: dict | None, headers: dict, params: dict | None) -> tuple[int, object]:
-    if _transport_send is not None:
-        return _transport_send(method, path, body, headers, params)
-    return _urllib_send(method, path, body, headers, params)
+    try:
+        if _transport_send is not None:
+            return _transport_send(method, path, body, headers, params)
+        return _urllib_send(method, path, body, headers, params)
+    except (TimeoutError, ConnectionError):
+        return 0, None
 
 
 def safe_detail(payload: object, fallback: str) -> str:
@@ -172,6 +187,8 @@ def _refresh(sid: str) -> bool:
         {},
         None,
     )
+    if _unavailable(status):
+        return False
     if status != 200 or not isinstance(payload, dict):
         VAULT.drop(sid)
         return False
@@ -234,6 +251,8 @@ def _confirmed_circles(sid: str, listed: list) -> list[dict]:
         if not isinstance(circle_id, int) or not isinstance(name, str) or not name:
             continue
         status, payload = request("GET", f"/api/v1/circles/{circle_id}", sid=sid)
+        if _unavailable(status):
+            raise ApiUnavailable()
         role = None
         if status == 200 and isinstance(payload, dict) and payload.get("role") in {"admin", "member"}:
             role = payload["role"]
@@ -247,6 +266,8 @@ def _confirmed_circles(sid: str, listed: list) -> list[dict]:
 
 def load_circles(sid: str) -> list[dict]:
     status, payload = request("GET", "/api/v1/circles", sid=sid)
+    if _unavailable(status):
+        raise ApiUnavailable()
     if status != 200 or not isinstance(payload, dict):
         return []
     listed = payload.get("circles")
@@ -269,6 +290,8 @@ def sign_in(username: object, password: object) -> ApiIdentity | None:
         {},
         None,
     )
+    if _unavailable(status):
+        raise ApiUnavailable()
     if status != 200 or not isinstance(payload, dict):
         return None
     access = payload.get("access_token")
@@ -276,21 +299,27 @@ def sign_in(username: object, password: object) -> ApiIdentity | None:
     if not isinstance(access, str) or not isinstance(refresh, str) or not access or not refresh:
         return None
     sid = VAULT.put(access, refresh)
-    me_status, me = request("GET", "/api/v1/me", sid=sid)
-    if me_status != 200 or not isinstance(me, dict):
+    try:
+        me_status, me = request("GET", "/api/v1/me", sid=sid)
+        if _unavailable(me_status):
+            raise ApiUnavailable()
+        if me_status != 200 or not isinstance(me, dict):
+            VAULT.drop(sid)
+            return None
+        circles = load_circles(sid)
+        role = _role_from_circles(circles)
+        user_id = me.get("user_id") if isinstance(me.get("user_id"), int) else None
+        return ApiIdentity(
+            username=handle,
+            role=role,
+            sid=sid,
+            user_id=user_id,
+            email_verified=bool(me.get("email_verified")),
+            circles=circles,
+        )
+    except ApiUnavailable:
         VAULT.drop(sid)
-        return None
-    circles = load_circles(sid)
-    role = _role_from_circles(circles)
-    user_id = me.get("user_id") if isinstance(me.get("user_id"), int) else None
-    return ApiIdentity(
-        username=handle,
-        role=role,
-        sid=sid,
-        user_id=user_id,
-        email_verified=bool(me.get("email_verified")),
-        circles=circles,
-    )
+        raise
 
 
 def logout(sid: str | None) -> None:
@@ -346,15 +375,21 @@ def sync_session() -> None:
     if not isinstance(sid, str) or VAULT.get(sid) is None:
         return
     me_status, me = request("GET", "/api/v1/me", sid=sid)
+    if _unavailable(me_status):
+        return
     if me_status == 401:
-        logout(sid)
-        session.clear()
+        if VAULT.get(sid) is None:
+            logout(sid)
+            session.clear()
         return
     if me_status == 200 and isinstance(me, dict):
         session["email_verified"] = bool(me.get("email_verified"))
         if isinstance(me.get("user_id"), int):
             session["user_id"] = me["user_id"]
-    circles = load_circles(sid)
+    try:
+        circles = load_circles(sid)
+    except ApiUnavailable:
+        return
     session["circles"] = circles
     session["role"] = _role_from_circles(circles)
 
@@ -384,10 +419,15 @@ def confirm_payouts() -> None:
             f"/api/v1/circles/{circle['circle_id']}/payouts",
             sid=sid,
         )
+        if _unavailable(status):
+            return
         if status == 200 and isinstance(payload, dict) and payload.get("role") == "admin":
             updated.append({**circle, "role": "admin"})
             continue
-        updated.append({**circle, "role": "member"})
+        if status == 403:
+            updated.append({**circle, "role": "member"})
+            continue
+        updated.append(circle)
     session["circles"] = updated
     roles = {item.get("role") for item in updated}
     if "admin" in roles:

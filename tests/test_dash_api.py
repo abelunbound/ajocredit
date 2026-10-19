@@ -329,6 +329,249 @@ def test_demo_sign_in_is_refused_outside_local_and_dev(api_dash, monkeypatch):
     assert _paths(api_dash, "/api/v1/auth/login") == []
 
 
+ADMIN_ENDPOINTS = {"/api/v1/admin/audit", "/api/v1/admin/ledger"}
+OTHER_PATHS = (
+    "/",
+    "/signin",
+    "/dashboard",
+    "/members",
+    "/circle",
+    "/wallet",
+    "/settings",
+    "/join",
+    "/support",
+    "/credit",
+    "/autoloan",
+    "/payouts",
+)
+RENDER_OUTPUT = "..app-shell.children...signin-dock.style.."
+
+
+def _audit_count() -> int:
+    with database.SessionLocal() as db:
+        return db.query(database.AuditLog).count()
+
+
+def _audit_actions() -> list[str]:
+    with database.SessionLocal() as db:
+        return [row.action for row in db.query(database.AuditLog).order_by(database.AuditLog.id).all()]
+
+
+def _render(client, pathname: str) -> str:
+    response = client.post(
+        "/_dash-update-component",
+        json={
+            "output": RENDER_OUTPUT,
+            "outputs": [
+                {"id": "app-shell", "property": "children"},
+                {"id": "signin-dock", "property": "style"},
+            ],
+            "inputs": [
+                {"id": "url", "property": "pathname", "value": pathname},
+                {"id": "store-auth-rev", "property": "data", "value": 1},
+            ],
+            "changedPropIds": ["url.pathname"],
+            "state": [],
+        },
+    )
+    assert response.status_code == 200, response.get_data(as_text=True)
+    return response.get_data(as_text=True)
+
+
+def _client_with_session(saved: dict):
+    client = app.server.test_client()
+    with client.session_transaction() as sess:
+        sess.update(saved)
+    return client
+
+
+def test_other_pages_do_not_call_admin_audit_or_ledger(api_dash):
+    """A page that is not the admin screen never touches the audit or ledger APIs."""
+    with database.SessionLocal() as db:
+        admin = db.query(database.User).filter(database.User.email == "admintest@example.test").one()
+        admin.platform_role = PLATFORM_ADMIN
+        db.commit()
+    for username, password, opened in (
+        ("admintest", ADMIN_PW, {"audit_log_read", "financial_data_viewed"}),
+        ("membertest", MEMBER_PW, {"audit_log_denied"}),
+    ):
+        with app.server.test_request_context():
+            assert apply_signin(username, password) is not None
+            before = _audit_count()
+            saved = dict(session)
+        start = len(api_dash)
+        client = _client_with_session(saved)
+        for path in OTHER_PATHS:
+            _render(client, path)
+        assert [call["path"] for call in api_dash[start:] if call["path"] in ADMIN_ENDPOINTS] == []
+        assert _audit_count() == before
+        _render(client, "/admin")
+        hit = {call["path"] for call in api_dash[start:] if call["path"] in ADMIN_ENDPOINTS}
+        assert hit == ADMIN_ENDPOINTS
+        assert _audit_count() > before
+        assert opened <= set(_audit_actions())
+    with app.server.test_request_context():
+        dash_api.logout(session.get("api_sid"))
+    start = len(api_dash)
+    before = _audit_count()
+    guest = app.server.test_client()
+    _render(guest, "/signin")
+    _render(guest, "/dashboard")
+    assert [call["path"] for call in api_dash[start:] if call["path"] in ADMIN_ENDPOINTS] == []
+    assert _audit_count() == before
+
+
+def test_unreachable_api_is_distinct_from_a_rejected_sign_in(api_dash, monkeypatch):
+    from stub_auth import SIGNIN_FAILED
+
+    real = dash_api._transport_send
+
+    def unavailable(status):
+        def send(method, path, body, headers, params):
+            return status, None
+
+        dash_api.install_transport_for_tests(send)
+        with app.server.test_request_context():
+            page, _rev, error = next_state(
+                {"type": "auth-btn", "action": "signin-submit"},
+                "signin",
+                0,
+                "admintest",
+                ADMIN_PW,
+            )
+            assert page == "signin"
+            assert error == dash_api.SERVICE_UNAVAILABLE
+            assert error != SIGNIN_FAILED
+            assert dash_api.VAULT._rows == {}
+
+    unavailable(0)
+    unavailable(503)
+    unavailable(408)
+
+    def time_out(method, path, body, headers, params):
+        raise TimeoutError("timed out")
+
+    dash_api.install_transport_for_tests(time_out)
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "admintest",
+            ADMIN_PW,
+        )
+        assert page == "signin"
+        assert error == dash_api.SERVICE_UNAVAILABLE
+        assert dash_api.VAULT._rows == {}
+
+    dash_api.install_transport_for_tests(None)
+    monkeypatch.setenv("AJO_API_BASE", "http://127.0.0.1:9")
+
+    def boom(*_args, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(dash_api.urllib.request, "urlopen", boom)
+    status, payload = dash_api._urllib_send("POST", "/api/v1/auth/login", {}, {}, None)
+    assert (status, payload) == (0, None)
+
+    def refused(*_args, **_kwargs):
+        import urllib.error
+
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr(dash_api.urllib.request, "urlopen", refused)
+    status, payload = dash_api._urllib_send("POST", "/api/v1/auth/login", {}, {}, None)
+    assert (status, payload) == (0, None)
+
+    dash_api.install_transport_for_tests(real)
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "admintest",
+            "wrong-password",
+        )
+        assert page == "signin"
+        assert error == SIGNIN_FAILED
+
+    def me_down(method, path, body, headers, params):
+        if path.split("?", 1)[0] == "/api/v1/me":
+            return 503, {"detail": "unavailable"}
+        return real(method, path, body, headers, params)
+
+    dash_api.install_transport_for_tests(me_down)
+    with app.server.test_request_context():
+        page, _rev, error = next_state(
+            {"type": "auth-btn", "action": "signin-submit"},
+            "signin",
+            0,
+            "membertest",
+            MEMBER_PW,
+        )
+        assert page == "signin"
+        assert error == dash_api.SERVICE_UNAVAILABLE
+        assert dash_api.VAULT._rows == {}
+
+
+def test_signed_in_session_survives_an_unreachable_api(api_dash):
+    real = dash_api._transport_send
+    with app.server.test_request_context():
+        assert apply_signin("admintest", ADMIN_PW) is not None
+        sid = session["api_sid"]
+        saved = dict(session)
+
+    def outage(status):
+        def send(method, path, body, headers, params):
+            pure = path.split("?", 1)[0]
+            if pure == "/api/v1/me" or pure.startswith("/api/v1/circles"):
+                return status, None
+            return real(method, path, body, headers, params)
+
+        dash_api.install_transport_for_tests(send)
+        client = _client_with_session(saved)
+        body = _render(client, "/dashboard")
+        assert '"display":"none"' in body
+        with client.session_transaction() as sess:
+            assert sess.get("role") == "admin"
+            assert sess.get("api_sid") == sid
+            assert sess.get("circles")
+        assert dash_api.VAULT.get(sid) is not None
+
+    outage(0)
+    outage(503)
+
+    def refresh_down(method, path, body, headers, params):
+        pure = path.split("?", 1)[0]
+        if pure == "/api/v1/auth/refresh":
+            return 503, None
+        if pure == "/api/v1/me":
+            return 401, {"detail": "expired"}
+        return real(method, path, body, headers, params)
+
+    dash_api.install_transport_for_tests(refresh_down)
+    client = _client_with_session(saved)
+    _render(client, "/members")
+    with client.session_transaction() as sess:
+        assert sess.get("role") == "admin"
+        assert sess.get("api_sid") == sid
+    assert dash_api.VAULT.get(sid) is not None
+
+    def rejected(method, path, body, headers, params):
+        pure = path.split("?", 1)[0]
+        if pure in {"/api/v1/me", "/api/v1/auth/refresh"}:
+            return 401, {"detail": "rejected"}
+        return real(method, path, body, headers, params)
+
+    dash_api.install_transport_for_tests(rejected)
+    client = _client_with_session(saved)
+    body = _render(client, "/dashboard")
+    with client.session_transaction() as sess:
+        assert sess.get("role") is None
+        assert "api_sid" not in sess
+    assert '"display":"none"' not in body
+
+
 def test_stub_sign_in_remains_when_the_api_base_is_unset(tmp_path, monkeypatch):
     path = tmp_path / "stub-users.json"
     path.write_text(json.dumps({"admintest": ADMIN_PW, "membertest": MEMBER_PW}), encoding="utf-8")
