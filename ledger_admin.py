@@ -166,7 +166,7 @@ def record_ledger_view(db: Session, request: Request, user: User, query: PageQue
 
 def _balance_payload(row: AccountBalance) -> dict:
     account = row.account
-    return {
+    payload = {
         "account_id": account.id,
         "code": account.code,
         "name": account.name,
@@ -177,6 +177,12 @@ def _balance_payload(row: AccountBalance) -> dict:
         "balance_pence": int(row.balance_pence),
         "balance_display": format_pence(int(row.balance_pence), account.currency),
     }
+    if row.change_in_period_pence is not None:
+        payload["change_in_period_pence"] = int(row.change_in_period_pence)
+        payload["change_in_period_display"] = format_pence(
+            int(row.change_in_period_pence), account.currency
+        )
+    return payload
 
 
 def _transaction_payload(record: TransactionRecord) -> dict:
@@ -231,9 +237,17 @@ def _render_page(
     transactions: list[TransactionRecord],
     total: int,
 ) -> str:
+    show_change = query.filters.posted_from is not None
     balance_rows = []
     for row in balances:
         account = row.account
+        change_cells = ""
+        if show_change:
+            change_pence = int(row.change_in_period_pence or 0)
+            change_cells = (
+                f"<td>{change_pence}</td>"
+                f"<td>{_cell(format_pence(change_pence, account.currency))}</td>"
+            )
         balance_rows.append(
             "<tr>"
             f"<td>{_cell(account.code)}</td>"
@@ -243,10 +257,15 @@ def _render_page(
             f"<td>{_cell(account.member_ref)}</td>"
             f"<td>{int(row.balance_pence)}</td>"
             f"<td>{_cell(format_pence(int(row.balance_pence), account.currency))}</td>"
+            f"{change_cells}"
             "</tr>"
         )
+    balance_span = "9" if show_change else "7"
     if not balance_rows:
-        balance_rows.append('<tr><td colspan="7">No accounts.</td></tr>')
+        balance_rows.append(f'<tr><td colspan="{balance_span}">No accounts.</td></tr>')
+    change_headers = ""
+    if show_change:
+        change_headers = "<th>Change in period (pence)</th><th>Change in period</th>"
 
     entry_rows = []
     for record in transactions:
@@ -319,7 +338,7 @@ th, td {{ text-align: left; padding: 0.45rem 0.55rem; border-bottom: 1px solid #
 </head>
 <body>
 <h1>Ledger</h1>
-<p class="note">Read-only. Balances are calculated from entries and are not stored. Amounts are integer pence. This page cannot create, edit, or delete anything. Opening it is audit-logged.</p>
+<p class="note">Read-only. Amounts are integer pence and are calculated from entries, not stored. Balance is every entry from the beginning up to the end date, or up to now when no end date is set. Change in period is the entries inside the date range and is shown only when a start date is set. This page cannot create, edit, or delete anything. Opening it is audit-logged.</p>
 <form method="get" action="/admin/ledger">
 <label>Circle<input name="circle" value="{_cell(query.circle_raw)}"></label>
 <label>Member<input name="member" value="{_cell(query.member_raw)}"></label>
@@ -331,7 +350,7 @@ th, td {{ text-align: left; padding: 0.45rem 0.55rem; border-bottom: 1px solid #
 </form>
 <h2>Balances</h2>
 <table>
-<thead><tr><th>Account</th><th>Name</th><th>Type</th><th>Circle</th><th>Member</th><th>Pence</th><th>Amount</th></tr></thead>
+<thead><tr><th>Account</th><th>Name</th><th>Type</th><th>Circle</th><th>Member</th><th>Balance (pence)</th><th>Balance</th>{change_headers}</tr></thead>
 <tbody>
 {"".join(balance_rows)}
 </tbody>

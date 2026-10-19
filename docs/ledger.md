@@ -146,9 +146,22 @@ The partner asset row is the pence still held for that circle. A member liabilit
 
 `GET /admin/ledger` is a read-only page for a platform admin. The server reads `users.platform_role`. The only value that can open the page is `platform_admin`. A circle admin, a circle member, a missing session, and a role in the query string or headers are refused. Denied means no balances and no transactions are returned.
 
-The page lists account balances and the transactions (journal entries) with each of their lines. Balances are added up from `ledger_lines` when the page is opened. There is no balance column. Amounts stay integer pence in the table, and the amount column is that integer shown in pounds (`2575` is £25.75). Divide by 100 only for that display.
+The page lists account balances and the transactions (journal entries) with each of their lines. Both figures are added up from `ledger_lines` when the page is opened. There is no stored balance. Amounts stay integer pence, and the display columns are those integers shown in pounds (`2575` is £25.75). Divide by 100 only for that display.
 
-Filters are circle (`circle_ref`), member (`member_ref`), account type (`asset`, `liability`, `equity`, `income`, or `expense`), and an inclusive UTC date range on `posted_at` (`start` and `end` as `YYYY-MM-DD`). Transactions are paginated (`page`, `page_size`, at most 100). The date range also limits which lines are included in the derived balance. A transaction that matches still shows every line, including the other side, so the entry on screen still sums to zero.
+**Balance** is every entry on the account from the beginning up to the end date. The end of that date is inclusive. When no end date is set, Balance runs up to `clock.now()` instead, so an entry posted after now is not included. The columns are `Balance (pence)` and `Balance`.
+
+**Change in period** is the entries whose `posted_at` falls inside the date range: on or after the start date, and on or before the same end point used for Balance (the end date, or `clock.now()` when no end date is set). The columns are `Change in period (pence)` and `Change in period`. They are shown only when a start date is set.
+
+Filters are circle (`circle_ref`), member (`member_ref`), account type (`asset`, `liability`, `equity`, `income`, or `expense`), and an inclusive UTC date range on `posted_at` (`start` and `end` as `YYYY-MM-DD`). Transactions are paginated (`page`, `page_size`, at most 100) and are limited to that same date range. A transaction that matches still shows every line, including the other side, so the entry on screen still sums to zero.
+
+Suppose member Ada's liability is credited 1000 pence on 1 April and 2575 pence on 15 May, and `clock.now()` is 1 July.
+
+| Dates | Balance | Change in period |
+|---|---|---|
+| none | 3575 | omitted |
+| start 2026-05-01 only | 3575 | 2575 |
+| end 2026-04-30 only | 1000 | omitted |
+| start 2026-05-01 and end 2026-05-31 | 3575 | 2575 |
 
 The form uses GET. There is no create, edit, or delete control, and no POST, PUT, PATCH, or DELETE route.
 
@@ -165,7 +178,7 @@ curl -sS -H "Authorization: Bearer $ACCESS_TOKEN" \
   "http://127.0.0.1:8000/api/v1/admin/ledger?circle=circle-synth-example&member=member-ada&account_type=liability&start=2026-01-01&end=2026-01-31&page=1&page_size=50"
 ```
 
-A successful body looks like this. `balance_pence` and `amount_pence` are integers. `balance_display` and `amount_display` are the same integers shown in pounds. `total` counts transactions, not lines.
+A successful body looks like this. `balance_pence` and `amount_pence` are integers. `balance_display` and `amount_display` are the same integers shown in pounds. `balance_pence` is Balance: every entry from the beginning through the end date, or through `clock.now()` when `end` is omitted. `change_in_period_pence` and `change_in_period_display` are Change in period. They are present only when `start` is set. `total` counts transactions, not lines.
 
 ```json
 {
@@ -179,7 +192,9 @@ A successful body looks like this. `balance_pence` and `amount_pence` are intege
       "circle": "circle-synth-example",
       "member": "member-ada",
       "balance_pence": 2575,
-      "balance_display": "£25.75"
+      "balance_display": "£25.75",
+      "change_in_period_pence": 2575,
+      "change_in_period_display": "£25.75"
     }
   ],
   "transactions": [

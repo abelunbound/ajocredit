@@ -14,7 +14,7 @@ triggers that reject UPDATE and DELETE on SQLite and PostgreSQL.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
@@ -363,10 +363,17 @@ class LedgerReadFilters:
 
 @dataclass(frozen=True)
 class AccountBalance:
-    """A derived balance. Nothing in the database stores this number."""
+    """Derived figures. Nothing in the database stores these numbers.
+
+    ``balance_pence`` is every entry from the beginning through the end date,
+    or through ``clock.now()`` when no end date is set. ``change_in_period_pence``
+    is the entries from the start date through that same point. It is ``None``
+    when no start date is set.
+    """
 
     account: LedgerAccount
     balance_pence: int
+    change_in_period_pence: int | None = None
 
 
 @dataclass(frozen=True)
@@ -404,37 +411,46 @@ def _accounts_for(session: Session, filters: LedgerReadFilters) -> list[LedgerAc
     return list(session.scalars(stmt).all())
 
 
-def _lines_for_accounts(
-    session: Session,
-    account_ids: list[int],
-    filters: LedgerReadFilters,
-) -> list[tuple[LedgerLine, LedgerEntry]]:
-    if not account_ids:
-        return []
-    stmt = (
-        select(LedgerLine, LedgerEntry)
-        .join(LedgerEntry, LedgerEntry.id == LedgerLine.entry_id)
-        .where(LedgerLine.account_id.in_(account_ids))
-    )
-    if filters.posted_from is not None:
-        stmt = stmt.where(LedgerEntry.posted_at >= filters.posted_from)
-    if filters.posted_until is not None:
-        stmt = stmt.where(LedgerEntry.posted_at <= filters.posted_until)
-    return list(session.execute(stmt).all())
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def query_balances(session: Session, filters: LedgerReadFilters) -> list[AccountBalance]:
-    """Balances for matching accounts, summed from lines. Never stored."""
+    """Derived balance and, when a start date is set, the change in that period.
+
+    Balance is the signed sum of every matching line from the beginning through
+    the end of ``posted_until``, or through ``clock.now()`` when no end date
+    is set. Change in period is the signed sum from ``posted_from`` through
+    that same point. It is omitted when ``posted_from`` is absent. Neither
+    figure is stored.
+    """
     accounts = _accounts_for(session, filters)
+    upper = _as_utc(filters.posted_until) if filters.posted_until is not None else _as_utc(clock.now())
+    start = _as_utc(filters.posted_from) if filters.posted_from is not None else None
     totals = {account.id: 0 for account in accounts}
-    rows = _lines_for_accounts(session, [account.id for account in accounts], filters)
-    kinds = {account.id: account.kind for account in accounts}
-    for line, _entry in rows:
-        totals[line.account_id] += _signed_pence(
-            kinds[line.account_id], line.direction, int(line.amount_pence)
-        )
+    period = {account.id: 0 for account in accounts} if start is not None else None
+    account_ids = [account.id for account in accounts]
+    if account_ids:
+        rows = session.execute(
+            select(LedgerLine, LedgerEntry)
+            .join(LedgerEntry, LedgerEntry.id == LedgerLine.entry_id)
+            .where(LedgerLine.account_id.in_(account_ids))
+            .where(LedgerEntry.posted_at <= upper)
+        ).all()
+        kinds = {account.id: account.kind for account in accounts}
+        for line, entry in rows:
+            signed = _signed_pence(kinds[line.account_id], line.direction, int(line.amount_pence))
+            totals[line.account_id] += signed
+            if period is not None and _as_utc(entry.posted_at) >= start:
+                period[line.account_id] += signed
     return [
-        AccountBalance(account=account, balance_pence=totals[account.id])
+        AccountBalance(
+            account=account,
+            balance_pence=totals[account.id],
+            change_in_period_pence=None if period is None else period[account.id],
+        )
         for account in accounts
     ]
 

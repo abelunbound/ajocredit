@@ -343,9 +343,11 @@ def test_filters_pagination_and_reversal_move_the_derived_balance():
     may_body = may.json()
     assert may_body["total"] == 1
     assert may_body["transactions"][0]["description"] == "May contribution"
-    may_balances = {row["member"]: row["balance_pence"] for row in may_body["balances"] if row["member"]}
-    assert may_balances["member-ada"] == 2575
-    assert may_balances["member-tunde"] == 0
+    may_balances = {row["member"]: row for row in may_body["balances"] if row["member"]}
+    assert may_balances["member-ada"]["balance_pence"] == 2575
+    assert may_balances["member-ada"]["change_in_period_pence"] == 2575
+    assert may_balances["member-tunde"]["balance_pence"] == 0
+    assert may_balances["member-tunde"]["change_in_period_pence"] == 0
 
     ada = client.get(
         "/api/v1/admin/ledger",
@@ -356,6 +358,7 @@ def test_filters_pagination_and_reversal_move_the_derived_balance():
     ada_body = ada.json()
     assert [row["code"] for row in ada_body["balances"]] == [f"liability:member-ada:{circle}"]
     assert ada_body["balances"][0]["balance_pence"] == 2675
+    assert "change_in_period_pence" not in ada_body["balances"][0]
     assert ada_body["total"] == 2
     assert all(
         any(entry["member"] == "member-ada" for entry in transaction["entries"])
@@ -392,6 +395,7 @@ def test_filters_pagination_and_reversal_move_the_derived_balance():
     )
     assert after.status_code == 200, after.text
     assert after.json()["balances"][0]["balance_pence"] == 100
+    assert "change_in_period_pence" not in after.json()["balances"][0]
 
     bad_type = client.get(
         "/api/v1/admin/ledger",
@@ -413,6 +417,83 @@ def test_filters_pagination_and_reversal_move_the_derived_balance():
         params={"start": "2026-06-02", "end": "2026-05-01"},
     )
     assert bad_range.status_code == 422
+
+
+def test_balance_runs_to_the_end_and_change_in_period_needs_a_start():
+    """Balance is the running total. Change in period is only the filtered range."""
+    circle = f"circle-synth-{_suffix()}"
+    clock.freeze(datetime(2026, 4, 1, 9, 0, tzinfo=timezone.utc))
+    _post_contribution(circle, "member-ada", 1000, reference=f"ref-{_suffix()}", description="April contribution")
+    clock.freeze(datetime(2026, 5, 15, 9, 0, tzinfo=timezone.utc))
+    _post_contribution(circle, "member-ada", 2575, reference=f"ref-{_suffix()}", description="May contribution")
+    clock.freeze(datetime(2026, 6, 20, 9, 0, tzinfo=timezone.utc))
+    _post_contribution(circle, "member-ada", 500, reference=f"ref-{_suffix()}", description="June contribution")
+    clock.freeze(datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc))
+    email, token = _verified_user()
+    _grant_platform_admin(email)
+    member = "member-ada"
+
+    def liability(access: str, params: dict) -> dict:
+        response = client.get(
+            "/api/v1/admin/ledger",
+            headers=_auth(access),
+            params={"circle": circle, "member": member, "account_type": "liability", **params},
+        )
+        assert response.status_code == 200, response.text
+        rows = response.json()["balances"]
+        assert len(rows) == 1
+        row = rows[0]
+        assert isinstance(row["balance_pence"], int)
+        assert row["balance_display"] == format_pence(row["balance_pence"])
+        return row
+
+    none = liability(token, {})
+    assert none["balance_pence"] == 4075
+    assert "change_in_period_pence" not in none
+    assert "change_in_period_display" not in none
+
+    start_only = liability(token, {"start": "2026-05-01"})
+    assert start_only["balance_pence"] == 4075
+    assert start_only["change_in_period_pence"] == 3075
+    assert isinstance(start_only["change_in_period_pence"], int)
+    assert start_only["change_in_period_display"] == "£30.75"
+
+    end_only = liability(token, {"end": "2026-05-31"})
+    assert end_only["balance_pence"] == 3575
+    assert end_only["balance_display"] == "£35.75"
+    assert "change_in_period_pence" not in end_only
+
+    both = liability(token, {"start": "2026-05-01", "end": "2026-05-31"})
+    assert both["balance_pence"] == 3575
+    assert both["change_in_period_pence"] == 2575
+    assert both["change_in_period_display"] == "£25.75"
+
+    clock.freeze(datetime(2026, 4, 30, 18, 0, tzinfo=timezone.utc))
+    earlier_email, earlier_token = _verified_user()
+    _grant_platform_admin(earlier_email)
+    before_may = liability(earlier_token, {})
+    assert before_may["balance_pence"] == 1000
+    assert "change_in_period_pence" not in before_may
+    april_start = liability(earlier_token, {"start": "2026-04-01"})
+    assert april_start["balance_pence"] == 1000
+    assert april_start["change_in_period_pence"] == 1000
+
+    clock.freeze(datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc))
+    page = client.get(
+        "/admin/ledger",
+        headers=_auth(token),
+        params={"circle": circle, "member": member, "start": "2026-05-01", "end": "2026-05-31"},
+    )
+    assert page.status_code == 200, page.text
+    assert "<th>Balance</th>" in page.text
+    assert "<th>Change in period</th>" in page.text
+    assert ">3575<" in page.text
+    assert ">2575<" in page.text
+    plain = client.get("/admin/ledger", headers=_auth(token), params={"circle": circle, "member": member})
+    assert plain.status_code == 200, plain.text
+    assert "<th>Balance</th>" in plain.text
+    assert "<th>Change in period</th>" not in plain.text
+    assert ">4075<" in plain.text
 
 
 def test_page_is_read_only_html_and_writes_are_rejected():
