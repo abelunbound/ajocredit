@@ -68,6 +68,7 @@ class ApiIdentity:
     user_id: int | None
     email_verified: bool
     circles: list
+    email: str = ""
 
 
 def api_base() -> str:
@@ -347,6 +348,7 @@ def sign_in(username: object, password: object) -> ApiIdentity | None:
             user_id=user_id,
             email_verified=bool(me.get("email_verified")),
             circles=circles,
+            email=me["email"] if isinstance(me.get("email"), str) else LOCAL_ACCOUNTS[handle],
         )
     except ApiUnavailable:
         VAULT.drop(sid)
@@ -359,6 +361,27 @@ def logout(sid: str | None) -> None:
         return
     request("POST", "/api/v1/auth/logout", sid=sid)
     VAULT.drop(sid)
+
+
+def _post_public(path: str, body: dict) -> tuple[int, object]:
+    """POST with no access token. The body is not written to the log."""
+    try:
+        status, payload = _send("POST", path, body, {}, None)
+    except RuntimeError as exc:
+        raise ApiUnavailable() from exc
+    if _unavailable(status):
+        raise ApiUnavailable()
+    return status, payload
+
+
+def forgot_password(email: str) -> tuple[int, object]:
+    """Ask for a reset link. The HTTP body does not say whether the email exists."""
+    return _post_public("/api/v1/auth/password/forgot", {"email": email})
+
+
+def reset_password(token: str, password: str) -> tuple[int, object]:
+    """Set a new password. The token is sent only in this JSON body."""
+    return _post_public("/api/v1/auth/password/reset", {"token": token, "password": password})
 
 
 def signup(name: str, email: str, password: str) -> tuple[int, object]:
@@ -420,6 +443,8 @@ def sync_session() -> None:
         session["email_verified"] = bool(me.get("email_verified"))
         if isinstance(me.get("user_id"), int):
             session["user_id"] = me["user_id"]
+        if isinstance(me.get("email"), str) and me["email"].strip():
+            session["email"] = me["email"].strip()
     try:
         circles = load_circles(sid)
     except ApiUnavailable:
@@ -487,3 +512,5 @@ def remember_identity(identity: ApiIdentity) -> None:
     session["email_verified"] = identity.email_verified
     if identity.user_id is not None:
         session["user_id"] = identity.user_id
+    if identity.email:
+        session["email"] = identity.email

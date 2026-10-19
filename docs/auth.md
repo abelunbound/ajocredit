@@ -62,7 +62,11 @@ The lockout notice is sent through the same mail sender as password reset, and o
 
 The reset token is `secrets.token_urlsafe`. Only its SHA-256 hash is stored. It expires 30 minutes after `clock.now()`. The presented token is consumed by one conditional update, so a second use fails. A successful reset revokes every session and refresh token for that user, and marks any other open reset links used.
 
-The link is `{PUBLIC_APP_URL}/reset-password#<token>`. The token sits in the URL fragment so a server access log does not record it.
+The link is `{PUBLIC_APP_URL}/reset-password#token=<token>`. The token sits in the URL fragment so a server access log does not record it. `reset_link` reads `PUBLIC_APP_URL` only. It does not read the request Host header. When `PUBLIC_APP_URL` is unset, the origin is the Dash app at `http://localhost:8055`.
+
+Dash **Forgot password?** on `/signin` opens an email form and calls `POST /api/v1/auth/password/forgot`. The page shows `If an account exists for that email, a reset link is on its way.` whether or not the address is registered. A 429 shows the API's own `detail`. `/reset-password` reads `#token=`, removes that fragment with `history.replaceState` as the page loads, and sends the token only in the reset POST body. It is not written to the application log. An expired or used link, and a 429, show the API `detail` as returned. Success sends the visitor to `/signin`, because every session has ended. Settings **Email reset link** calls the same forgot route for the signed-in account and shows that same message.
+
+On a laptop, set `AJO_ENV=local` and `EMAIL_SENDER=dev`, request a link, and open the newest file under `local/email-inbox`. Paste that link into the browser on the Dash origin.
 
 Audit rows in `auth_audit_events` store an HMAC-SHA256 of the email, the user id when there is one, and the client IP. They do not store the address, the token, the link, or the password. The hash is not plain SHA-256.
 
@@ -122,7 +126,7 @@ Do not write passwords, reset tokens, verification tokens, refresh tokens, acces
 | `AJO_ENV` | No | unset | `local` or `dev` is a laptop. Unset is not local. Any other value is a deploy. |
 | `ACCESS_TOKEN_MINUTES` | No | `15` | Capped at 1–60. `JWT_EXPIRY_DAYS` is ignored. |
 | `REFRESH_TOKEN_DAYS` | No | `14` | Capped at 1–30. |
-| `PUBLIC_APP_URL` | No | `http://127.0.0.1:8000` | Origin used in reset and verification links. |
+| `PUBLIC_APP_URL` | No | `http://localhost:8055` | Dash origin used in reset and verification links. Not the request Host header. |
 | `EMAIL_SENDER` | No | empty | Empty or `dev` / `file` / `inbox` / `console` uses the dev inbox on `local` or `dev` only. Those values anywhere else refuse to start. |
 | `AJO_EMAIL_INBOX` | No | `local/email-inbox` | Git-ignored folder for the dev inbox. Under pytest, files are written only when this is set. |
 | `AUDIT_EMAIL_HMAC_KEY` | Outside local and dev | — | HMAC key for audit email hashes. On `local` or `dev`, a missing key is created in git-ignored `local/audit-email-hmac.key`. Otherwise hashing fails closed (HTTP 503, no plain SHA-256). |

@@ -89,9 +89,29 @@ def _audit(db: Session, *, action: str, user_id: int | None, email: str, request
     )
 
 
+# Dash origin, not the API. Email links never use the request Host header.
+DEFAULT_PUBLIC_APP_URL = "http://localhost:8055"
+
+
+def public_app_origin() -> str:
+    """Origin for links in email. Only PUBLIC_APP_URL, never the request host."""
+    configured = os.getenv("PUBLIC_APP_URL")
+    if configured is None or not configured.strip():
+        return DEFAULT_PUBLIC_APP_URL
+    return configured.strip().rstrip("/")
+
+
 def reset_link(token: str) -> str:
-    base = os.getenv("PUBLIC_APP_URL", "http://127.0.0.1:8000").rstrip("/")
-    return f"{base}/reset-password#{token}"
+    """Dash reset URL. The token stays in the fragment as ``token=``."""
+    return f"{public_app_origin()}/reset-password#token={token}"
+
+
+def token_from_link_body(body: str) -> str:
+    """Read the reset token from a dev-inbox message body."""
+    fragment = body.split("/reset-password#", 1)[1].split()[0].strip()
+    if fragment.startswith("token="):
+        return fragment.split("=", 1)[1]
+    return fragment
 
 
 def _require_sender() -> None:

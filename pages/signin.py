@@ -61,7 +61,36 @@ def layout():
             html.Div(id="signin-notice", className="auth-hint"),
             html.Div(id="signin-error", className="auth-error"),
             html.Div("Local test accounts only.", className="auth-hint"),
-            html.Button("Forgot password?", className="auth-forgot"),
+            html.Button(
+                "Forgot password?",
+                id="forgot-open",
+                n_clicks=0,
+                type="button",
+                className="auth-forgot",
+            ),
+            html.Div(
+                id="forgot-panel",
+                className="forgot-panel",
+                style={"display": "none"},
+                children=[
+                    dcc.Input(
+                        id="forgot-email",
+                        type="email",
+                        value="",
+                        placeholder="Email",
+                        autoComplete="email",
+                        className="auth-input",
+                    ),
+                    html.Button(
+                        "Send reset link",
+                        id="forgot-submit",
+                        n_clicks=0,
+                        type="button",
+                        className="auth-primary-btn",
+                    ),
+                    html.Div(id="forgot-message", className="auth-hint"),
+                ],
+            ),
             html.Button(
                 ["Sign in ", html.I(className="bi bi-arrow-right")],
                 id={"type": "auth-btn", "action": "signin-submit"},

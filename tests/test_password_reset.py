@@ -80,8 +80,8 @@ def _token_from_inbox() -> str:
     messages = mail.memory_inbox()
     assert messages
     body = messages[-1]["body"]
-    assert "/reset-password#" in body
-    return body.split("/reset-password#", 1)[1].split()[0].strip()
+    assert "/reset-password#token=" in body
+    return password_reset.token_from_link_body(body)
 
 
 def test_forgot_password_response_ignores_whether_the_email_exists():
@@ -105,7 +105,7 @@ def test_reset_link_is_single_use_hashed_and_expires_after_thirty_minutes():
     first = _forgot(email)
     assert first.status_code == 200
     token = _token_from_inbox()
-    older = mail.memory_inbox()[0]["body"].split("/reset-password#", 1)[1].split()[0].strip()
+    older = password_reset.token_from_link_body(mail.memory_inbox()[0]["body"])
 
     db = database.SessionLocal()
     try:
@@ -158,7 +158,7 @@ def test_reset_ends_sessions_and_writes_an_audit_row_without_secrets(caplog):
     caplog.set_level(logging.DEBUG)
     assert _forgot(email).status_code == 200
     token = _token_from_inbox()
-    link = f"/reset-password#{token}"
+    link = password_reset.reset_link(token)
     reset = client.post(
         "/api/v1/auth/password/reset",
         json={"token": token, "password": NEW_PASSWORD},
@@ -335,6 +335,42 @@ def test_local_audit_key_file_is_created_and_gitignored(tmp_path, monkeypatch):
         cwd=str(Path(__file__).resolve().parents[1]),
     )
     assert ignored.returncode == 0
+
+
+def test_dash_copy_matches_the_api_forgot_message():
+    from pages.password_flow import NEUTRAL_FORGOT
+
+    assert NEUTRAL_FORGOT == password_reset.FORGOT_DETAIL
+
+
+def test_reset_link_uses_public_app_url_and_ignores_the_host_header(monkeypatch):
+    import inspect
+
+    monkeypatch.delenv("PUBLIC_APP_URL", raising=False)
+    assert password_reset.public_app_origin() == "http://localhost:8055"
+    assert password_reset.reset_link("abc") == "http://localhost:8055/reset-password#token=abc"
+    source = inspect.getsource(password_reset.reset_link)
+    assert "request" not in source
+    assert "Host" not in source
+    assert "headers" not in source
+
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://ajo.example.test/")
+    email = _email()
+    _signup(email)
+    mail.clear_memory_inbox()
+    response = client.post(
+        "/api/v1/auth/password/forgot",
+        json={"email": email},
+        headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example"},
+    )
+    assert response.status_code == 200, response.text
+    body = mail.memory_inbox()[-1]["body"]
+    assert "https://ajo.example.test/reset-password#token=" in body
+    assert "evil.example" not in body
+    assert "testserver" not in body
+    token = password_reset.token_from_link_body(body)
+    assert token
+    assert f"#token={token}" in body
 
 
 def test_audit_key_is_required_outside_local_or_dev():

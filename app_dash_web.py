@@ -48,6 +48,14 @@ from pages import (  # noqa: E402
     support_layout,
 )
 from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
+from pages.password_flow import (  # noqa: E402
+    CLIENTSIDE_CAPTURE_RESET_TOKEN,
+    RESET_PAGE_BOOT_JS,
+    finish_reset,
+    forgot_message,
+    reset_layout,
+    signed_in_email,
+)
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
@@ -70,6 +78,7 @@ from pages.admin_api import register_callbacks as register_admin_callbacks  # no
 PAGE_PATHS = {
     "landing": "/",
     "signin": "/signin",
+    "reset-password": "/reset-password",
     "getstarted-1": "/get-started",
     "getstarted-2": "/get-started/checking",
     "getstarted-3": "/get-started/origin-result",
@@ -417,6 +426,8 @@ def render_shell(page, _client_value=None):
         page = "home"
     if page == "signin":
         return html.Div()
+    if page == "reset-password":
+        return html.Div(className="auth-shell-wrap", children=reset_layout())
     if page == "landing":
         return html.Div(className="auth-shell-wrap", children=home_layout())
     if page == "getstarted-1":
@@ -488,11 +499,33 @@ app.server.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
 )
 
+app.index_string = """<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <script>
+""" + RESET_PAGE_BOOT_JS + """
+        </script>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>"""
+
 app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="store-auth-rev", data=0),
+        dcc.Store(id="reset-token", data=""),
         html.Div(id="app-shell"),
         html.Div(
             id="signin-dock",
@@ -538,7 +571,7 @@ def redirect_disallowed_path():
     Output("store-auth-rev", "data"),
     Output("signin-error", "children"),
     Output("signup-error", "children"),
-    Output("signin-notice", "children"),
+    Output("signin-notice", "children", allow_duplicate=True),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
     Input({"type": "gs-timer", "screen": ALL}, "n_intervals"),
@@ -618,6 +651,56 @@ def toggle_signup_dock(pathname):
     return signup_dock_style(page_from_pathname(pathname))
 
 
+app.clientside_callback(
+    CLIENTSIDE_CAPTURE_RESET_TOKEN,
+    Output("reset-token", "data"),
+    Input("url", "hash"),
+    Input("url", "pathname"),
+)
+
+
+@app.callback(
+    Output("forgot-panel", "style"),
+    Input("forgot-open", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_forgot_password(n_clicks):
+    if not n_clicks:
+        return no_update
+    return {"display": "block"}
+
+
+@app.callback(
+    Output("forgot-message", "children"),
+    Input("forgot-submit", "n_clicks"),
+    State("forgot-email", "value"),
+    prevent_initial_call=True,
+)
+def send_forgot_password(n_clicks, email):
+    if not n_clicks:
+        return no_update
+    return forgot_message(email)
+
+
+@app.callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Output("signin-notice", "children", allow_duplicate=True),
+    Output("reset-error", "children"),
+    Input("reset-submit", "n_clicks"),
+    State("reset-token", "data"),
+    State("reset-new-password", "value"),
+    State("reset-confirm-password", "value"),
+    prevent_initial_call=True,
+)
+def submit_new_password(n_clicks, token, password, confirm):
+    if not n_clicks:
+        return no_update, no_update, no_update
+    outcome, message = finish_reset(token, password, confirm)
+    if outcome == "signin":
+        return "/signin", message, ""
+    return no_update, no_update, message
+
+
 @app.callback(
     Output("settings-feedback", "children"),
     Input({"type": "settings-action", "action": ALL}, "n_clicks"),
@@ -634,7 +717,13 @@ def update_settings_action(_clicks, line, city, postcode, phone):
     action = trigger.get("action") if isinstance(trigger, dict) else None
     return apply_settings_action(
         action,
-        {"line": line, "city": city, "postcode": postcode, "phone": phone},
+        {
+            "line": line,
+            "city": city,
+            "postcode": postcode,
+            "phone": phone,
+            "email": signed_in_email(session),
+        },
         session,
     )
 

@@ -1,5 +1,7 @@
 from dash import dcc, html
 
+from .password_flow import forgot_message
+
 
 def apply_settings_action(action, fields, store):
     """Update session profile fields and return a message.
@@ -24,7 +26,7 @@ def apply_settings_action(action, fields, store):
         store["profile_phone"] = phone.strip()
         return "No SMS was sent. Phone verification is unavailable in this local build."
     if action == "reset-password":
-        return "No email was sent. Password reset by email is not active in this local build."
+        return forgot_message(fields.get("email"))
     if action == "setup-direct-debit":
         return "Direct debit setup is not available in this local build."
     return ""
