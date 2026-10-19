@@ -21,6 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     create_engine,
     event,
@@ -105,15 +106,24 @@ class User(Base):
     """Account created by POST /api/v1/auth/signup.
 
     ``email`` is stored trimmed and lowercased. Uniqueness is on that form.
+    ``platform_role`` is ``platform_admin`` or null. Circle role is not this
+    column, and the client cannot set it.
     """
 
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "platform_role IS NULL OR platform_role = 'platform_admin'",
+            name="ck_users_platform_role",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    platform_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class AuthSession(Base):
@@ -213,6 +223,44 @@ class AuthAccountGuard(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     notified_level: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class AuditChainLock(Base):
+    """One row updated to serialise hash-chain inserts. Not an audit entry."""
+
+    __tablename__ = "audit_chain_lock"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    guard: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class AuditLog(Base):
+    """Append-only security audit entry. No raw email, token, or password.
+
+    ``email_hash`` is HMAC-SHA256 under ``AUDIT_EMAIL_HMAC_KEY``. ``canonical``
+    is the exact JSON that ``entry_hash`` covers, including the previous hash.
+    Database triggers reject UPDATE and DELETE.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    actor_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    session_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    circle_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    email_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    before_values: Mapped[str | None] = mapped_column(Text, nullable=True)
+    after_values: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    canonical: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class EmailVerificationToken(Base):

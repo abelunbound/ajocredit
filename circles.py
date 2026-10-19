@@ -46,6 +46,16 @@ def register_circle_routes(fastapi_app: FastAPI, get_current_user) -> None:
             actor_user_id=user.id,
             joined_at=when,
         )
+        from audit import record_event
+
+        record_event(
+            db,
+            action="ajo_created",
+            actor_user_id=user.id,
+            actor_role=ROLE_ADMIN,
+            circle_id=circle.id,
+            target_user_id=user.id,
+        )
         db.commit()
         return CircleResponse(circle_id=circle.id, name=circle.name)
 
@@ -73,6 +83,16 @@ def register_circle_routes(fastapi_app: FastAPI, get_current_user) -> None:
                 role=ROLE_MEMBER,
                 actor_user_id=user.id,
                 joined_at=clock_now(),
+            )
+            from audit import record_event
+
+            record_event(
+                db,
+                action="ajo_joined",
+                actor_user_id=user.id,
+                actor_role=ROLE_MEMBER,
+                circle_id=circle.id,
+                target_user_id=user.id,
             )
             try:
                 db.commit()

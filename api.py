@@ -91,6 +91,8 @@ from database import User, get_db
 from email_verification import register_email_verification_routes
 from password_reset import register_password_reset_routes
 from roles import register_role_routes
+import audit
+from audit import register_audit_routes
 
 JWT_ALGORITHM = "HS256"
 
@@ -101,6 +103,17 @@ register_password_reset_routes(app)
 register_email_verification_routes(app)
 register_circle_routes(app, get_current_user)
 register_role_routes(app, get_current_user)
+register_audit_routes(app, get_current_user)
+
+
+@app.middleware("http")
+async def bind_audit_request(request: Request, call_next):
+    """Expose the request to the audit log. The client IP is the TCP peer."""
+    token = audit.bind_request(request)
+    try:
+        return await call_next(request)
+    finally:
+        audit.reset_request(token)
 
 
 def create_access_token(user_id: int, session_id: int) -> str:

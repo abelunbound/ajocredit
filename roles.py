@@ -5,8 +5,8 @@ listed in ``PERMISSIONS`` and the caller's stored role in that circle is in
 the allow list. Anything else is denied, including an unknown permission and
 a caller who is not a member of the circle.
 
-``record_role_change`` is the hook #32 should replace to write the audit log.
-It does not write a log.
+``record_role_change`` writes the append-only audit log (#32) in the same
+transaction. ``record_position_change`` does the same for a payout position.
 """
 
 from __future__ import annotations
@@ -98,22 +98,85 @@ def permission_allowed(permission: str, role: str | None) -> bool:
     return role in allowed
 
 
+def _actor_role(db: Session, circle_id: int, actor_user_id: int | None) -> str | None:
+    """Role of the actor in this circle, including a membership not flushed yet.
+
+    The session has autoflush off, so a role just granted in this transaction
+    is still pending.
+    """
+    if actor_user_id is None:
+        return None
+    pending = list(db.new) + list(db.dirty)
+    for obj in pending:
+        if (
+            isinstance(obj, CircleMember)
+            and obj.circle_id == circle_id
+            and obj.user_id == actor_user_id
+        ):
+            return obj.role
+    actor = membership_for(db, circle_id=circle_id, user_id=actor_user_id)
+    if actor is None:
+        return None
+    return actor.role
+
+
 def record_role_change(db: Session, change: RoleChange) -> None:
-    """Hook for the audit log (#32).
+    """Write the role change to the audit log. Do not commit here.
 
     Called in the same transaction as the role change, before the caller
     commits. ``before`` is None when the membership is new. ``after`` is the
-    stored role. ``actor_user_id`` is who assigned it.
-
-    #32 should replace this function and write who, what, when, before and
-    after on ``db``. Do not commit here, and do not add a second writer at
-    the call sites. This version does not insert a row.
+    stored role. ``actor_user_id`` is who assigned it. There is no second
+    writer at the call sites.
     """
     if change.after not in ROLES:
         raise ValueError(f"unknown role: {change.after}")
     if change.before is not None and change.before not in ROLES:
         raise ValueError(f"unknown role: {change.before}")
-    del db
+    from audit import record_event
+
+    record_event(
+        db,
+        action="role_changed",
+        actor_user_id=change.actor_user_id,
+        actor_role=_actor_role(db, change.circle_id, change.actor_user_id),
+        circle_id=change.circle_id,
+        target_user_id=change.user_id,
+        before={"role": change.before},
+        after={"role": change.after},
+        at=change.at,
+    )
+
+
+def record_position_change(
+    db: Session,
+    *,
+    circle_id: int,
+    user_id: int,
+    actor_user_id: int | None,
+    before: int | None,
+    after: int,
+) -> None:
+    """Write a payout-position change to the audit log. Do not commit here.
+
+    Positions are integers. The members preview does not save positions; this
+    is the server hook that records one when a later change calls it.
+    """
+    if before is not None and type(before) is not int:
+        raise ValueError("position must be an integer")
+    if type(after) is not int:
+        raise ValueError("position must be an integer")
+    from audit import record_event
+
+    record_event(
+        db,
+        action="payout_position_changed",
+        actor_user_id=actor_user_id,
+        actor_role=_actor_role(db, circle_id, actor_user_id),
+        circle_id=circle_id,
+        target_user_id=user_id,
+        before={"position": before},
+        after={"position": after},
+    )
 
 
 def grant_circle_role(

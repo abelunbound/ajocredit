@@ -152,7 +152,9 @@ def test_migration_upgrades_and_downgrades(tmp_path, monkeypatch):
     engine.dispose()
     assert "ledger_lines_append_only_update" in triggers
     assert "ledger_lines_append_only_delete" in triggers
-    assert len(triggers) == 6
+    assert "audit_log_append_only_update" in triggers
+    assert "audit_log_append_only_delete" in triggers
+    assert len(triggers) == 8
 
     command.downgrade(cfg, "0001_create_users")
     engine = create_engine(url)

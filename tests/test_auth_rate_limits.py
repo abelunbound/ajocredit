@@ -98,7 +98,7 @@ def _fast_wrong_password(monkeypatch):
 
 def test_migration_head_is_single_and_rate_tables_roundtrip(tmp_path, monkeypatch):
     script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI)))
-    assert script.get_heads() == ["0007_auth_rate_limits"]
+    assert script.get_heads() == ["0008_audit_log"]
 
     url = "sqlite:///" + str(tmp_path / "rate-limits.db")
     monkeypatch.setenv("DATABASE_URL", url)

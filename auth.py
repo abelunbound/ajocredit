@@ -354,6 +354,32 @@ def _guard(db: Session, *, action: str, subject: str, now: datetime) -> AuthAcco
     return row
 
 
+def _audit_rate_limited(
+    db: Session,
+    request: Request,
+    *,
+    action: str,
+    email: str,
+    email_hash: str | None = None,
+) -> None:
+    """Record a refused auth attempt. The address is stored only as an HMAC."""
+    if not email_hash:
+        try:
+            email_hash = audit_email.hash_audit_email(email)
+        except audit_email.AuditKeyError:
+            email_hash = None
+    user = db.query(User).filter(User.email == email).one_or_none()
+    row = AuthAuditEvent(
+        created_at=clock_now(),
+        action="rate_limited",
+        user_id=user.id if user is not None else None,
+        email_hash=email_hash,
+        ip=client_host(request),
+    )
+    row.audit_after = {"auth_action": action}
+    db.add(row)
+
+
 def _notify_lockout(
     db: Session,
     *,
@@ -507,6 +533,8 @@ def enforce_auth_attempt_policy(
         blocked = _apply_attempt_policy(
             db, request, action=action, email=email, account=account
         )
+        if blocked:
+            _audit_rate_limited(db, request, action=action, email=email)
         db.commit()
     except Exception:
         db.rollback()
@@ -534,6 +562,8 @@ def record_auth_failure(request: Request, *, action: str, email: str) -> None:
         locked = _bump_guard(
             db, request, action=action, email=email, email_hash=email_hash, now=now
         )
+        if locked:
+            _audit_rate_limited(db, request, action=action, email=email, email_hash=email_hash)
         db.commit()
     except Exception:
         db.rollback()
@@ -780,6 +810,15 @@ def start_session(db: Session, user: User, *, secret: str) -> AuthTokens:
     db.add(row)
     db.flush()
     raw_refresh = _issue_refresh(db, row, when=when)
+    from audit import write_auth_audit
+
+    write_auth_audit(
+        db,
+        action="sign_in_success",
+        email=user.email,
+        user_id=user.id,
+        session_id=row.id,
+    )
     db.commit()
     return AuthTokens(
         access_token=create_access_token(user.id, row.id, secret=secret),
@@ -790,6 +829,14 @@ def start_session(db: Session, user: User, *, secret: str) -> AuthTokens:
 
 def _login_failed() -> HTTPException:
     return HTTPException(status_code=401, detail=LOGIN_FAILED)
+
+
+def _audit_sign_in_failure(db: Session, email: str, user_id: int | None) -> None:
+    """Record a failed sign-in and commit it before the 401 rolls the request back."""
+    from audit import write_auth_audit
+
+    write_auth_audit(db, action="sign_in_failure", email=email, user_id=user_id)
+    db.commit()
 
 
 def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
@@ -863,6 +910,7 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
         # 429. The password result is not used once the attempt is refused.
         _reject_password(body.password)
         user = db.query(User).filter(User.email == email).one_or_none()
+        known_id = user.id if user is not None else None
         if user is None:
             password_matches(body.password, dummy_password_hash())
         elif not password_matches(body.password, user.hashed_password):
@@ -872,6 +920,7 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
         if user is None:
             # Release the read before the failure row is written on its own session.
             db.rollback()
+            _audit_sign_in_failure(db, email, known_id)
             record_auth_failure(request, action="login", email=email)
             raise _login_failed()
         clear_auth_failure_state(db, "login", email)
@@ -937,6 +986,16 @@ def register_auth_routes(fastapi_app: FastAPI, *, jwt_secret: str):
         if row is None:
             raise HTTPException(status_code=401, detail=TOKEN_FAILED)
         revoke_session(db, row)
+        from audit import write_auth_audit
+
+        account = db.get(User, row.user_id)
+        write_auth_audit(
+            db,
+            action="logout",
+            email=account.email if account is not None else None,
+            user_id=row.user_id,
+            session_id=row.id,
+        )
         db.commit()
         return None
 
