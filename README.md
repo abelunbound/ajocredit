@@ -136,7 +136,7 @@ pytest tests/test_join.py -v
 
 ### Running the UI and the API together
 
-Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in.
+Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in. How that call works, including timeouts and error codes, is in [docs/api.md](docs/api.md).
 
 1. Copy the password template and set local passwords. Do not commit the copy.
    ```bash
@@ -175,7 +175,7 @@ alembic upgrade head
 uvicorn api:app --reload --no-proxy-headers
 ```
 
-`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers.
+`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers. `/docs`, `/redoc`, and `/openapi.json` are served only when `AJO_ENV` is `local` or `dev`. See [docs/api.md](docs/api.md).
 
 Sign-up, sign-in, refresh, logout, and sessions are under `/api/v1/auth/`. Sign-up always returns the same message, whether or not the email is already registered. Sign-in returns an access token (15 minutes) and a refresh token. Each refresh token is consumed by one conditional update, so a second use fails and ends that session. Emails are stored trimmed and lowercased. Logout revokes that session on the server. Signup, login, password reset, and verification resend call `enforce_auth_attempt_policy` in `auth.py`. That limits each action per IP and per account, and locks login, reset, and resend after repeated attempts. Stored subjects are HMAC email hashes. `X-Forwarded-For` is not trusted. See `docs/auth.md`.
 
@@ -309,6 +309,7 @@ pytest tests/test_my_circles.py -v
 
 - `app_dash_web.py` - Main Dash web application
 - `api.py` - FastAPI backend service (authentication, API endpoints)
+- `docs/api.md` - How the Dash app calls the API
 - `database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
 - `alembic.ini`, `migrations/` - schema migrations (`alembic upgrade head`)
 - `tests/` - Test suite, including the FastAPI health and auth checks
