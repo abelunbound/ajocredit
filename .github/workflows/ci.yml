@@ -63,7 +63,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt -r requirements-dev.txt
 
-    - name: Migrate and run tests
-      run: |
-        alembic upgrade head
-        pytest tests/
+    - name: Migrate
+      run: alembic upgrade head
+
+    - name: Check seeded ledger balances
+      run: python -m ledger_balance --seed
+
+    - name: Run tests
+      run: pytest tests/
