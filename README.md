@@ -136,7 +136,7 @@ pytest tests/test_join.py -v
 
 ### Running the UI and the API together
 
-Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in. How that call works, including timeouts and error codes, is in [docs/api.md](docs/api.md).
+Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in. How that call works, including timeouts and error codes, is in [docs/api.md](docs/api.md). The laptop steps for `.env`, seeding, password reset, and email verification are in [docs/resetetc.md](docs/resetetc.md).
 
 1. Copy the password template and set local passwords. Do not commit the copy.
    ```bash
@@ -311,6 +311,7 @@ pytest tests/test_my_circles.py -v
 - `app_dash_web.py` - Main Dash web application
 - `api.py` - FastAPI backend service (authentication, API endpoints)
 - `docs/api.md` - How the Dash app calls the API
+- `docs/resetetc.md` - Laptop steps for local sign-in, password reset, and email verification
 - `database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
 - `alembic.ini`, `migrations/` - schema migrations (`alembic upgrade head`)
 - `tests/` - Test suite, including the FastAPI health and auth checks

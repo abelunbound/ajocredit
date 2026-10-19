@@ -4,6 +4,8 @@ Sign-up, sign-in, refresh, logout, password reset, and email verification live u
 
 Use synthetic `@example.test` addresses only. Do not put real member data, passwords, or keys in the repo.
 
+Laptop setup, the dev inbox, and sign-in failures are in [resetetc.md](resetetc.md).
+
 ## Sign-in (#33)
 
 Emails are trimmed and lowercased before they are stored and before login. The unique column is that normalised address.
