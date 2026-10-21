@@ -312,6 +312,11 @@ pytest tests/test_my_circles.py -v
 - `api.py` - FastAPI backend service (authentication, API endpoints)
 - `docs/api.md` - How the Dash app calls the API
 - `docs/resetetc.md` - Laptop steps for local sign-in, password reset, and email verification
+- `docs/partners/partner.md` - How Modulr, TrueLayer, the credit bureaus, and the affordability check fit the ledger and the circles
+- `docs/partners/modulr.md` - Modulr accounts, contributions, payouts, Delay Cover reserve, sandbox, and safeguarding questions
+- `docs/partners/truelayer.md` - TrueLayer bank connection for identity match and affordability inputs
+- `docs/partners/credit-bureau.md` - Experian, Equifax, and TransUnion lookups and cycle reporting
+- `docs/partners/affordability.md` - Band, maximum contribution, and how Open Banking compares with a bureau
 - `database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
 - `alembic.ini`, `migrations/` - schema migrations (`alembic upgrade head`)
 - `tests/` - Test suite, including the FastAPI health and auth checks
