@@ -5,7 +5,8 @@ A community finance platform built with Plotly Dash and FastAPI.
 ## Prerequisites
 
 - Python 3.12+
-- PostgreSQL (for the FastAPI backend)
+- SQLite, which ships with Python, for the local FastAPI database
+- PostgreSQL 16 when you run the API the way CI does, and later on GCP Cloud SQL
 
 ## Installation
 
@@ -47,8 +48,9 @@ AjoFinance loads secrets and runtime settings from environment variables. Never 
 2. Edit `.env` and fill in real values:
    - **`JWT_SECRET_KEY`** (required by the API): a random string of at least 32 characters. Do not use the placeholder from `.env.example`.
      Generate one: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-   - **`DATABASE_URL`** (required by the API): PostgreSQL connection string, `postgresql://username:password@host:port/database`
-   - **`JWT_EXPIRY_DAYS`** (optional): JWT lifetime in days (default `30`)
+   - **`DATABASE_URL`** (required by the API): local SQLite, `sqlite:///local/ajo.db`. That file is git-ignored and holds synthetic data only. The same setting is a PostgreSQL URL in CI and, later, on GCP Cloud SQL.
+   - **`ACCESS_TOKEN_MINUTES`** (optional): access-token lifetime in minutes, 1 to 60 (default `15`). There is no 30-day JWT.
+   - **`REFRESH_TOKEN_DAYS`** (optional): refresh-token lifetime in days, 1 to 30 (default `14`). Only a hash is stored.
    - **`DASH_DEBUG`** (optional): set to `true` only for local development (default `false`)
    - **`DASH_HOST`** (optional): Dash bind address (default `127.0.0.1`)
    - **`DASH_PORT`** (optional): Dash port (default `8055`)
@@ -129,38 +131,91 @@ After the stub sign-in above, open **+ Join Ajo** under **My circles** in the si
 6. **Manage Members** is on the same button row only when the signed-in profile created that circle. `admintest` sees it on Brum Builders, Sister Circle Ajo, and Wolverhampton Sisters. `membertest` does not see it.
 
 ```bash
-pytest test_join.py -v
+pytest tests/test_join.py -v
 ```
+
+### Running the UI and the API together
+
+Dash and FastAPI are two processes. Dash calls the API for sign-in, refresh, logout, circles, per-circle roles, the audit log, and the ledger. The ten demo personas stay display data. They have no passwords and cannot sign in. How that call works, including timeouts and error codes, is in [docs/api.md](docs/api.md). The laptop steps for `.env`, seeding, password reset, and email verification are in [docs/resetetc.md](docs/resetetc.md).
+
+1. Copy the password template and set local passwords. Do not commit the copy.
+   ```bash
+   cp local/stub-users.example.json local/stub-users.json
+   ```
+2. In `.env`, set:
+   ```bash
+   AJO_ENV=local
+   DASH_HOST=127.0.0.1
+   SEED_DEMO_ACCOUNTS=true
+   AJO_API_BASE=http://127.0.0.1:8000
+   ```
+   `JWT_SECRET_KEY` and `DATABASE_URL` are still required. `SEED_DEMO_ACCOUNTS` creates only `admintest@example.test` and `membertest@example.test`.
+3. Create the tables, then start the API and the UI in two terminals:
+   ```bash
+   alembic upgrade head
+   uvicorn api:app --reload --no-proxy-headers
+   ```
+   ```bash
+   python app_dash_web.py
+   ```
+   `python app_dash_web.py` uses `http://127.0.0.1:8000` when `AJO_API_BASE` is unset. The test suite leaves that variable unset and keeps the local stub.
+
+Sign in at http://127.0.0.1:8055/signin with `admintest` or `membertest` and the password from `local/stub-users.json`. Dash sends that password to `POST /api/v1/auth/login` and keeps the access token and refresh token in the Dash process. The browser cookie stores an opaque id. Tokens are not put in the address bar, in `localStorage`, or in the application log. A 401 refreshes the session once through `POST /api/v1/auth/refresh`.
+
+The role on screen is the role stored for that circle. Dash reads `GET /api/v1/circles` and `GET /api/v1/circles/{id}`. It does not turn a username into a role. Payouts Tracker calls `GET /api/v1/circles/{id}/payouts` and hides the tracker when the API refuses. **Admin** calls `GET /api/v1/admin/audit` and `GET /api/v1/admin/ledger`. A circle admin is not a platform admin, so those reads show the API's refusal unless the account's stored platform role allows them. Checked times on that page use `clock.now()`.
+
+Registration from **Get started** calls `POST /api/v1/auth/signup` only for an `@example.test` address. **Create Ajo** and **Join Ajo** on the Admin page call the circle endpoints. **Sign out** calls `POST /api/v1/auth/logout`.
 
 ### FastAPI Backend
 
-The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). `database.py` is not in this milestone; the process still requires those environment variables before it imports the database module.
+The FastAPI service is a separate process for authentication and API endpoints. Set `JWT_SECRET_KEY` and `DATABASE_URL` first (see above). Local development uses SQLite. The database file holds synthetic data only.
 
 ```bash
-uvicorn api:app --reload
+alembic upgrade head
+uvicorn api:app --reload --no-proxy-headers
 ```
 
-This runs on http://localhost:8000 by default.
+`alembic upgrade head` creates the tables. `uvicorn` runs the API on http://localhost:8000 by default. `--no-proxy-headers` is required so `X-Forwarded-For` and `Forwarded` cannot change the client address. `GET /health` checks that the database answers. `/docs`, `/redoc`, and `/openapi.json` are served only when `AJO_ENV` is `local` or `dev`. See [docs/api.md](docs/api.md).
+
+Sign-up, sign-in, refresh, logout, and sessions are under `/api/v1/auth/`. Sign-up always returns the same message, whether or not the email is already registered. Sign-in returns an access token (15 minutes) and a refresh token. Each refresh token is consumed by one conditional update, so a second use fails and ends that session. Emails are stored trimmed and lowercased. Logout revokes that session on the server. Signup, login, password reset, and verification resend call `enforce_auth_attempt_policy` in `auth.py`. That limits each action per IP and per account, and locks login, reset, and resend after repeated attempts. Stored subjects are HMAC email hashes. `X-Forwarded-For` is not trusted. See `docs/auth.md`.
+
+`SEED_DEMO_ACCOUNTS=true` creates only `admintest@example.test` and `membertest@example.test`, with passwords from the git-ignored stub credentials file. The process refuses to start if that flag is on while `AJO_ENV` is unset or is not `local` or `dev`. On the circle named Local Demo Circle, `admintest` is the admin and `membertest` is the member. The ten demo personas stay display data and have no user rows.
+
+`POST /api/v1/auth/password/forgot` always returns the same message. When `AJO_ENV` is `local` or `dev`, the reset link is written to the git-ignored `local/email-inbox` folder (and kept in memory for tests). It is not written to the application log. The link is `{PUBLIC_APP_URL}/reset-password#token=<token>` and defaults to `http://localhost:8055` when `PUBLIC_APP_URL` is unset. It is not built from the request Host header. Dash `/signin` and Settings call the forgot route. `/reset-password` reads the fragment, strips it from the address bar, and posts the token only in the reset body. The link expires after 30 minutes, is consumed by one conditional update, and a successful reset ends every session. Audit rows store HMAC-SHA256 of the email under `AUDIT_EMAIL_HMAC_KEY` (or a git-ignored local key file). They do not store a plain SHA-256 of the address. Setting `EMAIL_SENDER=dev` when `AJO_ENV` is unset or anything other than `local` or `dev` makes the process refuse to start. Otherwise those environments return an error from the email endpoints until a real provider is configured.
+
+Sign-up sends a verification link through that same inbox. The link expires after 24 hours and is consumed by one conditional update, so a second use fails. Unverified users can sign in. `POST /api/v1/circles` and `POST /api/v1/circles/{id}/join` reject them until they confirm. The Join Ajo page and the Create Ajo row show "Verify your email" when the session says the address is not verified. Seeded test users count as pre-verified unless a member sets `email_verified` to false. Resend calls `enforce_auth_attempt_policy` with action `resend_verification`.
+
+Roles are per circle and are stored on the membership. The API reads that role in a FastAPI dependency. The client does not send a role: a query, header, or body field is ignored. A permission is allowed only when it is listed and the stored role is in that list. Anything else is denied. The creator of a circle is `admin`. Someone who joins is `member`. `GET /api/v1/circles/{id}` is open to either role in that circle. `GET /api/v1/circles/{id}/payouts` is admin-only for that circle, so a member who types the address gets 403. Someone who is not in the circle gets 404, including when they change the id to another circle. `POST /api/v1/circles/{id}/members/{user_id}/role` changes a member's role and is admin-only for that circle. `record_role_change` in `roles.py` writes that change to the append-only audit log. Payout positions use `record_position_change`. See [docs/audit-log.md](docs/audit-log.md).
+
+CI runs the same migration and the same API tests against Postgres 16. A `postgresql://` URL uses the pinned psycopg2 driver. Moving to GCP Cloud SQL later is a configuration change: create a Postgres instance, set `DATABASE_URL` to its connection string (through the Cloud SQL Auth Proxy or a connector), and run `alembic upgrade head` again. Application code stays the same because the models use portable SQLAlchemy types. Money columns, when they are added, are integer pence.
 
 ## Environment variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `JWT_SECRET_KEY` | Yes (API) | — | Secret for signing JWT tokens (minimum 32 characters; not the example placeholder) |
-| `DATABASE_URL` | Yes (API) | — | PostgreSQL connection string |
-| `JWT_EXPIRY_DAYS` | No | `30` | JWT token expiration in days |
+| `DATABASE_URL` | Yes (API) | — | `sqlite:///local/ajo.db` locally. A `postgresql://` URL in CI and on Cloud SQL |
+| `ACCESS_TOKEN_MINUTES` | No | `15` | Access-token lifetime in minutes (capped at 60). `JWT_EXPIRY_DAYS` is ignored |
+| `REFRESH_TOKEN_DAYS` | No | `14` | Opaque refresh-token lifetime in days. Stored as a SHA-256 hash and rotated on use |
 | `DASH_DEBUG` | No | `false` | Enable Dash debug mode (local development only) |
 | `DASH_HOST` | No | `127.0.0.1` | Dash server host. Must be `127.0.0.1`, `localhost`, or `::1` when stub sign-in is enabled |
 | `DASH_PORT` | No | `8055` | Dash server port |
 | `AJO_ENV` | No | unset | `local` (or unset) for a laptop. Any other value is a non-local environment |
 | `ALLOW_LOCAL_STUB_LOGIN` | No | `false` | Enable `admintest` / `membertest` sign-in. Local loopback only; otherwise the process exits |
 | `STUB_USERS_FILE` | No | `local/stub-users.json` | Git-ignored JSON file with stub passwords |
+| `ALLOW_TEST_CLOCK` | No | `false` | Let tests or a loopback dev process move the clock. Any other process exits on startup |
+| `SEED_DEMO_ACCOUNTS` | No | `false` | Seed `admintest` (admin) and `membertest` (member) on Local Demo Circle. Refused unless `AJO_ENV` is `local` or `dev` |
+| `AJO_API_BASE` | No | unset in tests; `http://127.0.0.1:8000` when the UI process starts | Origin Dash uses for authenticated API calls. Unset keeps the local stub |
+| `PUBLIC_APP_URL` | No | `http://localhost:8055` | Dash origin written into reset and verification links. Not the request Host header |
+| `AUDIT_EMAIL_HMAC_KEY` | Outside local and dev | — | HMAC key for audit email hashes. On `local` or `dev`, a missing key is created in git-ignored `local/audit-email-hmac.key`. The audit log stores that hash, never the address |
 
 ## Security notes
 
 - The API fails fast if a required secret is missing or the JWT secret is too short or still the example placeholder. There is no insecure fallback.
 - Debug mode is disabled by default. Enable it only with `DASH_DEBUG=true`.
 - Stub sign-in is off unless `ALLOW_LOCAL_STUB_LOGIN=true`, and that setting is refused unless the app is bound to loopback in a local environment. Passwords are not committed; use `local/stub-users.example.json` as the template.
+- The test clock stays on the wall clock unless `ALLOW_TEST_CLOCK=true`. That flag is refused outside the test suite and a loopback process with `AJO_ENV=local` or `AJO_ENV=dev`. Production and staging cannot move time.
+- Demo seeding stays off unless `SEED_DEMO_ACCOUNTS=true`. That flag is refused when `AJO_ENV` is unset or is not `local` or `dev`. It never creates the ten demo personas.
 - Generate a new JWT secret for every environment. Never reuse the value in `.env.example`.
 
 ## Development
@@ -168,13 +223,19 @@ This runs on http://localhost:8000 by default.
 ### Running Tests
 
 ```bash
-pytest
+pytest tests/
 ```
 
-Startup checks for the JWT secret are in `test_api_startup.py`. Local stub sign-in checks are in `test_stub_login.py`. Persona fixture checks are in `test_personas.py`. Dummy-circle creator checks are in `test_circles.py`. My Ajo checks are in `test_my_ajo.py`. Page-address checks are in `test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `test_role_visibility.py`. Dashboard checks are in `test_dashboard.py`. Sidebar circle checks are in `test_my_circles.py`. Members page checks are in `test_members.py`. Join Ajo checks are in `test_join.py`. Wallet checks are in `test_wallet.py`. FinHealth checks are in `test_finhealth.py`.
+Per-circle role checks are in `tests/test_roles.py`. The read-only platform-admin ledger page and API are in `tests/test_ledger_admin.py`. API checks (health and auth) are in `tests/test_api.py`. Session, refresh, and sign-in checks are in `tests/test_auth_sessions.py`. They use SQLite unless `DATABASE_URL` already points at Postgres. Startup checks for the JWT secret are in `tests/test_api_startup.py`. Local stub sign-in checks are in `tests/test_stub_login.py`. The test clock and dev-only control are in `tests/test_clock.py`. Seeded-circle checks are in `tests/test_clock_seeded_circles.py`. Persona fixture checks are in `tests/test_personas.py`. Dummy-circle creator checks are in `tests/test_circles.py`. My Ajo checks are in `tests/test_my_ajo.py`. Page-address checks are in `tests/test_page_routes.py`. Role visibility checks (what `admintest` and `membertest` can see, including Payouts Tracker, a typed `/payouts` address, and the signed-in `/settings` gate) are in `tests/test_role_visibility.py`. Dashboard checks are in `tests/test_dashboard.py`. Sidebar circle checks are in `tests/test_my_circles.py`. Members page checks are in `tests/test_members.py`. Join Ajo checks are in `tests/test_join.py`. Wallet checks are in `tests/test_wallet.py`. FinHealth checks are in `tests/test_finhealth.py`.
 
 ```bash
-pytest test_role_visibility.py test_dashboard.py test_my_circles.py test_join.py test_finhealth.py -v
+pytest tests/test_role_visibility.py tests/test_dashboard.py tests/test_my_circles.py tests/test_join.py tests/test_finhealth.py -v
+```
+
+Dash calls to the API (sign-in, refresh, circle roles, the audit log, and the ledger) are covered by `tests/test_dash_api.py`.
+
+```bash
+pytest tests/test_dash_api.py -v
 ```
 
 ### Financial Health Overview
@@ -184,6 +245,25 @@ Sign in with a local stub account, then choose **FinHealth** in the sidebar. The
 - The country-of-origin card is greyed out and locked. It cannot be clicked.
 - **Affordability Assessment** shows tuition £14000, bank balance £16258, threshold met, and cross-border debt £0. The chart switches between 12-month financial history and a 7-day volatility check.
 - **Affordability Forecast** shows tuition £14000.00, a 30th-day forecast of £17950.00, a buffer of £3950.00, and a 50-90% probability. The chart switches between the next 30 days and forecast versus validation data.
+
+### Test clock
+
+`clock.now()` is the time provider. Access tokens use it for expiry (15 minutes by default). Tests call `freeze`, `advance`, and `reset`. On a laptop you can also move the running API with `ALLOW_TEST_CLOCK=true`, `AJO_ENV=local` (or `dev`), and `DASH_HOST` set to `127.0.0.1`, `localhost`, or `::1`:
+
+- `GET /api/v1/dev/clock` reads the current time.
+- `POST /api/v1/dev/clock` sends exactly one of `advance_seconds`, `freeze_at` (ISO-8601), or `reset`.
+
+Each of those requests returns 404 unless `request.client.host` is `127.0.0.1` or `::1`. `DASH_HOST`, the uvicorn `--host` setting, `X-Forwarded-For`, and `Forwarded` do not count. Start the API with `--no-proxy-headers`.
+
+The route is not registered otherwise. If the flag is on in production, staging, or any other deploy, the API and the Dash app exit at startup. Production always reads the wall clock.
+
+### Seeded test circles
+
+`data/seeded_circles.json` is the committed seed for tests. Names are obviously fake (`Testperson`, `Sampledata`, `Faketest`, and the same kind of marker). Emails are `@example.test`. The file has no passwords and no bank details. `seeded_circles.load_seeded_circles()` rejects a real-looking name, a non-example email, a sort code, an account number, an IBAN, or a card number.
+
+```bash
+pytest tests/test_clock.py tests/test_clock_seeded_circles.py -v
+```
 
 ### Dummy personas
 
@@ -210,7 +290,7 @@ The My Ajo page reads `data/personas.json` when the copy exists, and otherwise t
 Run the persona tests:
 
 ```bash
-pytest test_personas.py -v
+pytest tests/test_personas.py -v
 ```
 
 ### Sidebar My circles
@@ -223,13 +303,18 @@ The signed-in sidebar reads its circle list and the Create circle / Join Ajo row
 Both files are temporary stand-ins until circles are stored in the database. Payouts Tracker stays limited to the creator of that Ajo. With the local stub accounts, that creator is `admintest`.
 
 ```bash
-pytest test_my_circles.py -v
+pytest tests/test_my_circles.py -v
 ```
 
 ## Project Structure
 
 - `app_dash_web.py` - Main Dash web application
 - `api.py` - FastAPI backend service (authentication, API endpoints)
+- `docs/api.md` - How the Dash app calls the API
+- `docs/resetetc.md` - Laptop steps for local sign-in, password reset, and email verification
+- `database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
+- `alembic.ini`, `migrations/` - schema migrations (`alembic upgrade head`)
+- `tests/` - Test suite, including the FastAPI health and auth checks
 - `pages/` - Dash page components and layouts
 - `.env.example` - Placeholder environment variables (no real secrets)
 - `requirements.txt` - Production dependencies (pinned versions)

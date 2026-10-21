@@ -2,9 +2,9 @@ name: CI - Smoke Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev, "cursor/**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev, "cursor/**" ]
 
 jobs:
   test:
@@ -26,4 +26,50 @@ jobs:
     
     - name: Run smoke tests
       run: |
-        pytest test_smoke.py test_stub_login.py test_personas.py test_circles.py test_my_circles.py test_my_ajo.py test_api_startup.py test_page_routes.py test_payouts_tracker.py test_getstarted_settings.py test_role_visibility.py test_dashboard.py test_wallet.py test_delay_cover.py test_members.py test_join.py test_finhealth.py test_landing.py test_support.py -v
+        pytest tests/ -v
+
+  api-postgres:
+    name: API tests (Postgres 16)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ajo
+          POSTGRES_PASSWORD: ajo
+          POSTGRES_DB: ajocredit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ajo -d ajocredit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ajo:ajo@localhost:5432/ajocredit
+      JWT_SECRET_KEY: ci-only-jwt-secret-not-for-production-use
+      ALLOW_LOCAL_STUB_LOGIN: "false"
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Migrate
+      run: alembic upgrade head
+
+    - name: Check seeded ledger balances
+      env:
+        AJO_ENV: ci
+      run: python -m ledger_balance --seed
+
+    - name: Run tests
+      run: pytest tests/

@@ -28,6 +28,7 @@ from pages.ajo_catalog import (
     viewer_is_member,
 )
 from pages.components import pill
+from pages.verification_prompt import session_email_verified, verify_email_banner
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 UNCHANGED = object()
@@ -356,10 +357,7 @@ def layout(role: str | None):
     role = read_role(role)
     joined_ids = read_joined_ids()
     groups = filter_groups(role)
-    return html.Div(
-        id="join-page",
-        className="stack",
-        children=[
+    children = [
             html.Div(
                 className="page-head",
                 children=[
@@ -436,8 +434,11 @@ def layout(role: str | None):
             _view_modal(),
             _invite_modal(),
             _manage_modal(),
-        ],
-    )
+    ]
+    banner = verify_email_banner(session_email_verified())
+    if banner is not None:
+        children.insert(0, banner)
+    return html.Div(id="join-page", className="stack", children=children)
 
 
 def _view_modal():

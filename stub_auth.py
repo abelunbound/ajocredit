@@ -49,6 +49,7 @@ APP_PAGES = frozenset(
         "getstarted-4",
         "join",
         "support",
+        "admin",
     }
 )
 AUTH_PAGES = frozenset(
@@ -56,6 +57,8 @@ AUTH_PAGES = frozenset(
         "landing",
         "signin",
         "getstarted-1",
+        "reset-password",
+        "verify-email",
     }
 )
 SIGNIN_FAILED = "Sign-in failed."

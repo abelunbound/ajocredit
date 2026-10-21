@@ -6,6 +6,8 @@ from flask import redirect, request, session
 
 load_dotenv(override=False)
 
+import dash_api  # noqa: E402
+from dash_api import SERVICE_UNAVAILABLE  # noqa: E402
 from stub_auth import (  # noqa: E402
     SIGNIN_FAILED,
     authenticate,
@@ -13,9 +15,17 @@ from stub_auth import (  # noqa: E402
     gate_page,
     nav_entries,
 )
+from clock import enforce_test_clock_policy  # noqa: E402
 
 # Refuse a stub flag that is enabled off localhost before serving anything.
 enforce_local_stub_policy()
+# Refuse a test clock that is enabled outside tests or local loopback dev.
+enforce_test_clock_policy()
+
+from demo_accounts import enforce_demo_seed_policy  # noqa: E402
+
+# Refuse demo seeding unless AJO_ENV is local or dev. Unset is refused too.
+enforce_demo_seed_policy()
 
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update  # noqa: E402
 
@@ -38,6 +48,20 @@ from pages import (  # noqa: E402
     support_layout,
 )
 from pages.getstarted import SIGNUP_NOTICE, signup_problem  # noqa: E402
+from pages.password_flow import (  # noqa: E402
+    CLIENTSIDE_CAPTURE_RESET_TOKEN,
+    RESET_PAGE_BOOT_JS,
+    finish_reset,
+    forgot_message,
+    reset_layout,
+    signed_in_email,
+)
+from pages.verify_email import (  # noqa: E402
+    CLIENTSIDE_CAPTURE_VERIFY_TOKEN,
+    VERIFY_PAGE_BOOT_JS,
+    layout as verify_email_layout,
+    verification_result,
+)
 from pages.settings import apply_settings_action  # noqa: E402
 from pages.components import icon  # noqa: E402
 from pages.data import CRUMBS, NAV  # noqa: E402
@@ -51,6 +75,8 @@ from pages.payout_access import resolve_ajo, visible_ajo_names  # noqa: E402
 from pages.payouts import TRACKERS, subtitle_for, tracker_body  # noqa: E402
 from pages.wallet import quote_body  # noqa: E402
 from pages.support import contact_reply  # noqa: E402
+from pages.admin_api import layout as admin_layout  # noqa: E402
+from pages.admin_api import register_callbacks as register_admin_callbacks  # noqa: E402
 
 
 # One address per screen. The page id stays the in-app name; the path is what
@@ -58,6 +84,8 @@ from pages.support import contact_reply  # noqa: E402
 PAGE_PATHS = {
     "landing": "/",
     "signin": "/signin",
+    "reset-password": "/reset-password",
+    "verify-email": "/verify-email",
     "getstarted-1": "/get-started",
     "getstarted-2": "/get-started/checking",
     "getstarted-3": "/get-started/origin-result",
@@ -74,13 +102,26 @@ PAGE_PATHS = {
     "dd-overview": "/settings/complete-profile",
     "join": "/join",
     "support": "/support",
+    "admin": "/admin",
 }
 PATH_PAGES = {path: page for page, path in PAGE_PATHS.items()}
 
 
 def current_identity():
-    """Role and username from the server session. Never from the client."""
-    return session.get("role"), session.get("username")
+    """Role and username from the server session. Never from the client.
+
+    An API session replaces the role with the one the API just returned.
+    When that refresh fails, admin-only pages stay hidden. The session itself
+    is kept so the visitor is still signed in.
+    """
+    dash_api.sync_session()
+    return _role_for_request(session.get("role")), session.get("username")
+
+
+def _role_for_request(role):
+    if role == "admin" and dash_api.service_unavailable():
+        return "member"
+    return role
 
 
 def normalize_pathname(pathname: str | None) -> str:
@@ -123,9 +164,21 @@ def gated_path(pathname: str | None, role: str | None) -> tuple[str, str]:
 
 
 def apply_signin(username, password):
-    """Replace the session with a server-decided stub identity, or clear it."""
-    identity = authenticate(username, password)
+    """Replace the session from the API, or from the local stub when the API is off.
+
+    API mode does not read a role from the username. The role is the one
+    ``GET /api/v1/circles/{id}`` returns. Tokens stay in the Dash process.
+    """
     session.clear()
+    if dash_api.api_mode():
+        identity = dash_api.sign_in(username, password)
+        if identity is None or identity.role not in {"admin", "member"}:
+            if identity is not None:
+                dash_api.logout(identity.sid)
+            return None
+        dash_api.remember_identity(identity)
+        return identity
+    identity = authenticate(username, password)
     if identity is None:
         return None
     session["username"] = identity.username
@@ -134,9 +187,16 @@ def apply_signin(username, password):
 
 
 def _visible_page(page, role, username):
-    """Apply the creator check after the #20 role gate."""
-    if page == "payouts" and not visible_ajo_names(username, role):
-        return "home"
+    """Apply the payouts check after the #20 role gate."""
+    if page == "payouts":
+        dash_api.confirm_payouts()
+        try:
+            role = session.get("role")
+            username = session.get("username")
+        except RuntimeError:
+            pass
+        if not visible_ajo_names(username, role):
+            return "home"
     return page
 
 
@@ -161,7 +221,10 @@ def next_state(trigger, current_page, current_rev, username, password, signup=No
         if action == "signin-back":
             return "landing", rev, ""
         if action == "signin-submit":
-            identity = apply_signin(username, password)
+            try:
+                identity = apply_signin(username, password)
+            except dash_api.ApiUnavailable:
+                return "signin", rev + 1, SERVICE_UNAVAILABLE
             if identity is None:
                 return "signin", rev + 1, SIGNIN_FAILED
             return "home", rev + 1, ""
@@ -173,6 +236,14 @@ def next_state(trigger, current_page, current_rev, username, password, signup=No
             problem = signup_problem(signup)
             if problem:
                 return "getstarted-1", rev, problem
+            if dash_api.api_mode():
+                email = str((signup or {}).get("email") or "")
+                if not email.strip().lower().endswith("@example.test"):
+                    return "getstarted-1", rev, "Use an @example.test address."
+                full_name = f"{signup['first'].strip()} {signup['last'].strip()}"
+                status, payload = dash_api.signup(full_name, email, signup["password"])
+                if status != 201:
+                    return "getstarted-1", rev, dash_api.safe_detail(payload, "The account was not created.")
             return "signin", rev + 1, ""
         if action == "settings-complete-profile":
             return _app_page("dd-overview", role), rev, ""
@@ -198,7 +269,29 @@ def next_state(trigger, current_page, current_rev, username, password, signup=No
     return _visible_page(gate_page(current_page, role), role, session_username), rev, ""
 
 
+def _sidebar_circles():
+    """API circle list when this session signed in through the API."""
+    try:
+        if not session.get("api_sid"):
+            return None, True
+        circles = session.get("circles")
+        verified = bool(session.get("email_verified", True))
+        if not isinstance(circles, list):
+            return [], verified
+        if dash_api.service_unavailable():
+            circles = [
+                {**circle, "role": "member"}
+                if isinstance(circle, dict) and circle.get("role") == "admin"
+                else circle
+                for circle in circles
+            ]
+        return circles, verified
+    except RuntimeError:
+        return None, True
+
+
 def sidebar(page, role, username):
+    api_circles, verified = _sidebar_circles()
     return html.Aside(
         className="sidebar",
         children=[
@@ -216,7 +309,16 @@ def sidebar(page, role, username):
                 className="sb-nav",
             ),
             html.Div("My circles", className="sb-section"),
-            html.Div(my_circles_rows(username=username, role=role, page=page), className="sb-nav"),
+            html.Div(
+                my_circles_rows(
+                    username=username,
+                    role=role,
+                    page=page,
+                    email_verified=verified,
+                    api_circles=api_circles,
+                ),
+                className="sb-nav",
+            ),
             html.Div([profile_button(page, role, username)], className="sb-footer"),
         ],
     )
@@ -288,21 +390,30 @@ def profile_from_session():
 
 
 def render_page(page, role, username=None, profile=None):
+    """Build only the page being shown.
+
+    Layouts are callables. Calling every layout here would hit the admin
+    audit and ledger APIs on pages the visitor never opened.
+    """
     if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     pages = {
-        "home": dashboard_layout(role),
-        "members": members_layout(role, username),
-        "payouts": payouts_layout(role, username),
-        "credit": credit_layout(),
-        "autoloan": autoloan_layout(),
-        "wallet": wallet_layout(),
-        "circle": circle_layout(role, username),
-        "settings": settings_layout(username, profile or {}),
-        "join": join_layout(role),
-        "support": support_layout(),
+        "home": lambda: dashboard_layout(role),
+        "members": lambda: members_layout(role, username),
+        "payouts": lambda: payouts_layout(role, username),
+        "credit": credit_layout,
+        "autoloan": autoloan_layout,
+        "wallet": wallet_layout,
+        "circle": lambda: circle_layout(role, username),
+        "settings": lambda: settings_layout(username, profile or {}),
+        "join": lambda: join_layout(role),
+        "support": support_layout,
+        "admin": admin_layout,
     }
-    return pages.get(page, dashboard_layout(role))
+    build = pages.get(page)
+    if build is None:
+        return dashboard_layout(role)
+    return build()
 
 
 def render_shell(page, _client_value=None):
@@ -313,9 +424,18 @@ def render_shell(page, _client_value=None):
     """
     role, username = current_identity()
     page = gate_page(page, role)
+    if page == "payouts":
+        dash_api.confirm_payouts()
+        role, username = _role_for_request(session.get("role")), session.get("username")
+    if dash_api.service_unavailable() and role == "admin":
+        role = "member"
     if page == "payouts" and not visible_ajo_names(username, role):
         page = "home"
     if page == "signin":
+        return html.Div()
+    if page == "reset-password":
+        return html.Div(className="auth-shell-wrap", children=reset_layout())
+    if page == "verify-email":
         return html.Div()
     if page == "landing":
         return html.Div(className="auth-shell-wrap", children=home_layout())
@@ -336,6 +456,7 @@ def render_shell(page, _client_value=None):
             html.Div(
                 className="main",
                 children=[
+                    _service_banner(),
                     topbar(page, role, username),
                     html.Div(
                         render_page(page, role, username, profile_from_session()),
@@ -346,6 +467,13 @@ def render_shell(page, _client_value=None):
             ),
         ],
     )
+
+
+def _service_banner():
+    """Visible notice when this request could not refresh roles or circles."""
+    if not dash_api.service_unavailable():
+        return None
+    return html.Div(SERVICE_UNAVAILABLE, id="service-unavailable", className="service-unavailable")
 
 
 def signin_dock_style(page):
@@ -380,11 +508,34 @@ app.server.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
 )
 
+app.index_string = """<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <script>
+""" + RESET_PAGE_BOOT_JS + "\n" + VERIFY_PAGE_BOOT_JS + """
+        </script>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>"""
+
 app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="store-auth-rev", data=0),
+        dcc.Store(id="reset-token", data=""),
+        dcc.Store(id="verify-token", data=""),
         html.Div(id="app-shell"),
         html.Div(
             id="signin-dock",
@@ -397,6 +548,12 @@ app.layout = html.Div(
             className="auth-shell-wrap",
             style={"display": "none"},
             children=getstarted_layout(),
+        ),
+        html.Div(
+            id="verify-dock",
+            className="auth-shell-wrap",
+            style={"display": "none"},
+            children=verify_email_layout(),
         ),
     ],
 )
@@ -430,7 +587,7 @@ def redirect_disallowed_path():
     Output("store-auth-rev", "data"),
     Output("signin-error", "children"),
     Output("signup-error", "children"),
-    Output("signin-notice", "children"),
+    Output("signin-notice", "children", allow_duplicate=True),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     Input({"type": "auth-btn", "action": ALL}, "n_clicks"),
     Input({"type": "gs-timer", "screen": ALL}, "n_intervals"),
@@ -475,7 +632,13 @@ def update_state(
     action = trigger.get("action") if isinstance(trigger, dict) else None
     signup_error = error if page == "getstarted-1" and action == "signup-submit" else ""
     signin_error = error if page == "signin" and action == "signin-submit" else ""
-    notice = SIGNUP_NOTICE if action == "signup-submit" and page == "signin" and not error else ""
+    if action == "signup-submit" and page == "signin" and not error:
+        if dash_api.api_mode():
+            notice = "If this email can be registered, the account is ready. Sign in to continue."
+        else:
+            notice = SIGNUP_NOTICE
+    else:
+        notice = ""
     target = path_for_page(page)
     path_out = target if normalize_pathname(current_pathname) != target else no_update
     return path_out, rev, signin_error, signup_error, notice
@@ -504,6 +667,82 @@ def toggle_signup_dock(pathname):
     return signup_dock_style(page_from_pathname(pathname))
 
 
+app.clientside_callback(
+    CLIENTSIDE_CAPTURE_RESET_TOKEN,
+    Output("reset-token", "data"),
+    Input("url", "hash"),
+    Input("url", "pathname"),
+)
+
+app.clientside_callback(
+    CLIENTSIDE_CAPTURE_VERIFY_TOKEN,
+    Output("verify-token", "data"),
+    Input("url", "hash"),
+    Input("url", "pathname"),
+)
+
+
+@app.callback(
+    Output("verify-dock", "style"),
+    Input("url", "pathname"),
+)
+def toggle_verify_dock(pathname):
+    if page_from_pathname(pathname) == "verify-email":
+        return {}
+    return {"display": "none"}
+
+
+@app.callback(
+    Output("verify-message", "children"),
+    Input("verify-token", "data"),
+    prevent_initial_call=True,
+)
+def confirm_email_link(token):
+    return verification_result(token)
+
+
+@app.callback(
+    Output("forgot-panel", "style"),
+    Input("forgot-open", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_forgot_password(n_clicks):
+    if not n_clicks:
+        return no_update
+    return {"display": "block"}
+
+
+@app.callback(
+    Output("forgot-message", "children"),
+    Input("forgot-submit", "n_clicks"),
+    State("forgot-email", "value"),
+    prevent_initial_call=True,
+)
+def send_forgot_password(n_clicks, email):
+    if not n_clicks:
+        return no_update
+    return forgot_message(email)
+
+
+@app.callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Output("signin-notice", "children", allow_duplicate=True),
+    Output("reset-error", "children"),
+    Input("reset-submit", "n_clicks"),
+    State("reset-token", "data"),
+    State("reset-new-password", "value"),
+    State("reset-confirm-password", "value"),
+    prevent_initial_call=True,
+)
+def submit_new_password(n_clicks, token, password, confirm):
+    if not n_clicks:
+        return no_update, no_update, no_update
+    outcome, message = finish_reset(token, password, confirm)
+    if outcome == "signin":
+        return "/signin", message, ""
+    return no_update, no_update, message
+
+
 @app.callback(
     Output("settings-feedback", "children"),
     Input({"type": "settings-action", "action": ALL}, "n_clicks"),
@@ -520,7 +759,13 @@ def update_settings_action(_clicks, line, city, postcode, phone):
     action = trigger.get("action") if isinstance(trigger, dict) else None
     return apply_settings_action(
         action,
-        {"line": line, "city": city, "postcode": postcode, "phone": phone},
+        {
+            "line": line,
+            "city": city,
+            "postcode": postcode,
+            "phone": phone,
+            "email": signed_in_email(session),
+        },
         session,
     )
 
@@ -631,6 +876,7 @@ def request_early_payout(n_clicks):
 register_members_callbacks(app)
 register_join_callbacks(app)
 register_my_ajo_callbacks(app)
+register_admin_callbacks(app)
 
 
 @app.callback(
@@ -653,4 +899,7 @@ if __name__ == "__main__":
     debug = os.getenv("DASH_DEBUG", "false").lower() in ("true", "1", "yes")
     host = os.getenv("DASH_HOST", "127.0.0.1")
     port = int(os.getenv("DASH_PORT", "8055"))
+    # The running UI calls the API. Tests leave AJO_API_BASE unset and keep the stub.
+    if not os.getenv("AJO_API_BASE", "").strip():
+        os.environ["AJO_API_BASE"] = "http://127.0.0.1:8000"
     app.run(debug=debug, host=host, port=port)

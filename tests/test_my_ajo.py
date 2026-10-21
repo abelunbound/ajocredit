@@ -10,7 +10,7 @@ from app_dash_web import app, render_page, render_shell
 from pages.my_ajo import ajos_for_viewer, layout, load_ajo_document, resolve_viewer
 from pages.personas import EXAMPLE_PERSONAS_PATH
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _example_document():

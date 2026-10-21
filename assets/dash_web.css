@@ -370,6 +370,7 @@ h1{margin:0 0 4px;font-size:26px;letter-spacing:-.02em;}
 .auth-input-pass{padding-right:42px;}
 .auth-pass-icon{position:absolute;right:14px;top:calc(8px + var(--auth-control-height) / 2);transform:translateY(-50%);color:var(--ink-4);display:flex;align-items:center;}
 .auth-forgot{margin:12px 0 0 auto;display:block;border:0;background:transparent;color:#1B6E89;font-size:13px;}
+.forgot-panel .auth-primary-btn{margin-top:8px;}
 .auth-divider{display:flex;align-items:center;gap:12px;margin:16px 0 8px;color:var(--ink-4);font-size:13px;}
 .auth-divider span{height:1px;background:var(--line);flex:1;}
 .auth-google-btn{height:var(--auth-control-height);border:1px solid var(--line);border-radius:14px;background:#fff;width:100%;display:flex;justify-content:center;align-items:center;gap:10px;font-size:16px;font-weight:500;}

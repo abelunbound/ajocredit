@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 from flask import session
 
+import dash_api
 from app_dash_web import app, next_state, render_shell
+from pages.password_flow import NEUTRAL_FORGOT
 from pages.getstarted import (
     SIGNUP_INCOMPLETE,
     due_diligence_layout,
@@ -287,7 +289,7 @@ class TestSettingsPage:
         assert "Birmingham" not in text
         assert "PayoutsTracker" not in text
 
-    def test_address_is_session_only_and_channels_are_not_sent(self):
+    def test_address_is_session_only_and_channels_are_not_sent(self, monkeypatch):
         store = {}
         assert "Address saved" in apply_settings_action(
             "save-address",
@@ -297,7 +299,29 @@ class TestSettingsPage:
         assert store["address_city"] == "Coventry"
         phone = apply_settings_action("verify-phone", {"phone": "07000000000"}, store)
         assert "No SMS was sent" in phone
-        reset = apply_settings_action("reset-password", {}, store)
-        assert "No email was sent" in reset
+        calls = []
+
+        def send(method, path, body, headers, params):
+            calls.append({"method": method, "path": path, "body": body})
+            return 200, {"detail": NEUTRAL_FORGOT}
+
+        monkeypatch.setenv("AJO_API_BASE", "http://127.0.0.1:8000")
+        dash_api.install_transport_for_tests(send)
+        try:
+            reset = apply_settings_action(
+                "reset-password",
+                {"email": "membertest@example.test"},
+                store,
+            )
+        finally:
+            dash_api.install_transport_for_tests(None)
+        assert reset == NEUTRAL_FORGOT
+        assert calls == [
+            {
+                "method": "POST",
+                "path": "/api/v1/auth/password/forgot",
+                "body": {"email": "membertest@example.test"},
+            }
+        ]
         debit = apply_settings_action("setup-direct-debit", {}, store)
         assert "not available" in debit

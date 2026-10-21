@@ -7,7 +7,7 @@ import pytest
 
 from pages.dashboard import layout as dashboard_layout
 
-CSS_PATH = Path(__file__).resolve().parent / "assets" / "dash_web.css"
+CSS_PATH = Path(__file__).resolve().parent.parent / "assets" / "dash_web.css"
 
 
 def _flat(node):
