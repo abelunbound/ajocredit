@@ -42,6 +42,7 @@ from fastapi.testclient import TestClient
 import backend.api as api
 import backend.auth as auth
 import backend.database as database
+import backend.clock as clock
 from backend.clock import advance, freeze, reset
 
 client = TestClient(api.app)
@@ -294,7 +295,7 @@ def test_moved_clock_accepts_a_new_access_token_and_expires_the_old_one():
     fresh = _login(email).json()["access_token"]
     assert client.get("/api/v1/me", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200
 
-    moment = __import__("clock").now()
+    moment = clock.now()
     future = jwt.encode(
         {
             "sub": "1",
