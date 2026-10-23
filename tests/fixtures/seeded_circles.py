@@ -10,7 +10,8 @@ import json
 import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent
+# This file lives in tests/fixtures/. The seed JSON stays at the repo root.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SEEDED_CIRCLES_PATH = REPO_ROOT / "data" / "seeded_circles.json"
 
 FAKE_NAME_MARKERS = (

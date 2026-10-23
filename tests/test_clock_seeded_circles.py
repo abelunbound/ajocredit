@@ -6,7 +6,11 @@ import copy
 
 import pytest
 
-from seeded_circles import SEEDED_CIRCLES_PATH, load_seeded_circles, validate_seeded_circles
+from tests.fixtures.seeded_circles import (
+    SEEDED_CIRCLES_PATH,
+    load_seeded_circles,
+    validate_seeded_circles,
+)
 
 FAKE_MARKERS = (
     "test",

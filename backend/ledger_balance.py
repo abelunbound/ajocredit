@@ -17,7 +17,7 @@ Two rules, both on posted rows:
 Both rules have to hold. Two entries can be unbalanced and still cancel
 in the totals.
 
-``python -m ledger_balance --seed`` posts a synthetic circle and exits 1
+``python -m backend.ledger_balance --seed`` posts a synthetic circle and exits 1
 when either rule fails. Seeding runs only when ``AJO_ENV`` is ``local``,
 ``dev``, or ``ci``. The Postgres CI job sets ``AJO_ENV=ci`` for that command.
 A check without ``--seed`` only reads. Nothing here prints a connection

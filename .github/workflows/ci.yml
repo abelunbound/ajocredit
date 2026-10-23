@@ -72,7 +72,7 @@ jobs:
     - name: Check seeded ledger balances
       env:
         AJO_ENV: ci
-      run: python -m ledger_balance --seed
+      run: python -m backend.ledger_balance --seed
 
     - name: Run tests
       run: pytest tests/

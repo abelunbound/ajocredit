@@ -250,7 +250,7 @@ The route is not registered otherwise. If the flag is on in production, staging,
 
 ### Seeded test circles
 
-`data/seeded_circles.json` is the committed seed for tests. Names are obviously fake (`Testperson`, `Sampledata`, `Faketest`, and the same kind of marker). Emails are `@example.test`. The file has no passwords and no bank details. `seeded_circles.load_seeded_circles()` rejects a real-looking name, a non-example email, a sort code, an account number, an IBAN, or a card number.
+`data/seeded_circles.json` is the committed seed for tests. Names are obviously fake (`Testperson`, `Sampledata`, `Faketest`, and the same kind of marker). Emails are `@example.test`. The file has no passwords and no bank details. `tests.fixtures.seeded_circles.load_seeded_circles()` rejects a real-looking name, a non-example email, a sort code, an account number, an IBAN, or a card number. The loader lives in `tests/fixtures/seeded_circles.py` and is used only by tests.
 
 ```bash
 pytest tests/test_clock.py tests/test_clock_seeded_circles.py -v
@@ -305,6 +305,9 @@ pytest tests/test_my_circles.py -v
 - `frontend/assets/` - CSS served next to the Dash app
 - `backend/api.py` - FastAPI service (port 8000)
 - `backend/database.py` - SQLAlchemy engine, session, and models (SQLite and PostgreSQL)
+- `backend/ledger_balance.py` - CI ledger balance check (`python -m backend.ledger_balance --seed`)
+- `tests/fixtures/seeded_circles.py` - Loads `data/seeded_circles.json` for tests
+- `archive/mockup/` - Original static mockup. Not used by the app
 - `docs/api.md` - How the Dash app calls the API
 - `docs/resetetc.md` - Laptop steps for local sign-in, password reset, and email verification
 - `docs/partners/partner.md` - How Modulr, TrueLayer, the credit bureaus, and the affordability check fit the ledger and the circles

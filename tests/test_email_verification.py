@@ -41,7 +41,11 @@ import backend.mail as mail
 from backend.clock import advance, freeze, reset
 from frontend.pages.my_circles import my_circles_rows
 from frontend.pages.verification_prompt import VERIFY_EMAIL_PROMPT, verify_email_banner
-from seeded_circles import load_seeded_circles, member_is_preverified, seeded_verified_at
+from tests.fixtures.seeded_circles import (
+    load_seeded_circles,
+    member_is_preverified,
+    seeded_verified_at,
+)
 
 client = TestClient(api.app)
 FROZEN = datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)

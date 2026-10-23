@@ -54,16 +54,18 @@ backend/
   password_reset.py
   roles.py           Per-circle role dependency
   stub_auth.py       Local stub policy and page gate
+  ledger_balance.py  CI balance check. Not an API route. `python -m backend.ledger_balance --seed`
 alembic.ini
 migrations/          Schema. One Alembic head. env.py imports backend.database and backend.ledger.
-ledger_balance.py    CI balance check. Not an API route. `python -m ledger_balance`
 tests/
+  fixtures/seeded_circles.py  Loads data/seeded_circles.json. Tests only.
 docs/
 utils/dev-launch-local.sh
 local/               Git-ignored runtime files. See below.
+archive/mockup/      Original static mockup. Not used by the app.
 ```
 
-`index.html` and `src/*.jsx` are the old prototype. They are not part of either process.
+`archive/mockup/` holds the original static mockup: `index.html`, `index-web.html`, `AjoCredit Prototype.html`, `styles.css`, `src/`, and `frames/`. The app does not serve or import it.
 
 ## Local files and gitignore
 
