@@ -28,7 +28,7 @@ Each refresh is one conditional update: the row is marked revoked only while it 
 
 `exp`, `iat`, and `nbf` are checked against `clock.now()`, with a 10-second leeway. PyJWT's own clock checks are off, so moving the test clock does not reject a token that was just issued. A token whose `iat` or `nbf` is still in the future after that leeway is rejected.
 
-Signup, login, password reset, and verification resend all call `enforce_auth_attempt_policy` in `auth.py`. That is the only limiter on those routes. It reads `request.client.host` only. `X-Forwarded-For` is not trusted. The limits and the lockout are described below.
+Signup, login, password reset, and verification resend all call `enforce_auth_attempt_policy` in `backend/auth.py`. That is the only limiter on those routes. It reads `request.client.host` only. `X-Forwarded-For` is not trusted. The limits and the lockout are described below.
 
 ## Rate limits and lockout (#40)
 
@@ -103,7 +103,7 @@ The older Dash stub (`ALLOW_LOCAL_STUB_LOGIN`) is separate. It also knows only `
 
 ## Dash calls the API
 
-Set `AJO_API_BASE` to the API origin, for example `http://127.0.0.1:8000`. `python app_dash_web.py` uses that origin when the variable is unset. See the README for the two-process local setup.
+Set `AJO_API_BASE` to the API origin, for example `http://127.0.0.1:8000`. `./utils/dev-launch-local.sh` starts the API on port 8000 and Dash on port 8055, and it reads `.env` from the repo root. The Dash process is `python frontend/app_dash_web.py`, which uses `http://127.0.0.1:8000` when `AJO_API_BASE` is unset.
 
 Dash signs in with `POST /api/v1/auth/login`, reads `GET /api/v1/me`, and loads circles with `GET /api/v1/circles` and `GET /api/v1/circles/{id}`. The role on the page is the membership role from those responses. A username is not turned into a role. Payouts calls `GET /api/v1/circles/{id}/payouts`. Admin calls `GET /api/v1/admin/audit` and `GET /api/v1/admin/ledger`. Create, join, and logout use the existing POST routes.
 

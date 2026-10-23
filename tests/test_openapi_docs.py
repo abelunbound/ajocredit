@@ -18,7 +18,7 @@ if not _configured_url.startswith("postgres"):
     _db_dir = tempfile.mkdtemp(prefix="ajo-openapi-")
     os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_db_dir) / "ajo.db")
 
-import api
+import backend.api as api
 import pytest
 from fastapi.testclient import TestClient
 

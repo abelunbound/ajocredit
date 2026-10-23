@@ -19,7 +19,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-roles-")
@@ -37,11 +37,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 
-import api
-import database
-import mail
-import roles
-from clock import reset
+import backend.api as api
+import backend.database as database
+import backend.mail as mail
+import backend.roles as roles
+from backend.clock import reset
 
 client = TestClient(api.app)
 PASSWORD = "correct-horse"

@@ -21,7 +21,7 @@ os.environ["AJO_ENV"] = "local"
 os.environ["EMAIL_SENDER"] = "dev"
 os.environ["AUDIT_EMAIL_HMAC_KEY"] = "test-only-audit-email-hmac-key"
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-reset-")
@@ -34,13 +34,13 @@ if "api" not in sys.modules:
 import pytest
 from fastapi.testclient import TestClient
 
-import api
-import audit_email
-import auth
-import database
-import mail
-import password_reset
-from clock import advance, freeze, reset
+import backend.api as api
+import backend.audit_email as audit_email
+import backend.auth as auth
+import backend.database as database
+import backend.mail as mail
+import backend.password_reset as password_reset
+from backend.clock import advance, freeze, reset
 
 client = TestClient(api.app)
 FROZEN = __import__("datetime").datetime(2026, 3, 1, 12, 0, tzinfo=__import__("datetime").timezone.utc)
@@ -250,7 +250,7 @@ def test_dev_sender_refuses_to_start_outside_local_or_dev():
         }
     )
     refused = subprocess.run(
-        [sys.executable, "-c", "import api"],
+        [sys.executable, "-c", "import backend.api"],
         env=env,
         capture_output=True,
         text=True,
@@ -262,7 +262,7 @@ def test_dev_sender_refuses_to_start_outside_local_or_dev():
 
     env["AJO_ENV"] = ""
     unset = subprocess.run(
-        [sys.executable, "-c", "import api"],
+        [sys.executable, "-c", "import backend.api"],
         env=env,
         capture_output=True,
         text=True,
@@ -273,7 +273,7 @@ def test_dev_sender_refuses_to_start_outside_local_or_dev():
 
     env["AJO_ENV"] = "local"
     allowed = subprocess.run(
-        [sys.executable, "-c", "import api"],
+        [sys.executable, "-c", "import backend.api"],
         env=env,
         capture_output=True,
         text=True,
@@ -338,7 +338,7 @@ def test_local_audit_key_file_is_created_and_gitignored(tmp_path, monkeypatch):
 
 
 def test_dash_copy_matches_the_api_forgot_message():
-    from pages.password_flow import NEUTRAL_FORGOT
+    from frontend.pages.password_flow import NEUTRAL_FORGOT
 
     assert NEUTRAL_FORGOT == password_reset.FORGOT_DETAIL
 

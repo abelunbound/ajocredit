@@ -22,7 +22,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-auth-")
@@ -39,10 +39,10 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 
-import api
-import auth
-import database
-from clock import advance, freeze, reset
+import backend.api as api
+import backend.auth as auth
+import backend.database as database
+from backend.clock import advance, freeze, reset
 
 client = TestClient(api.app)
 FROZEN = __import__("datetime").datetime(2026, 1, 15, 9, 30, tzinfo=__import__("datetime").timezone.utc)

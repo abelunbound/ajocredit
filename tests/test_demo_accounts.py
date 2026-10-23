@@ -17,7 +17,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-only-jwt-secret-key-32chars!!")
 os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
 os.environ["SEED_DEMO_ACCOUNTS"] = "false"
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-demo-")
@@ -29,10 +29,10 @@ if "api" not in sys.modules:
 
 from fastapi.testclient import TestClient
 
-import api
-import database
-import demo_accounts
-from pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
+import backend.api as api
+import backend.database as database
+import backend.demo_accounts as demo_accounts
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
 
 REPO = Path(__file__).resolve().parents[1]
 client = TestClient(api.app)
@@ -80,7 +80,7 @@ def _api_env(**extra):
 
 def test_demo_seeding_refuses_to_start_when_ajo_env_is_unset():
     result = _run_import(
-        "api",
+        "backend.api",
         _api_env(PYTEST_CURRENT_TEST="tests/test_demo_accounts.py::still-refused"),
     )
     assert result.returncode == 1
@@ -88,7 +88,7 @@ def test_demo_seeding_refuses_to_start_when_ajo_env_is_unset():
     assert "Refusing to start" in result.stderr
     assert "(unset)" in result.stderr
 
-    dash = _run_import("app_dash_web", {"SEED_DEMO_ACCOUNTS": "true", "AJO_ENV": ""})
+    dash = _run_import("frontend.app_dash_web", {"SEED_DEMO_ACCOUNTS": "true", "AJO_ENV": ""})
     assert dash.returncode == 1
     assert "Refusing to start" in dash.stderr
     assert "(unset)" in dash.stderr
@@ -96,7 +96,7 @@ def test_demo_seeding_refuses_to_start_when_ajo_env_is_unset():
 
 def test_demo_seeding_refuses_to_start_when_ajo_env_is_not_local_or_dev():
     for env_name in ("production", "staging", "test"):
-        result = _run_import("api", _api_env(AJO_ENV=env_name))
+        result = _run_import("backend.api", _api_env(AJO_ENV=env_name))
         assert result.returncode == 1, result.stderr
         assert "Refusing to start" in result.stderr
         assert env_name in result.stderr
@@ -115,7 +115,7 @@ def test_demo_seeding_starts_only_for_local_or_dev(tmp_path):
                 sys.executable,
                 "-c",
                 "from alembic import command; from alembic.config import Config; "
-                "command.upgrade(Config('alembic.ini'), 'head'); import api",
+                "command.upgrade(Config('alembic.ini'), 'head'); import backend.api",
             ],
             env={
                 **os.environ,

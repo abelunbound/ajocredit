@@ -21,7 +21,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-dash-api-")
@@ -35,13 +35,13 @@ import pytest
 from fastapi.testclient import TestClient
 from flask import session
 
-import api
-import clock
-import dash_api
-import database
-import demo_accounts
-from app_dash_web import apply_signin, app, next_state, render_shell
-from audit import PLATFORM_ADMIN
+import backend.api as api
+import backend.clock as clock
+import frontend.dash_api as dash_api
+import backend.database as database
+import backend.demo_accounts as demo_accounts
+from frontend.app_dash_web import apply_signin, app, next_state, render_shell
+from backend.audit import PLATFORM_ADMIN
 
 ADMIN_PW = "pw-admin"
 MEMBER_PW = "pw-member"
@@ -195,7 +195,7 @@ def test_refresh_uses_the_test_clock_and_logout_drops_the_token(api_dash):
 
 
 def test_admin_page_calls_audit_and_ledger_without_printing_tokens(api_dash):
-    from ledger import CREDIT, DEBIT, Posting, open_account, post_entry
+    from backend.ledger import CREDIT, DEBIT, Posting, open_account, post_entry
 
     frozen = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
     clock.freeze(frozen)
@@ -423,7 +423,7 @@ def test_other_pages_do_not_call_admin_audit_or_ledger(api_dash):
 
 
 def test_unreachable_api_is_distinct_from_a_rejected_sign_in(api_dash, monkeypatch):
-    from stub_auth import SIGNIN_FAILED
+    from backend.stub_auth import SIGNIN_FAILED
 
     real = dash_api._transport_send
 

@@ -20,7 +20,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-ledger-admin-")
@@ -36,12 +36,12 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
-import api
-import clock
-import database
-import mail
-from database import AuditLog, User
-from ledger import (
+import backend.api as api
+import backend.clock as clock
+import backend.database as database
+import backend.mail as mail
+from backend.database import AuditLog, User
+from backend.ledger import (
     CREDIT,
     DEBIT,
     LedgerAccount,

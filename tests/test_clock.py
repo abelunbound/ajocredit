@@ -16,8 +16,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import clock
-from clock import (
+import backend.clock as clock
+from backend.clock import (
     ClockLocked,
     advance,
     clock_mutable,
@@ -175,27 +175,27 @@ def _api_env(**extra):
 
 
 def test_api_refuses_to_start_when_the_clock_is_enabled_outside_tests():
-    result = _run_import("api", _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="production"))
+    result = _run_import("backend.api", _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="production"))
     assert result.returncode == 1
     assert "ALLOW_TEST_CLOCK is enabled outside tests" in result.stderr
     assert "Refusing to start" in result.stderr
     assert "production" in result.stderr
 
-    outside_tests = _run_import("api", _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="test"))
+    outside_tests = _run_import("backend.api", _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="test"))
     assert outside_tests.returncode == 1
     assert "outside tests" in outside_tests.stderr
 
 
 def test_api_refuses_a_public_dev_bind_and_allows_loopback():
     public = _run_import(
-        "api",
+        "backend.api",
         _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="local", DASH_HOST="0.0.0.0"),
     )
     assert public.returncode == 1
     assert "DASH_HOST" in public.stderr
 
     local = _run_import(
-        "api",
+        "backend.api",
         _api_env(ALLOW_TEST_CLOCK="true", AJO_ENV="local", DASH_HOST="127.0.0.1"),
     )
     assert local.returncode == 0, local.stderr
@@ -203,7 +203,7 @@ def test_api_refuses_a_public_dev_bind_and_allows_loopback():
 
 def test_dash_refuses_a_staging_clock_and_starts_when_the_flag_is_off():
     staging = _run_import(
-        "app_dash_web",
+        "frontend.app_dash_web",
         {"ALLOW_TEST_CLOCK": "true", "AJO_ENV": "staging", "DASH_HOST": "127.0.0.1"},
     )
     assert staging.returncode == 1
@@ -211,7 +211,7 @@ def test_dash_refuses_a_staging_clock_and_starts_when_the_flag_is_off():
     assert "staging" in staging.stderr
 
     production = _run_import(
-        "app_dash_web",
+        "frontend.app_dash_web",
         {"ALLOW_TEST_CLOCK": "false", "AJO_ENV": "production", "DASH_HOST": "0.0.0.0"},
     )
     assert production.returncode == 0, production.stderr
@@ -224,9 +224,9 @@ def api_module():
     os.environ["ALLOW_LOCAL_STUB_LOGIN"] = "false"
     os.environ["ALLOW_TEST_CLOCK"] = "false"
     os.environ["SEED_DEMO_ACCOUNTS"] = "false"
-    if "api" not in sys.modules and not os.environ.get("DATABASE_URL", "").startswith("postgres"):
+    if "backend.api" not in sys.modules and not os.environ.get("DATABASE_URL", "").startswith("postgres"):
         os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-    import api
+    import backend.api as api
 
     yield api
 

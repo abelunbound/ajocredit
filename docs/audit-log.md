@@ -68,7 +68,7 @@ A hash chain shows a gap or a changed body. `verify_chain` rebuilds the canonica
 Grant the role from the server, then commit:
 
 ```python
-from audit import grant_platform_admin
+from backend.audit import grant_platform_admin
 grant_platform_admin(db, user_id=USER_ID, actor_user_id=ACTOR_ID)
 ```
 

@@ -11,7 +11,7 @@ import json
 import pytest
 from flask import session
 
-from app_dash_web import (
+from frontend.app_dash_web import (
     PAGE_PATHS,
     app,
     gated_path,
@@ -21,7 +21,7 @@ from app_dash_web import (
     path_for_page,
     render_shell,
 )
-from stub_auth import APP_PAGES, AUTH_PAGES
+from backend.stub_auth import APP_PAGES, AUTH_PAGES
 
 ADMIN_PW = "pw-admin"
 MEMBER_PW = "pw-member"

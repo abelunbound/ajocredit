@@ -14,16 +14,16 @@ from pathlib import Path
 import pytest
 from flask import session
 
-from app_dash_web import app, next_state, render_page, render_shell
-from pages.signin import layout as signin_layout
-from stub_auth import (
+from frontend.app_dash_web import app, next_state, render_page, render_shell
+from frontend.pages.signin import layout as signin_layout
+from backend.stub_auth import (
     SIGNIN_FAILED,
     authenticate,
     enforce_local_stub_policy,
     gate_page,
     nav_entries,
 )
-from pages.data import NAV
+from frontend.pages.data import NAV
 
 ADMIN_PW = "pw-admin"
 MEMBER_PW = "pw-member"
@@ -215,7 +215,7 @@ class TestStubRefused:
 class TestStartupFailsLoudly:
     def test_import_fails_when_flag_on_and_host_is_public(self):
         result = _run_import(
-            "app_dash_web",
+            "frontend.app_dash_web",
             {
                 "ALLOW_LOCAL_STUB_LOGIN": "true",
                 "DASH_HOST": "0.0.0.0",
@@ -229,7 +229,7 @@ class TestStartupFailsLoudly:
 
     def test_import_fails_when_flag_on_in_production_env(self, creds):
         result = _run_import(
-            "app_dash_web",
+            "frontend.app_dash_web",
             {
                 "ALLOW_LOCAL_STUB_LOGIN": "true",
                 "DASH_HOST": "127.0.0.1",
@@ -243,7 +243,7 @@ class TestStartupFailsLoudly:
 
     def test_api_import_fails_when_stub_flag_is_not_local(self):
         result = _run_import(
-            "api",
+            "backend.api",
             {
                 "ALLOW_LOCAL_STUB_LOGIN": "true",
                 "DASH_HOST": "0.0.0.0",
@@ -258,7 +258,7 @@ class TestStartupFailsLoudly:
 
     def test_import_succeeds_for_explicit_local_flag(self, creds):
         result = _run_import(
-            "app_dash_web",
+            "frontend.app_dash_web",
             {
                 "ALLOW_LOCAL_STUB_LOGIN": "true",
                 "DASH_HOST": "localhost",
@@ -270,7 +270,7 @@ class TestStartupFailsLoudly:
 
     def test_flag_off_does_not_block_a_public_bind(self):
         result = _run_import(
-            "app_dash_web",
+            "frontend.app_dash_web",
             {
                 "ALLOW_LOCAL_STUB_LOGIN": "false",
                 "DASH_HOST": "0.0.0.0",

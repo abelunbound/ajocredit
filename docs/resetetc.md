@@ -52,21 +52,15 @@ Do these steps on a laptop, then use the troubleshooting table if sign-in fails.
 
    There is no seed command. Seeding runs when the API process starts, and only when `SEED_DEMO_ACCOUNTS` is `true` (`1`, `yes`, and `on` also count) and `AJO_ENV` is `local` or `dev`.
 
-5. Start the API on port 8000.
+5. Start the API on port 8000 and Dash on port 8055 with one command. It reads `.env` from the repo root, runs `alembic upgrade head` if you skipped step 4 (safe to run twice), then starts both processes. Ctrl+C stops both.
 
    ```bash
-   uvicorn api:app --reload --no-proxy-headers
+   ./utils/dev-launch-local.sh
    ```
 
-   Startup inserts `admintest@example.test` and `membertest@example.test` from `local/stub-users.json` and marks them verified. A later start overwrites those two password hashes from that file. `http://127.0.0.1:8000/docs` and `http://localhost:8000/docs` are Swagger only when `AJO_ENV` is `local` or `dev`. Any other value, including unset, does not serve `/docs`.
+   The API process is `uvicorn backend.api:app --reload --no-proxy-headers`. Startup inserts `admintest@example.test` and `membertest@example.test` from `local/stub-users.json` and marks them verified. A later start overwrites those two password hashes from that file. `http://127.0.0.1:8000/docs` and `http://localhost:8000/docs` are Swagger only when `AJO_ENV` is `local` or `dev`. Any other value, including unset, does not serve `/docs`.
 
-6. Start Dash on port 8055, in a second terminal.
-
-   ```bash
-   python app_dash_web.py
-   ```
-
-   If `AJO_API_BASE` is empty, this command sets it to `http://127.0.0.1:8000` before the UI listens. `http://localhost:8000` in `.env` is the same API. The old stub sign-in runs only when `AJO_API_BASE` stays empty, which is the test suite, not this command. Open `http://127.0.0.1:8055`.
+6. Dash is already running from that script, as `python frontend/app_dash_web.py`, on port 8055. If `AJO_API_BASE` is empty, that process sets it to `http://127.0.0.1:8000` before the UI listens. `http://localhost:8000` in `.env` is the same API. The old stub sign-in runs only when `AJO_API_BASE` stays empty, which is the test suite, not this command. Open `http://127.0.0.1:8055`.
 
 7. Sign in at `/signin`. The field placeholder is Username. Enter `admintest` or `membertest`, or `admintest@example.test` or `membertest@example.test`. Dash sends the email to `POST /api/v1/auth/login`. The password is the one in `local/stub-users.json`.
 
@@ -80,7 +74,7 @@ Do these steps on a laptop, then use the troubleshooting table if sign-in fails.
 
 ## Why an older local setup stops
 
-Sign-in from `python app_dash_web.py` goes to the API, so that process has to be running. New auth tables come from `alembic upgrade head`. An old `local/ajo.db` does not have them. Login hashes the email for the rate limit. That uses `AUDIT_EMAIL_HMAC_KEY` or, when `AJO_ENV` is `local` or `dev`, the local key file. With neither, the API returns 503 and `Audit logging is not configured.` A completed reset changes `membertest`'s password until the API starts again and copies the hash from `local/stub-users.json`.
+Sign-in from `./utils/dev-launch-local.sh` goes to the API, so that process has to be running. New auth tables come from `alembic upgrade head`. An old `local/ajo.db` does not have them. Login hashes the email for the rate limit. That uses `AUDIT_EMAIL_HMAC_KEY` or, when `AJO_ENV` is `local` or `dev`, the local key file. With neither, the API returns 503 and `Audit logging is not configured.` A completed reset changes `membertest`'s password until the API starts again and copies the hash from `local/stub-users.json`.
 
 ## Troubleshooting
 
@@ -91,7 +85,7 @@ Dash shows `Sign-in failed.` when login is refused (401 or 429). A connection er
 | What you see | What it means |
 |---|---|
 | The browser cannot open `/docs`. Uvicorn shows no new request. Dash says the service is unavailable. | The API is not running, or Dash is calling a different origin than uvicorn. The start command listens on `127.0.0.1:8000`. |
-| Sign-in never hits uvicorn, or it behaves like the old stub. | `AJO_API_BASE` is missing. `python app_dash_web.py` fills in `http://127.0.0.1:8000`. Any other start leaves it empty and uses the stub. Set `AJO_API_BASE=http://localhost:8000` in `.env` so Dash calls the API. |
+| Sign-in never hits uvicorn, or it behaves like the old stub. | `AJO_API_BASE` is missing. `python frontend/app_dash_web.py` (what the launcher runs) fills in `http://127.0.0.1:8000`. Any other start leaves it empty and uses the stub. Set `AJO_API_BASE=http://localhost:8000` in `.env` so Dash calls the API. |
 | `/docs` is 404. | `AJO_ENV` is unset or is not `local` or `dev`, so Swagger is off. If `AUDIT_EMAIL_HMAC_KEY` is also empty, login returns 503. The key file is created only for `local` and `dev`. |
 | Uvicorn prints a missing-table traceback. `/health` can still answer, because it only runs `SELECT 1`. Dash says the service is unavailable. | Migrations did not run against this `DATABASE_URL`. Run `alembic upgrade head` with the same URL the API process uses. A different `DATABASE_URL` in one terminal migrates or seeds another file. |
 | Uvicorn exits at startup and prints `SEED_DEMO_ACCOUNTS` or a stub-credential error. | The flag is on while `AJO_ENV` is not `local` or `dev`, or `local/stub-users.json` is missing or still a placeholder. |

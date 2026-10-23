@@ -2,8 +2,8 @@
 
 from flask import session
 
-from app_dash_web import app, render_page, render_shell
-from pages.members import (
+from frontend.app_dash_web import app, render_page, render_shell
+from frontend.pages.members import (
     ADMIN_PERSONA_ID,
     MEMBER_PERSONA_ID,
     compose_view,
@@ -15,7 +15,7 @@ from pages.members import (
     persona_for_session,
     resolve_ajo,
 )
-from pages.personas import BRUM_BUILDERS, SISTER_CIRCLE
+from frontend.pages.personas import BRUM_BUILDERS, SISTER_CIRCLE
 
 
 def _text(node):

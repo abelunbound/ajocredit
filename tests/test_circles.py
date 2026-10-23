@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from flask import session
 
-from app_dash_web import app, render_shell
-from pages.circle import layout as circle_layout
-from pages.circles import circle_records, load_dummy_circles
-from pages.personas import EXAMPLE_PERSONAS_PATH
+from frontend.app_dash_web import app, render_shell
+from frontend.pages.circle import layout as circle_layout
+from frontend.pages.circles import circle_records, load_dummy_circles
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -52,7 +52,7 @@ def test_load_dummy_circles_prefers_the_local_personas_file(tmp_path, monkeypatc
     document["personas"][0]["name"] = "Amina Localonly"
     local_file = tmp_path / "personas.json"
     local_file.write_text(json.dumps(document), encoding="utf-8")
-    monkeypatch.setattr("pages.circles.DEFAULT_PERSONAS_PATH", local_file)
+    monkeypatch.setattr("frontend.pages.circles.DEFAULT_PERSONAS_PATH", local_file)
 
     records = load_dummy_circles()
 
@@ -63,7 +63,7 @@ def test_load_dummy_circles_prefers_the_local_personas_file(tmp_path, monkeypatc
 
 def test_load_dummy_circles_falls_back_to_the_example(tmp_path, monkeypatch):
     missing = tmp_path / "personas.json"
-    monkeypatch.setattr("pages.circles.DEFAULT_PERSONAS_PATH", missing)
+    monkeypatch.setattr("frontend.pages.circles.DEFAULT_PERSONAS_PATH", missing)
 
     records = load_dummy_circles()
 
@@ -102,7 +102,7 @@ def test_my_ajo_shows_the_viewers_groups_for_both_stub_roles():
 
 def test_circle_layout_reads_the_loader(monkeypatch):
     monkeypatch.setattr(
-        "pages.my_ajo.load_ajo_document",
+        "frontend.pages.my_ajo.load_ajo_document",
         lambda: {
             "groups": [
                 {"name": "Brum Builders", "created_by": "persona-01"},

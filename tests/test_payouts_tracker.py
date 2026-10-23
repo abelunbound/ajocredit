@@ -7,12 +7,12 @@ import json
 
 from flask import session
 
-from app_dash_web import app, next_state, render_page, render_shell
-from pages.payout_access import resolve_ajo, visible_ajo_names
-from pages.payouts import layout as payouts_layout
-from pages.payouts import tracker_body
-from pages.personas import EXAMPLE_PERSONAS_PATH
-from stub_auth import gate_page
+from frontend.app_dash_web import app, next_state, render_page, render_shell
+from frontend.pages.payout_access import resolve_ajo, visible_ajo_names
+from frontend.pages.payouts import layout as payouts_layout
+from frontend.pages.payouts import tracker_body
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH
+from backend.stub_auth import gate_page
 
 
 def _document():
@@ -217,9 +217,9 @@ def test_callback_member_and_non_creator_receive_no_tracker_rows():
 
 
 def test_layout_lists_only_created_ajos(monkeypatch):
-    monkeypatch.setattr("pages.payouts.visible_ajo_names", lambda username, role, document=None: ["Brum Builders"])
+    monkeypatch.setattr("frontend.pages.payouts.visible_ajo_names", lambda username, role, document=None: ["Brum Builders"])
     monkeypatch.setattr(
-        "pages.payouts.resolve_ajo",
+        "frontend.pages.payouts.resolve_ajo",
         lambda requested, username, role, document=None: "Brum Builders",
     )
 

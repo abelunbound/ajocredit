@@ -38,10 +38,10 @@ If a ticket has no matching risk, either the ticket is not needed or this docume
 
 **Where we are today (baseline review, M0)**
 
-- Single-process Plotly Dash app (`app_dash_web.py`, `pages/*.py`) with hardcoded data in `pages/data.py`.
+- Single-process Plotly Dash app (`frontend/app_dash_web.py`, `frontend/pages/*.py`) with hardcoded data in `frontend/pages/data.py`.
 - Prototype sign-in is a local-only stub (`admintest` / `membertest`). There is no client role toggle. The stub is refused unless `ALLOW_LOCAL_STUB_LOGIN` is on and the app is bound to loopback; otherwise startup fails. Passwords live in a git-ignored file. Real sign-in is still M2.
 - `app.run(debug=True)` is on.
-- `api.py` is a FastAPI sign-up/JWT sketch that does not run yet. It hashes passwords with bcrypt (good), but has a hardcoded placeholder JWT signing key (public, so it must be replaced and never reused), 30-day tokens that cannot be revoked, uses python-jose (prefer PyJWT), and the sign-up response reveals whether an email is already registered.
+- `backend/api.py` is a FastAPI sign-up/JWT sketch that does not run yet. It hashes passwords with bcrypt (good), but has a hardcoded placeholder JWT signing key (public, so it must be replaced and never reused), 30-day tokens that cannot be revoked, uses python-jose (prefer PyJWT), and the sign-up response reveals whether an email is already registered.
 - No `.gitignore`; a `.venv`, a backup tarball and screenshots in `uploads/` are committed. No real secrets were found in the git history.
 
 Nothing from the current code or from M1 is deployed publicly.
@@ -157,7 +157,7 @@ Each requirement is testable. "Must" means the milestone is not done without it.
 
 ### M0 Clean-up and safety
 
-- **SR-01** Secrets (JWT signing key, API keys, database URLs) must come from environment variables or a secrets manager, never from code. The placeholder JWT key in `api.py` is public and must never be used in any environment. (T-13, T-15; #10)
+- **SR-01** Secrets (JWT signing key, API keys, database URLs) must come from environment variables or a secrets manager, never from code. The placeholder JWT key in `backend/api.py` is public and must never be used in any environment. (T-13, T-15; #10)
 - **SR-02** A `.gitignore` must exclude `.venv`, caches, `.env*`, backups, build output and local data; committed copies must be removed. Screenshots in `uploads/` must be checked for personal data and removed if any is found. (T-13, T-24; #11, #13)
 - **SR-03** Secret scanning and push protection must be on; Dependabot alerts must be on; CI must run a secret scan on every PR. Any secret ever committed must be treated as leaked and rotated. (T-13, T-23; #15)
 - **SR-04** Debug mode must be off unless an explicit local-only setting is set; the app must refuse to start with debug on in any non-local environment. (T-14; #10)

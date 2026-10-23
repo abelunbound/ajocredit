@@ -1,9 +1,9 @@
 """Delay Cover rename and the Request Cover popup flow."""
 
-from app_dash_web import app, render_page, render_shell
+from frontend.app_dash_web import app, render_page, render_shell
 from flask import session
 
-from pages.delay_cover import (
+from frontend.pages.delay_cover import (
     AJO_GROUPS,
     COVER_MONTHS,
     handle_delay_cover,

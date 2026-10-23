@@ -9,9 +9,9 @@ import subprocess
 
 import pytest
 
-import dash_api
-from app_dash_web import app, confirm_email_link, page_from_pathname, render_shell
-from pages.verify_email import CAPTURE_VERIFY_TOKEN_JS
+import frontend.dash_api as dash_api
+from frontend.app_dash_web import app, confirm_email_link, page_from_pathname, render_shell
+from frontend.pages.verify_email import CAPTURE_VERIFY_TOKEN_JS
 
 TOKEN = "verify-token-example"
 VERIFIED = "Your email is verified."

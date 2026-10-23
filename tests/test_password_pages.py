@@ -15,8 +15,8 @@ import pytest
 from dash import no_update
 from flask import session
 
-import dash_api
-from app_dash_web import (
+import frontend.dash_api as dash_api
+from frontend.app_dash_web import (
     app,
     open_forgot_password,
     page_from_pathname,
@@ -24,13 +24,13 @@ from app_dash_web import (
     send_forgot_password,
     submit_new_password,
 )
-from pages.password_flow import (
+from frontend.pages.password_flow import (
     CAPTURE_RESET_TOKEN_JS,
     NEUTRAL_FORGOT,
     forgot_message,
     reset_submission,
 )
-from pages.signin import layout as signin_layout
+from frontend.pages.signin import layout as signin_layout
 
 TOKEN = "reset-token-example"
 NEW_PASSWORD = "new-password-1"

@@ -2,11 +2,11 @@
 
 from flask import session
 
-from app_dash_web import app as dash_app
-from app_dash_web import next_state, render_shell
-from pages.ajo_catalog import GROUPS, card_actions, filter_groups, group_by_id
-from pages.join import apply_join, dispatch_join_action, invite_problem, layout, summary_text
-from stub_auth import gate_page
+from frontend.app_dash_web import app as dash_app
+from frontend.app_dash_web import next_state, render_shell
+from frontend.pages.ajo_catalog import GROUPS, card_actions, filter_groups, group_by_id
+from frontend.pages.join import apply_join, dispatch_join_action, invite_problem, layout, summary_text
+from backend.stub_auth import gate_page
 
 
 def _walk(node):

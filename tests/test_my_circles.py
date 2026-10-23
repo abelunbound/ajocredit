@@ -10,14 +10,14 @@ from pathlib import Path
 import pytest
 from flask import session
 
-from app_dash_web import app, render_shell, sidebar
-from pages.my_circles import (
+from frontend.app_dash_web import app, render_shell, sidebar
+from frontend.pages.my_circles import (
     DEFAULT_ACTIONS_PATH,
     load_circle_actions,
     load_circle_names,
     my_circles_rows,
 )
-from pages.personas import EXAMPLE_PERSONAS_PATH
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -57,7 +57,7 @@ def test_circle_names_follow_persona_document_order(tmp_path):
 
 
 def test_missing_local_personas_file_uses_example(tmp_path, monkeypatch):
-    monkeypatch.setattr("pages.personas.DEFAULT_PERSONAS_PATH", tmp_path / "personas.json")
+    monkeypatch.setattr("frontend.pages.personas.DEFAULT_PERSONAS_PATH", tmp_path / "personas.json")
 
     assert load_circle_names() == ["Brum Builders", "Sister Circle Ajo"]
 
@@ -67,15 +67,15 @@ def test_local_personas_file_wins_over_example(tmp_path, monkeypatch):
     document["groups"] = list(reversed(document["groups"]))
     local_file = tmp_path / "personas.json"
     local_file.write_text(json.dumps(document), encoding="utf-8")
-    monkeypatch.setattr("pages.personas.DEFAULT_PERSONAS_PATH", local_file)
+    monkeypatch.setattr("frontend.pages.personas.DEFAULT_PERSONAS_PATH", local_file)
 
     assert load_circle_names() == ["Sister Circle Ajo", "Brum Builders"]
 
 
 def test_sidebar_rows_come_from_loaders(monkeypatch):
-    monkeypatch.setattr("pages.my_circles.load_circle_names", lambda path=None: ["North Circle"])
+    monkeypatch.setattr("frontend.pages.my_circles.load_circle_names", lambda path=None: ["North Circle"])
     monkeypatch.setattr(
-        "pages.my_circles.load_circle_actions",
+        "frontend.pages.my_circles.load_circle_actions",
         lambda path=None: [
             {"id": "create-circle", "label": "Start a circle", "icon": "plus"},
             {"id": "join-ajo", "label": "Find an Ajo", "icon": "plus"},

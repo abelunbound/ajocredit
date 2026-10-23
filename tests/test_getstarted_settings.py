@@ -8,18 +8,18 @@ from pathlib import Path
 import pytest
 from flask import session
 
-import dash_api
-from app_dash_web import app, next_state, render_shell
-from pages.password_flow import NEUTRAL_FORGOT
-from pages.getstarted import (
+import frontend.dash_api as dash_api
+from frontend.app_dash_web import app, next_state, render_shell
+from frontend.pages.password_flow import NEUTRAL_FORGOT
+from frontend.pages.getstarted import (
     SIGNUP_INCOMPLETE,
     due_diligence_layout,
     layout as registration_layout,
     nigeria_locked_step,
     signup_problem,
 )
-from pages.settings import apply_settings_action, layout as settings_layout
-from stub_auth import APP_PAGES, AUTH_PAGES, gate_page
+from frontend.pages.settings import apply_settings_action, layout as settings_layout
+from backend.stub_auth import APP_PAGES, AUTH_PAGES, gate_page
 
 VALID_SIGNUP = {
     "first": "Ada",
@@ -119,12 +119,12 @@ class TestRegistration:
             match = next(item for item in labels if item.get("htmlFor") == field_id)
             assert match["children"] == label
             assert match["aria-label"] == label
-        css = Path("assets/dash_web.css").read_text(encoding="utf-8")
+        css = Path("frontend/assets/dash_web.css").read_text(encoding="utf-8")
         assert ".signup-screen .auth-input .dash-input-element::placeholder{" in css
         assert "color:var(--ink-4);" in css
 
     def test_signup_card_matches_get_started_card_width(self):
-        css = Path("assets/dash_web.css").read_text(encoding="utf-8")
+        css = Path("frontend/assets/dash_web.css").read_text(encoding="utf-8")
         assert ".home-screen,\n.signin-screen,\n.signup-screen{max-width:420px;}" in css
         assert (
             ".home-screen .auth-primary-btn,\n.signin-screen .auth-input,\n"
@@ -176,7 +176,7 @@ class TestDueDiligenceOrder:
         assert "bi-lock" in step
         assert "Checking your credit in Nigeria" in step
         assert "auth-btn" not in step
-        css = Path("assets/dash_web.css").read_text(encoding="utf-8")
+        css = Path("frontend/assets/dash_web.css").read_text(encoding="utf-8")
         assert "grayscale" in css
         assert ".dd-step-locked" in css
 

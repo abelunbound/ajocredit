@@ -7,9 +7,9 @@ affordability assessment and forecast cards are present for both roles.
 import pytest
 from flask import session
 
-from app_dash_web import app as dash_app
-from app_dash_web import render_page, render_shell
-from pages.credit import (
+from frontend.app_dash_web import app as dash_app
+from frontend.app_dash_web import render_page, render_shell
+from frontend.pages.credit import (
     APPLICANT_BALANCE,
     BUFFER,
     FORECAST_DAY30,
@@ -20,7 +20,7 @@ from pages.credit import (
     forecast_series,
     layout,
 )
-from pages.data import CRUMBS
+from frontend.pages.data import CRUMBS
 
 
 @pytest.fixture
