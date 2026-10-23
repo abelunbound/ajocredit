@@ -23,10 +23,10 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import insert, select
 
-import clock
-import database
-import ledger_balance
-from ledger import (
+import backend.clock as clock
+import backend.database as database
+import backend.ledger_balance as ledger_balance
+from backend.ledger import (
     ASSET,
     CREDIT,
     DEBIT,
@@ -39,7 +39,7 @@ from ledger import (
     LedgerLine,
     account_balance_pence,
 )
-from ledger_balance import (
+from backend.ledger_balance import (
     ADA_CODE,
     ADA_CONTRIBUTION_PENCE,
     BO_CODE,
@@ -371,7 +371,7 @@ def test_cli_exits_nonzero_when_the_checker_reports_a_mismatch(monkeypatch, caps
     def _broken(_session):
         return broken
 
-    monkeypatch.setattr("ledger_balance.check_ledger_invariants", _broken)
+    monkeypatch.setattr("backend.ledger_balance.check_ledger_invariants", _broken)
     assert main([]) == 1
     captured = capsys.readouterr()
     assert "entry 1 does not balance: debits 1000 pence, credits 900 pence" in captured.err

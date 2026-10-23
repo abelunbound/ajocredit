@@ -20,10 +20,10 @@ from pathlib import Path
 import pytest
 from flask import session
 
-from app_dash_web import PAGE_PATHS, app, gated_path, next_state, render_shell
-from pages.data import NAV
-from pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
-from stub_auth import ADMIN_ONLY_PAGES, gate_page, nav_entries
+from frontend.app_dash_web import PAGE_PATHS, app, gated_path, next_state, render_shell
+from frontend.pages.data import NAV
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH, load_personas
+from backend.stub_auth import ADMIN_ONLY_PAGES, gate_page, nav_entries
 
 ADMIN_PW = "pw-admin"
 MEMBER_PW = "pw-member"

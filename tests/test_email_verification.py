@@ -18,7 +18,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-verify-")
@@ -32,16 +32,20 @@ import pytest
 from fastapi.testclient import TestClient
 from flask import Flask, session
 
-import api
-import audit_email
-import auth
-import database
-import email_verification
-import mail
-from clock import advance, freeze, reset
-from pages.my_circles import my_circles_rows
-from pages.verification_prompt import VERIFY_EMAIL_PROMPT, verify_email_banner
-from seeded_circles import load_seeded_circles, member_is_preverified, seeded_verified_at
+import backend.api as api
+import backend.audit_email as audit_email
+import backend.auth as auth
+import backend.database as database
+import backend.email_verification as email_verification
+import backend.mail as mail
+from backend.clock import advance, freeze, reset
+from frontend.pages.my_circles import my_circles_rows
+from frontend.pages.verification_prompt import VERIFY_EMAIL_PROMPT, verify_email_banner
+from tests.fixtures.seeded_circles import (
+    load_seeded_circles,
+    member_is_preverified,
+    seeded_verified_at,
+)
 
 client = TestClient(api.app)
 FROZEN = datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
@@ -256,7 +260,7 @@ def test_unverified_ui_shows_the_prompt_and_seeded_users_can_be_preverified():
 
     flask_app = Flask(__name__)
     flask_app.secret_key = "test-only"
-    from pages.join import layout
+    from frontend.pages.join import layout
 
     with flask_app.test_request_context():
         session["role"] = "member"

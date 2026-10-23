@@ -22,7 +22,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-rate-")
@@ -39,12 +39,12 @@ from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect
 
-import api
-import audit_email
-import auth
-import database
-import mail
-from clock import advance, freeze, reset
+import backend.api as api
+import backend.audit_email as audit_email
+import backend.auth as auth
+import backend.database as database
+import backend.mail as mail
+from backend.clock import advance, freeze, reset
 
 client = TestClient(api.app)
 PASSWORD = "correct-horse"

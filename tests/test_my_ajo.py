@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from flask import session
 
-from app_dash_web import app, render_page, render_shell
-from pages.my_ajo import ajos_for_viewer, layout, load_ajo_document, resolve_viewer
-from pages.personas import EXAMPLE_PERSONAS_PATH
+from frontend.app_dash_web import app, render_page, render_shell
+from frontend.pages.my_ajo import ajos_for_viewer, layout, load_ajo_document, resolve_viewer
+from frontend.pages.personas import EXAMPLE_PERSONAS_PATH
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -76,7 +76,7 @@ def test_load_ajo_document_prefers_the_local_file(tmp_path, monkeypatch):
     document["personas"][0]["name"] = "Amina Localonly"
     local_file = tmp_path / "personas.json"
     local_file.write_text(json.dumps(document), encoding="utf-8")
-    monkeypatch.setattr("pages.my_ajo.DEFAULT_PERSONAS_PATH", local_file)
+    monkeypatch.setattr("frontend.pages.my_ajo.DEFAULT_PERSONAS_PATH", local_file)
 
     loaded = load_ajo_document()
     viewer = resolve_viewer(loaded, "admintest", "admin")
@@ -85,7 +85,7 @@ def test_load_ajo_document_prefers_the_local_file(tmp_path, monkeypatch):
 
 
 def test_load_ajo_document_falls_back_to_the_example(tmp_path, monkeypatch):
-    monkeypatch.setattr("pages.my_ajo.DEFAULT_PERSONAS_PATH", tmp_path / "missing.json")
+    monkeypatch.setattr("frontend.pages.my_ajo.DEFAULT_PERSONAS_PATH", tmp_path / "missing.json")
 
     loaded = load_ajo_document()
     viewer = resolve_viewer(loaded, "admintest", "admin")
@@ -175,7 +175,7 @@ def test_render_page_accepts_the_existing_role_argument():
 
 
 def test_nav_label_is_my_ajo():
-    from pages.data import CRUMBS, NAV
+    from frontend.pages.data import CRUMBS, NAV
 
     labels = [label for _key, label, _icon in NAV]
     assert "My Ajo" in labels
@@ -248,7 +248,7 @@ def test_unreadable_persona_file_does_not_crash_the_page(monkeypatch):
     def _boom():
         raise ValueError("bad personas")
 
-    monkeypatch.setattr("pages.my_ajo.load_ajo_document", _boom)
+    monkeypatch.setattr("frontend.pages.my_ajo.load_ajo_document", _boom)
     text = str(layout("member", "membertest"))
     assert "My Ajo is unavailable" in text
     assert "My Ajo" in text

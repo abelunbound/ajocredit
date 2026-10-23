@@ -1,7 +1,7 @@
 """Early Payouts wallet page (#29)."""
 
-from pages.data import CRUMBS
-from pages.wallet import layout, quote_body
+from frontend.pages.data import CRUMBS
+from frontend.pages.wallet import layout, quote_body
 
 
 def _button_labels(node):
@@ -65,7 +65,7 @@ def test_quote_stays_hidden_until_requested():
 
 
 def test_request_callback_returns_the_preview_quote():
-    from app_dash_web import app
+    from frontend.app_dash_web import app
 
     client = app.server.test_client()
     response = client.post(

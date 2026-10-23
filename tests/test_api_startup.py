@@ -1,7 +1,7 @@
 """
 test_api_startup.py
 
-Tests for api.py startup validation.
+Tests for backend.api startup validation.
 Ensures the application fails fast with clear errors for invalid JWT secrets.
 
 Run with: pytest test_api_startup.py -v
@@ -18,7 +18,7 @@ INSECURE_PLACEHOLDER = "your-super-secret-jwt-key-change-this-to-something-rando
 
 def run_api_startup(env_vars, unset=()):
     """
-    Attempt to start api.py with given environment variables.
+    Attempt to import backend.api with given environment variables.
     Returns (exit_code, stderr_output).
     """
     env = os.environ.copy()
@@ -29,7 +29,7 @@ def run_api_startup(env_vars, unset=()):
     # Try to import and execute the module-level code
     # We use subprocess to isolate the sys.exit() calls
     result = subprocess.run(
-        [sys.executable, "-c", "import api"],
+        [sys.executable, "-c", "import backend.api"],
         env=env,
         capture_output=True,
         text=True,

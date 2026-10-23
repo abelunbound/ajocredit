@@ -10,10 +10,10 @@ import json
 import pytest
 from flask import session
 
-from app_dash_web import PAGE_PATHS, app, render_page, render_shell
-from pages.data import CRUMBS, NAV
-from pages.support import FAQS, NO_EMAIL_SENT, SUPPORT_EMAIL, contact_reply, layout
-from stub_auth import gate_page
+from frontend.app_dash_web import PAGE_PATHS, app, render_page, render_shell
+from frontend.pages.data import CRUMBS, NAV
+from frontend.pages.support import FAQS, NO_EMAIL_SENT, SUPPORT_EMAIL, contact_reply, layout
+from backend.stub_auth import gate_page
 
 ADMIN_PW = "pw-admin"
 MEMBER_PW = "pw-member"
@@ -116,7 +116,7 @@ class TestSupportContent:
         assert "mailto:" not in text
 
     def test_nav_and_address(self):
-        from pages.components import ICONS
+        from frontend.pages.components import ICONS
 
         labels = [label for _key, label, _icon in NAV]
         assert "Support" in labels

@@ -31,8 +31,8 @@ from fastapi.testclient import TestClient
 _config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
 command.upgrade(_config, "head")
 
-import api
-import database
+import backend.api as api
+import backend.database as database
 
 client = TestClient(api.app)
 

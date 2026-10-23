@@ -8,10 +8,10 @@ This ensures that no page throws an exception when rendered.
 import pytest
 from flask import session
 
-from app_dash_web import app as dash_app
-from app_dash_web import render_page, render_shell
-from pages.getstarted import layout as getstarted_layout
-from pages.signin import layout as signin_layout
+from frontend.app_dash_web import app as dash_app
+from frontend.app_dash_web import render_page, render_shell
+from frontend.pages.getstarted import layout as getstarted_layout
+from frontend.pages.signin import layout as signin_layout
 
 
 @pytest.fixture

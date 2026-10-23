@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pages.personas import (
+from frontend.pages.personas import (
     DEFAULT_PERSONAS_PATH,
     EXAMPLE_PERSONAS_PATH,
     load_personas,
@@ -78,7 +78,7 @@ def test_loader_uses_gitignored_path_by_default(tmp_path, monkeypatch):
     """The default path is the git-ignored file, not the committed example."""
     local_file = tmp_path / "personas.json"
     local_file.write_text(EXAMPLE_PERSONAS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-    monkeypatch.setattr("pages.personas.DEFAULT_PERSONAS_PATH", local_file)
+    monkeypatch.setattr("frontend.pages.personas.DEFAULT_PERSONAS_PATH", local_file)
 
     document = load_personas()
     assert len(document["personas"]) == 10
@@ -86,7 +86,7 @@ def test_loader_uses_gitignored_path_by_default(tmp_path, monkeypatch):
 
 def test_missing_personas_file_explains_the_copy_step(tmp_path, monkeypatch):
     missing = tmp_path / "personas.json"
-    monkeypatch.setattr("pages.personas.DEFAULT_PERSONAS_PATH", missing)
+    monkeypatch.setattr("frontend.pages.personas.DEFAULT_PERSONAS_PATH", missing)
 
     with pytest.raises(FileNotFoundError, match="Copy"):
         load_personas()

@@ -22,7 +22,7 @@ os.environ.setdefault("AJO_ENV", "local")
 os.environ.setdefault("EMAIL_SENDER", "dev")
 os.environ.setdefault("AUDIT_EMAIL_HMAC_KEY", "test-only-audit-email-hmac-key")
 
-if "api" not in sys.modules:
+if "backend.api" not in sys.modules:
     _configured_url = os.environ.get("DATABASE_URL", "")
     if not _configured_url.startswith("postgres"):
         _db_dir = tempfile.mkdtemp(prefix="ajo-audit-")
@@ -42,15 +42,15 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
-import api
-import audit
-import audit_email
-import auth
-import database
-import mail
-import roles
-from clock import freeze, reset
-from database import AuditLog, AuthAuditEvent
+import backend.api as api
+import backend.audit as audit
+import backend.audit_email as audit_email
+import backend.auth as auth
+import backend.database as database
+import backend.mail as mail
+import backend.roles as roles
+from backend.clock import freeze, reset
+from backend.database import AuditLog, AuthAuditEvent
 
 client = TestClient(api.app)
 PASSWORD = "correct-horse"

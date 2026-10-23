@@ -8,11 +8,11 @@ sign-in to that 420px card and 40px controls, with labels inside the fields.
 
 import re
 
-from pages.getstarted import layout as getstarted_layout
-from pages.home import layout as home_layout
-from pages.signin import layout as signin_layout
+from frontend.pages.getstarted import layout as getstarted_layout
+from frontend.pages.home import layout as home_layout
+from frontend.pages.signin import layout as signin_layout
 
-CSS_PATH = "assets/dash_web.css"
+CSS_PATH = "frontend/assets/dash_web.css"
 
 
 def _css():
